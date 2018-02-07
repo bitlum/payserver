@@ -1,9 +1,9 @@
 package litecoin
 
 import (
-	"github.com/bitlum/connector/chains"
 	"github.com/bitlum/btcd/chaincfg"
 	"github.com/bitlum/btcd/wire"
+	"github.com/bitlum/connector/chains"
 )
 
 var (
@@ -19,6 +19,7 @@ var (
 
 var MainNetParams = chaincfg.Params{
 	Net:              Mainnet,
+	Name:             "mainnet",
 	PubKeyHashAddrID: 48,  // addresses start with 'X'
 	ScriptHashAddrID: 5,   // script addresses start with '7'
 	PrivateKeyID:     176, // private keys start with '7' or 'X'
@@ -30,6 +31,7 @@ var MainNetParams = chaincfg.Params{
 
 var TestNet3Params = chaincfg.Params{
 	Net:              TestNet3,
+	Name:             "testnet3",
 	PubKeyHashAddrID: 111, // addresses start with 'y'
 	ScriptHashAddrID: 196, // script addresses start with '8' or '9'
 	PrivateKeyID:     239, // private keys start with '9' or 'c' (Bitcoin defaults)
@@ -44,6 +46,7 @@ var TestNet3Params = chaincfg.Params{
 // 3), this network is sometimes simply called "testnet".
 var RegressionNetParams = chaincfg.Params{
 	Net:              TestNet,
+	Name:             "regtest",
 	PubKeyHashAddrID: 140, // addresses start with 'y'
 	ScriptHashAddrID: 19,  // script addresses start with '8' or '9'
 	PrivateKeyID:     239, // private keys start with '9' or 'c' (Bitcoin defaults)

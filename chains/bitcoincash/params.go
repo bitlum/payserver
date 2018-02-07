@@ -1,9 +1,9 @@
 package bitcoincash
 
 import (
-	"github.com/bitlum/connector/chains"
 	"github.com/bitlum/btcd/chaincfg"
 	"github.com/bitlum/btcd/wire"
+	"github.com/bitlum/connector/chains"
 )
 
 var (
@@ -20,6 +20,7 @@ var (
 // MainNetParams defines the network parameters for the main network.
 var MainNetParams = chaincfg.Params{
 	Net:              Mainnet,
+	Name:             "mainnet",
 	PubKeyHashAddrID: 0,   // addresses start with 'X'
 	ScriptHashAddrID: 5,   // script addresses start with '7'
 	PrivateKeyID:     128, // private keys start with '7' or 'X'
@@ -34,6 +35,7 @@ var MainNetParams = chaincfg.Params{
 // network is sometimes simply called "testnet".
 var TestNet3Params = chaincfg.Params{
 	Net:              TestNet3,
+	Name:             "testnet3",
 	PubKeyHashAddrID: 111,
 	ScriptHashAddrID: 196,
 	PrivateKeyID:     239,
@@ -48,6 +50,7 @@ var TestNet3Params = chaincfg.Params{
 // 3), this network is sometimes simply called "testnet".
 var RegressionNetParams = chaincfg.Params{
 	Net:              TestNet,
+	Name:             "regtest",
 	PubKeyHashAddrID: 111,
 	ScriptHashAddrID: 196,
 	PrivateKeyID:     239,
