@@ -1,0 +1,58 @@
+package crpc
+
+import (
+	"fmt"
+)
+
+type Error struct {
+	code   int
+	errMsg string
+}
+
+func (e Error) Error() string {
+	return e.errMsg
+}
+
+const (
+	// ErrAssetNotSupported...
+	ErrAssetNotSupported = iota + 1
+
+	ErrNetworkNotSupported
+
+	// ErrInternal...
+	ErrInternal
+
+	// ErrInvalidArgument...
+	ErrInvalidArgument
+)
+
+func newErrNetworkNotSupported(network, operation string) Error {
+	return Error{
+		code: ErrNetworkNotSupported,
+		errMsg: fmt.Sprintf("%v: operation %v isn't supported for network %v",
+			ErrNetworkNotSupported, operation, network),
+	}
+}
+
+func newErrAssetNotSupported(asset, operation string) Error {
+	return Error{
+		code: ErrAssetNotSupported,
+		errMsg: fmt.Sprintf("%v: operation %v isn't supported for asset %v",
+			ErrAssetNotSupported, operation, asset),
+	}
+}
+
+func newErrInternal(desc string) Error {
+	return Error{
+		code:   ErrInternal,
+		errMsg: fmt.Sprintf("%v: internal error: %v", ErrInternal, desc),
+	}
+}
+
+func newErrInvalidArgument(argName string) Error {
+	return Error{
+		code: ErrInvalidArgument,
+		errMsg: fmt.Sprintf("%v: invalid argument '%v'", ErrInvalidArgument,
+			argName),
+	}
+}
