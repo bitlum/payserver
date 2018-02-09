@@ -8,13 +8,13 @@ import (
 
 var (
 	// Mainnet represents the main test network.
-	Mainnet = wire.MainNet + chains.BitcoinCashChainID
+	Mainnet = wire.MainNet + chains.BitcoinCashChainIDPrefix
 
 	// TestNet represents the regression test network.
-	TestNet = wire.TestNet + chains.BitcoinCashChainID
+	TestNet = wire.TestNet + chains.BitcoinCashChainIDPrefix
 
 	// TestNet3 represents the test network.
-	TestNet3 = wire.TestNet3 + chains.BitcoinCashChainID
+	TestNet3 = wire.TestNet3 + chains.BitcoinCashChainIDPrefix
 )
 
 // MainNetParams defines the network parameters for the main network.

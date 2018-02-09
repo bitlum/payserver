@@ -279,6 +279,7 @@ func TestValidate(t *testing.T) {
 		// false positive
 		{"DASH testnet3 regtest address", args{"DASH", "testnet3", "8sy3umW4mrN8ZFBfYA8fQmksddnTwc7niw"}, false},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {

@@ -2,24 +2,23 @@ package litecoin
 
 import (
 	"github.com/bitlum/btcd/chaincfg"
-	"github.com/bitlum/btcd/wire"
+	bwire "github.com/bitlum/btcd/wire"
 	"github.com/bitlum/connector/chains"
+	lwire "github.com/ltcsuite/ltcd/wire"
 )
 
 var (
-
 	// Mainnet represents the main network.
-	Mainnet = wire.MainNet + chains.LitecoinChainID
+	Mainnet = bwire.MainNet + chains.LitecoinChainIDPrefix
 
 	// MainnetLegacy represents legacy main network with legacy P2SH address prefix
-	MainnetLegacy = wire.MainNet + chains.LitecoinChainID + 100
+	MainnetLegacy = bwire.MainNet + chains.LitecoinLegacyChainIDPrefix
 
 	// TestNet represents the regression network.
-	TestNet = wire.TestNet + chains.LitecoinChainID
+	TestNet = bwire.TestNet + chains.LitecoinChainIDPrefix
 
 	// TestNet4 represents the test network.
-	// 0xf1c8d2fd is from github.com/ltcsuite/ltcd/wire
-	TestNet4 = 0xf1c8d2fd + chains.LitecoinChainID
+	TestNet4 = bwire.BitcoinNet(lwire.TestNet4) + chains.LitecoinChainIDPrefix
 )
 
 // With ScriptHashAddrID=SCRIPT_ADDRESS https://github.com/litecoin-project/litecoin/blob/master/src/chainparams.cpp#L237
@@ -43,8 +42,11 @@ var MainNetParams = chaincfg.Params{
 	HDPrivateKeyID: [4]byte{0x04, 0x88, 0xad, 0xe4}, // starts with xprv
 }
 
-// With ScriptHashAddrID=SCRIPT_ADDRESS2 https://github.com/litecoin-project/litecoin/blob/master/src/chainparams.cpp#L237
-// It have legacy P2SH prefix
+// MainNetParamsLegacy was created to distinguish the two types
+// of address litecoin addresses, in this case we use legacy script hash addr
+// id, which corresponds to the Bitcoin network. For more information read:
+// https://github.com/litecoin-project/litecoin/blob/master/src/chainparams.cpp#L237
+// It have legacy P2SH prefix.
 var MainNetParamsLegacy = chaincfg.Params{
 	Net:  MainnetLegacy,
 	Name: "mainnet-legacy",

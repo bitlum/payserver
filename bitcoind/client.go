@@ -368,7 +368,8 @@ func (c *Connector) PendingTransactions(account string) (
 // GenerateTransaction...
 func (c *Connector) GenerateTransaction(address string, amount string) (common.GeneratedTransaction, error) {
 
-	if err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address); err != nil {
+	err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address)
+	if err != nil {
 		return nil, errors.Errorf("invalid address: %v", err)
 	}
 

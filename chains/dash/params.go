@@ -8,13 +8,13 @@ import (
 
 var (
 	// Mainnet represents the main network.
-	Mainnet = wire.MainNet + chains.DashChainID
+	Mainnet = wire.MainNet + chains.DashChainIDPrefix
 
 	// TestNet represents the regression network.
-	TestNet = wire.TestNet + chains.DashChainID
+	TestNet = wire.TestNet + chains.DashChainIDPrefix
 
 	// TestNet3 represents the test network.
-	TestNet3 = wire.TestNet3 + chains.DashChainID
+	TestNet3 = wire.TestNet3 + chains.DashChainIDPrefix
 )
 
 var MainNetParams = chaincfg.Params{
