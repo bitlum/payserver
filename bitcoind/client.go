@@ -1,33 +1,25 @@
 package bitcoind
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
-
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
-	"sync"
-
-	"sync/atomic"
-
-	"strings"
-
-	"encoding/binary"
-
-	"bytes"
-
 	"github.com/AndrewSamokhvalov/slice"
-	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/common/core"
-	"github.com/bitlum/connector/bitcoind/btcjson"
-	"github.com/bitlum/connector/bitcoind/rpcclient"
-	"github.com/bitlum/connector/chains/bitcoincash"
-	"github.com/bitlum/connector/chains/dash"
-	"github.com/bitlum/connector/chains/litecoin"
-	"github.com/bitlum/connector/common/db"
 	"github.com/bitlum/btcd/chaincfg"
 	"github.com/bitlum/btcd/chaincfg/chainhash"
 	"github.com/bitlum/btcd/wire"
 	"github.com/bitlum/btcutil"
+	"github.com/bitlum/connector/bitcoind/btcjson"
+	"github.com/bitlum/connector/bitcoind/rpcclient"
+	"github.com/bitlum/connector/chains/net"
+	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/common/core"
+	"github.com/bitlum/connector/common/db"
 	"github.com/boltdb/bolt"
 	"github.com/btcsuite/btclog"
 	"github.com/go-errors/errors"
@@ -144,7 +136,7 @@ type Connector struct {
 	notifications chan []*common.Payment
 
 	lastSyncedBlockHash *chainhash.Hash
-	params              *chaincfg.Params
+	netParams           *chaincfg.Params
 	log                 *common.NamedLogger
 
 	coinSelectMtx sync.Mutex
@@ -219,15 +211,9 @@ func (c *Connector) Start() error {
 		chain = resp.Chain
 	}
 
-	if network, ok := networks[c.cfg.Asset]; ok {
-		if c.params, ok = network[chain]; !ok {
-			return errors.Errorf("network %v for asset %v is not supported",
-				chain, c.cfg.Asset)
-		} else {
-			c.log.Infof("Initialize params for '%v' chain", chain)
-		}
-	} else {
-		return errors.Errorf("asset %v is not supported", c.cfg.Asset)
+	c.netParams, err = net.GetParams(string(c.cfg.Asset), chain)
+	if err != nil {
+		return errors.Errorf("failed to get net params: %v", err)
 	}
 
 	// Create or open database file to host the last state of synchronization.
@@ -379,10 +365,9 @@ func (c *Connector) PendingTransactions(account string) (
 }
 
 // GenerateTransaction...
-func (c *Connector) GenerateTransaction(address string, amount string) (
-	common.GeneratedTransaction, error) {
+func (c *Connector) GenerateTransaction(address string, amount string) (common.GeneratedTransaction, error) {
 
-	addr, err := btcutil.DecodeAddress(address, c.params)
+	decodedAddress, err := btcutil.DecodeAddress(address, c.netParams)
 	if err != nil {
 		return nil, errors.Errorf("unable to decode address: %v", err)
 	}
@@ -392,21 +377,18 @@ func (c *Connector) GenerateTransaction(address string, amount string) (
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
-	tx, _, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt),
-		addr)
+	tx, _, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
 	if err != nil {
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
 	}
 
 	signedTx, isSigned, err := c.client.SignRawTransaction(tx)
 	if err != nil {
-		return nil, errors.Errorf("unable to sign generated transaction: %v",
-			err)
+		return nil, errors.Errorf("unable to sign generated transaction: %v", err)
 	}
 
 	if !isSigned {
-		return nil, errors.Errorf("unable to sign all "+
-			"generated transaction inputs: %v", err)
+		return nil, errors.Errorf("unable to sign all generated transaction inputs: %v", err)
 	}
 
 	var rawTx bytes.Buffer
@@ -802,44 +784,4 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	}
 
 	return defaultAddress, nil
-}
-
-// mustRegister performs the same function as Register except it panics if there
-// is an error.  This should only be called from package init functions.
-func mustRegister(params *chaincfg.Params) {
-	if err := chaincfg.Register(params); err != nil &&
-		err != chaincfg.ErrDuplicateNet {
-		panic("failed to register network: " + err.Error())
-	}
-}
-
-var networks = map[core.AssetType]map[string]*chaincfg.Params{
-	core.AssetDASH: {
-		"regtest": &dash.RegressionNetParams,
-		"mainnet": &dash.MainNetParams,
-		"test":    &dash.TestNet3Params,
-	},
-	core.AssetBTC: {
-		"regtest": &chaincfg.RegressionNetParams,
-		"mainnet": &chaincfg.MainNetParams,
-		"test":    &chaincfg.TestNet3Params,
-	},
-	core.AssetBCH: {
-		"regtest": &bitcoincash.RegressionNetParams,
-		"mainnet": &bitcoincash.MainNetParams,
-		"test":    &bitcoincash.TestNet3Params,
-	},
-	core.AssetLTC: {
-		"regtest": &litecoin.RegressionNetParams,
-		"mainnet": &litecoin.MainNetParams,
-		"test":    &litecoin.TestNet3Params,
-	},
-}
-
-func init() {
-	for _, network := range networks {
-		for _, params := range network {
-			mustRegister(params)
-		}
-	}
 }
