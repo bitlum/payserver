@@ -144,6 +144,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/mr-tron/base58"
+  packages = ["base58"]
+  revision = "c1bdf7c52f59d6685ca597b9955a443ff95eeee6"
+
+[[projects]]
+  branch = "master"
   name = "github.com/onrik/ethrpc"
   packages = ["."]
   revision = "f37d9f7ba18e8a4d1ee1e09ae2ddca6f579adfa9"
@@ -159,6 +165,17 @@
   name = "github.com/rcrowley/go-metrics"
   packages = ["."]
   revision = "8732c616f52954686704c8645fe1a9d59e9df7c1"
+
+[[projects]]
+  name = "github.com/schancel/cashaddr-converter"
+  packages = [
+    "address",
+    "baseconv",
+    "cashaddress",
+    "legacy"
+  ]
+  revision = "0a38f5822f795dc3727b4caacc298e02938d9eb1"
+  version = "v9"
 
 [[projects]]
   branch = "master"
@@ -266,6 +283,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d9c6de7a0aab555681ae7b1c3fdec471cc32c3a5c61afb8053aac7c2ac2a7035"
+  inputs-digest = "b2b496c239ecc61bed0448d4e2cdc7e4260367a8824ee37f208c4f03cce63831"
   solver-name = "gps-cdcl"
   solver-version = 1

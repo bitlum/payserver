@@ -14,6 +14,7 @@ import (
 	"github.com/bitlum/btcd/chaincfg/chainhash"
 	"github.com/bitlum/btcd/wire"
 	"github.com/bitlum/btcutil"
+	"github.com/bitlum/connector/addr"
 	"github.com/bitlum/connector/bitcoind/btcjson"
 	"github.com/bitlum/connector/bitcoind/rpcclient"
 	"github.com/bitlum/connector/chains/net"
@@ -366,6 +367,10 @@ func (c *Connector) PendingTransactions(account string) (
 
 // GenerateTransaction...
 func (c *Connector) GenerateTransaction(address string, amount string) (common.GeneratedTransaction, error) {
+
+	if err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address); err != nil {
+		return nil, errors.Errorf("invalid address: %v", err)
+	}
 
 	decodedAddress, err := btcutil.DecodeAddress(address, c.netParams)
 	if err != nil {
