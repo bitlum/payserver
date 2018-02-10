@@ -10,27 +10,13 @@
 [[projects]]
   branch = "master"
   name = "github.com/bitlum/btcd"
-  packages = [
-    "blockchain",
-    "btcec",
-    "btcjson",
-    "chaincfg",
-    "chaincfg/chainhash",
-    "database",
-    "rpcclient",
-    "txscript",
-    "wire"
-  ]
+  packages = ["blockchain","btcec","btcjson","chaincfg","chaincfg/chainhash","database","rpcclient","txscript","wire"]
   revision = "072770c03d1d3b9bc18e2a4a39384bb9fdb409c4"
 
 [[projects]]
   branch = "master"
   name = "github.com/bitlum/btcutil"
-  packages = [
-    ".",
-    "base58",
-    "bech32"
-  ]
+  packages = [".","base58","bech32"]
   revision = "ff69c1bdcd79a3d2687b553361283bc7d04a25a3"
 
 [[projects]]
@@ -77,19 +63,7 @@
 
 [[projects]]
   name = "github.com/ethereum/go-ethereum"
-  packages = [
-    "common",
-    "common/hexutil",
-    "common/math",
-    "core/types",
-    "crypto",
-    "crypto/secp256k1",
-    "crypto/sha3",
-    "log",
-    "params",
-    "rlp",
-    "trie"
-  ]
+  packages = ["common","common/hexutil","common/math","core/types","crypto","crypto/secp256k1","crypto/sha3","log","params","rlp","trie"]
   revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
   version = "v1.7.3"
 
@@ -107,26 +81,13 @@
 
 [[projects]]
   name = "github.com/golang/protobuf"
-  packages = [
-    "jsonpb",
-    "proto",
-    "protoc-gen-go/descriptor",
-    "ptypes",
-    "ptypes/any",
-    "ptypes/duration",
-    "ptypes/struct",
-    "ptypes/timestamp"
-  ]
+  packages = ["jsonpb","proto","protoc-gen-go/descriptor","ptypes","ptypes/any","ptypes/duration","ptypes/struct","ptypes/timestamp"]
   revision = "925541529c1fa6821df4e44ce2723319eb2be768"
   version = "v1.0.0"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/grpc-gateway"
-  packages = [
-    "runtime",
-    "runtime/internal",
-    "utilities"
-  ]
+  packages = ["runtime","runtime/internal","utilities"]
   revision = "07f5e79768022f9a3265235f0db4ac8c3f675fec"
   version = "v1.3.1"
 
@@ -137,10 +98,16 @@
   revision = "a93b200c26cbae3bb09dd0dc2c7c7fe1468a034a"
 
 [[projects]]
+  branch = "master"
   name = "github.com/lightningnetwork/lnd"
   packages = ["lnrpc"]
-  revision = "48712526d61c1512dff26211082a97b0605f270e"
-  version = "v0.3-alpha"
+  revision = "d092b57d9cad4ac85633433e29795f213890f206"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/ltcsuite/ltcd"
+  packages = ["chaincfg/chainhash","wire"]
+  revision = "92a0feb9b86f5971655013115ea4f95949403592"
 
 [[projects]]
   branch = "master"
@@ -168,12 +135,7 @@
 
 [[projects]]
   name = "github.com/schancel/cashaddr-converter"
-  packages = [
-    "address",
-    "baseconv",
-    "cashaddress",
-    "legacy"
-  ]
+  packages = ["address","baseconv","cashaddress","legacy"]
   revision = "0a38f5822f795dc3727b4caacc298e02938d9eb1"
   version = "v9"
 
@@ -192,21 +154,13 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["ripemd160"]
+  packages = ["pbkdf2","ripemd160","scrypt"]
   revision = "d9133f5469342136e669e85192a26056b587f503"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = [
-    "context",
-    "http2",
-    "http2/hpack",
-    "idna",
-    "internal/timeseries",
-    "lex/httplex",
-    "trace"
-  ]
+  packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
   revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
 
 [[projects]]
@@ -218,59 +172,18 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = [
-    "collate",
-    "collate/build",
-    "internal/colltab",
-    "internal/gen",
-    "internal/tag",
-    "internal/triegen",
-    "internal/ucd",
-    "language",
-    "secure/bidirule",
-    "transform",
-    "unicode/bidi",
-    "unicode/cldr",
-    "unicode/norm",
-    "unicode/rangetable"
-  ]
+  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
   revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
 
 [[projects]]
   branch = "master"
   name = "google.golang.org/genproto"
-  packages = [
-    "googleapis/api/annotations",
-    "googleapis/rpc/status"
-  ]
+  packages = ["googleapis/api/annotations","googleapis/rpc/status"]
   revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
 
 [[projects]]
   name = "google.golang.org/grpc"
-  packages = [
-    ".",
-    "balancer",
-    "balancer/base",
-    "balancer/roundrobin",
-    "codes",
-    "connectivity",
-    "credentials",
-    "encoding",
-    "grpclb/grpc_lb_v1/messages",
-    "grpclog",
-    "internal",
-    "keepalive",
-    "metadata",
-    "naming",
-    "peer",
-    "resolver",
-    "resolver/dns",
-    "resolver/passthrough",
-    "stats",
-    "status",
-    "tap",
-    "transport"
-  ]
+  packages = [".","balancer","balancer/base","balancer/roundrobin","codes","connectivity","credentials","encoding","grpclb/grpc_lb_v1/messages","grpclog","internal","keepalive","metadata","naming","peer","resolver","resolver/dns","resolver/passthrough","stats","status","tap","transport"]
   revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
   version = "v1.9.2"
 
@@ -283,6 +196,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b2b496c239ecc61bed0448d4e2cdc7e4260367a8824ee37f208c4f03cce63831"
+  inputs-digest = "8cf03c984f42175b817fd3f8557c6d39ba4e9507ea481b6dfc83f7cc124fa1e5"
   solver-name = "gps-cdcl"
   solver-version = 1
