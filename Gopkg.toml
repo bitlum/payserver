@@ -109,6 +109,10 @@
   name = "google.golang.org/grpc"
   revision = "b3ddf786825de56a4178401b7e174ee332173b66"
 
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "0.8.0"
+
 [prune]
   go-tests = true
   unused-packages = true
