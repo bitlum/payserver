@@ -61,7 +61,7 @@ func backendMain() error {
 	}
 
 	// TODO(andrew.shvv) add net config and daemon checks
-	mainLog.Infof("Initialising metric for bitcoind...")
+	mainLog.Infof("Initialising metric for crypto clients...")
 	cryptoMetricsBackend, err := cryptoMetrics.InitMetricsBackend("simnet")
 	if err != nil {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
@@ -172,19 +172,12 @@ func backendMain() error {
 		return errors.Errorf("unable to create ethereum connector: %v", err)
 	}
 
-	// TODO(andrew.shvv) add net config and daemon checks
-	mainLog.Infof("Initialising metric for lnd...")
-	lndMetricsBackend, err := cryptoMetrics.InitMetricsBackend("simnet")
-	if err != nil {
-		return errors.Errorf("unable to init lnd metrics: %v", err)
-	}
-
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
-		Name:       "lnd",
+		Name:        "lnd",
 		Host:        loadedConfig.BitcoinLightning.Host,
 		Port:        loadedConfig.BitcoinLightning.Port,
 		TlsCertPath: loadedConfig.BitcoinLightning.TlsCertPath,
-		Metrics:     lndMetricsBackend,
+		Metrics:     cryptoMetricsBackend,
 	})
 	if err != nil {
 		return errors.Errorf("unable to create lightning bitcoin connector"+

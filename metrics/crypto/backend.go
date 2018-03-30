@@ -150,12 +150,10 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 	)
 
 	if err := prometheus.Register(backend.requestsTotal); err != nil {
-		// Skip returning error if we re-registered metric.
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
-			return backend, errors.Errorf(
-				"unable to register 'requestsTotal' metric:" +
-					err.Error())
-		}
+		return backend, errors.Errorf(
+			"unable to register 'requestsTotal' metric:" +
+				err.Error())
+
 	}
 
 	backend.errorsTotal = prometheus.NewCounterVec(
@@ -177,12 +175,10 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 	)
 
 	if err := prometheus.Register(backend.errorsTotal); err != nil {
-		// Skip returning error if we re-registered metric.
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
-			return backend, errors.Errorf(
-				"unable to register 'errorsTotal' metric: " +
-					err.Error())
-		}
+		return backend, errors.Errorf(
+			"unable to register 'errorsTotal' metric: " +
+				err.Error())
+
 	}
 
 	backend.panicsTotal = prometheus.NewCounterVec(
@@ -203,12 +199,9 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 	)
 
 	if err := prometheus.Register(backend.panicsTotal); err != nil {
-		// Skip returning error if we re-registered metric.
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
-			return backend, errors.Errorf(
-				"unable to register 'panicsTotal' metric: " +
-					err.Error())
-		}
+		return backend, errors.Errorf(
+			"unable to register 'panicsTotal' metric: " +
+				err.Error())
 	}
 
 	backend.requestDurationSeconds = prometheus.NewHistogramVec(
@@ -229,12 +222,9 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 	)
 
 	if err := prometheus.Register(backend.requestDurationSeconds); err != nil {
-		// Skip returning error if we re-registered metric.
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
-			return backend, errors.Errorf(
-				"unable to register 'requestDurationSeconds' metric: " +
-					err.Error())
-		}
+		return backend, errors.Errorf(
+			"unable to register 'requestDurationSeconds' metric: " +
+				err.Error())
 	}
 
 	return backend, nil
