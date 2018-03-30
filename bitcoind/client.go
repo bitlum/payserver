@@ -295,9 +295,22 @@ func (c *Connector) Start() error {
 
 		syncDelay := time.Second * time.Duration(c.cfg.SyncLoopDelay)
 		for {
-			if err := c.sync(syncDelay); err != nil {
-				c.log.Error(err)
+			select {
+			case <-time.After(drainDelay):
+				if err := c.drainTransactions(); err != nil {
+					m.AddError(errToSeverity(ErrDrainTransactions))
+					c.log.Errorf("unable to drain old applied transactions"+
+						": %v", err)
+				}
+			case <-time.After(syncDelay):
+				if err := c.sync(); err != nil {
+					c.log.Error(err)
+					continue
+				}
+			case <-c.quit:
+				return
 			}
+
 		}
 	}()
 
@@ -852,21 +865,9 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	return defaultAddress, nil
 }
 
-func (c *Connector) sync(syncDelay time.Duration) error {
+func (c *Connector) sync() error {
 	m := crypto.NewMetric(string(c.cfg.Asset), MethodSync, c.cfg.Metrics)
 	defer finishHandler(m)
-
-	select {
-	case <-time.After(drainDelay):
-		if err := c.drainTransactions(); err != nil {
-			m.AddError(errToSeverity(ErrDrainTransactions))
-			return errors.Errorf("unable to drain old applied transactions"+
-				": %v", err)
-		}
-	case <-time.After(syncDelay):
-	case <-c.quit:
-		return nil
-	}
 
 	if err := c.proceedNextBlock(); err != nil {
 		m.AddError(errToSeverity(ErrProceedNextBlock))
