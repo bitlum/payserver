@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"net"
-	"strconv"
 	"sync"
 
 	"github.com/bitlum/connector/common"
@@ -22,6 +21,9 @@ import (
 	"github.com/go-errors/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"github.com/bitlum/connector/metrics"
+	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
+	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 )
 
 var (
@@ -58,16 +60,23 @@ func backendMain() error {
 		return errors.Errorf("unable to get engine: %s", err)
 	}
 
+	// TODO(andrew.shvv) add net config and daemon checks
+	mainLog.Infof("Initialising metric for bitcoind...")
+	cryptoMetricsBackend, err := cryptoMetrics.InitMetricsBackend("simnet")
+	if err != nil {
+		return errors.Errorf("unable to init bitcoind metrics: %v", err)
+	}
+
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
 	// pending transaction user have and also to withdraw money from exchange.
-
 	bitcoinCashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
 		MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
 		SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
 		DataDir:          "/tmp",
 		Asset:            core.AssetBCH,
 		Logger:           mainLog,
+		Metrics:          cryptoMetricsBackend,
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
@@ -87,6 +96,7 @@ func backendMain() error {
 		DataDir:          "/tmp",
 		Asset:            core.AssetBTC,
 		Logger:           mainLog,
+		Metrics:          cryptoMetricsBackend,
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
@@ -106,6 +116,7 @@ func backendMain() error {
 		DataDir:          "/tmp",
 		Asset:            core.AssetDASH,
 		Logger:           mainLog,
+		Metrics:          cryptoMetricsBackend,
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.Dash.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
@@ -125,6 +136,7 @@ func backendMain() error {
 		DataDir:          "/tmp",
 		Asset:            core.AssetLTC,
 		Logger:           mainLog,
+		Metrics:          cryptoMetricsBackend,
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.Litecoin.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
@@ -144,6 +156,7 @@ func backendMain() error {
 		DataDir:          "/tmp",
 		Asset:            core.AssetETH,
 		Logger:           mainLog,
+		Metrics:          cryptoMetricsBackend,
 		DaemonCfg: &geth.DaemonConfig{
 			ServerHost: loadedConfig.Ethereum.Host,
 			ServerPort: loadedConfig.Ethereum.Port,
@@ -154,11 +167,18 @@ func backendMain() error {
 		return errors.Errorf("unable to create ethereum connector: %v", err)
 	}
 
+	// TODO(andrew.shvv) add net config and daemon checks
+	mainLog.Infof("Initialising metric for lnd...")
+	lndMetricsBackend, err := cryptoMetrics.InitMetricsBackend("simnet")
+	if err != nil {
+		return errors.Errorf("unable to init lnd metrics: %v", err)
+	}
+
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
 		Host:        loadedConfig.BitcoinLightning.Host,
 		Port:        loadedConfig.BitcoinLightning.Port,
-		Logger:      mainLog,
 		TlsCertPath: loadedConfig.BitcoinLightning.TlsCertPath,
+		Metrics:     lndMetricsBackend,
 	})
 	if err != nil {
 		return errors.Errorf("unable to create lightning bitcoin connector"+
@@ -202,10 +222,23 @@ func backendMain() error {
 		return errors.Errorf("unable to start estimator: %v", err)
 	}
 
+	// Initialise the metric endpoint. This endpoint is used by the metric
+	// server to collect the metric from.
+	metricsEndpointAddr := net.JoinHostPort(loadedConfig.Prometheus.Host,
+		loadedConfig.Prometheus.Port)
+	metrics.StartServer(metricsEndpointAddr)
+
+	// TODO(andrew.shvv) add net config and daemon checks
+	mainLog.Infof("Initialising metric for rpc...")
+	rpcMetricsBackend, err := rpcMetrics.InitMetricsBackend("simnet")
+	if err != nil {
+		return errors.Errorf("unable to init rpc metrics: %v", err)
+	}
+
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
 	rpcServer, err := rpc.NewRPCServer(blockchainConnectors,
-		lightningConnectors, estmtr, mainLog)
+		lightningConnectors, estmtr, mainLog, rpcMetricsBackend)
 	if err != nil {
 		return errors.Errorf("unable to init RPC server: %v", err)
 	}
@@ -227,8 +260,8 @@ func backendMain() error {
 	grpcServer := grpc.NewServer(opts...)
 	rpc.RegisterConnectorServer(grpcServer, rpcServer)
 
-	addr := net.JoinHostPort(loadedConfig.RPCHost, strconv.Itoa(loadedConfig.RPCPort))
-	lis, err := net.Listen("tcp", addr)
+	grpcAddr := net.JoinHostPort(loadedConfig.RPCHost, loadedConfig.RPCPort)
+	lis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
 		return errors.Errorf("unable to listen on gRPC addr: %v", err)
 	}
@@ -238,7 +271,7 @@ func backendMain() error {
 	// server.
 	errChan := make(chan error)
 	go func() {
-		mainLog.Infof("server gRPC on addr: '%v'", addr)
+		mainLog.Infof("server gRPC on addr: '%v'", grpcAddr)
 		if err := grpcServer.Serve(lis); err != nil {
 			errChan <- errors.Errorf("unable to server gRPC server: %v", err)
 			return
