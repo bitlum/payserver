@@ -4,6 +4,7 @@ import (
 	"github.com/bitlum/btcutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/bitlum/connector/metrics/crypto"
 )
 
 func btcToSatoshi(amount string) (int64, error) {
@@ -20,4 +21,15 @@ func btcToSatoshi(amount string) (int64, error) {
 	}
 
 	return int64(btcAmount), nil
+}
+
+// finishHandler used as defer in handlers, to ensure that we track panics and
+// measure handler time.
+func finishHandler(metrics crypto.Metric) {
+	metrics.AddRequestDuration()
+
+	if r := recover(); r != nil {
+		metrics.AddPanic()
+		panic(r)
+	}
 }
