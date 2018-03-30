@@ -67,7 +67,7 @@ type PrometheusBackend struct {
 //
 // NOTE: Non-pointer receiver made by intent to avoid conflict in the system
 // with parallel metrics report.
-func (m PrometheusBackend) AddRequest(asset, request, daemon string) {
+func (m PrometheusBackend) AddRequest(daemon, asset, request string) {
 	m.requestsTotal.With(
 		prometheus.Labels{
 			requestLabel: request,
