@@ -84,7 +84,7 @@ type BlockchainConnector interface {
 	// GenerateTransaction generates raw blockchain transaction.
 	GenerateTransaction(address string, amount string) (GeneratedTransaction, error)
 
-	// SendTransaction sens the given transaction to the blockchain network.
+	// SendTransaction sends the given transaction to the blockchain network.
 	SendTransaction(rawTx []byte) error
 
 	// ReceivedPayments returns channel with transactions which are passed
@@ -98,10 +98,10 @@ type BlockchainConnector interface {
 // operate with transactions, addresses, and also  able to notify other
 // subsystems when invoice is settled.
 type LightningConnector interface {
-	// Info...
+	// Info returns the information about our lnd node.
 	Info() (*LightningInfo, error)
 
-	// CreateAddress is used to create deposit address.
+	// CreateInvoice is used to create lightning network invoice.
 	CreateInvoice(account string, amount string) (string, error)
 
 	// SendTo is used to send specific amount of money to address within this
@@ -112,6 +112,7 @@ type LightningConnector interface {
 	// the minimum threshold required by the client to treat as confirmed.
 	ReceivedPayments() <-chan *Payment
 
-	// QueryRoutes...
+	// QueryRoutes returns list of routes from to the given lnd node,
+	// and insures the the capacity of the channels is sufficient.
 	QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error)
 }
