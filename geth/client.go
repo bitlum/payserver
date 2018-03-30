@@ -24,6 +24,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/onrik/ethrpc"
 	"github.com/shopspring/decimal"
+	"github.com/bitlum/connector/metrics/crypto"
 )
 
 var (
@@ -60,6 +61,17 @@ var (
 	weiInEth = decimal.NewFromFloat(10e16)
 )
 
+const (
+	MethodStart               = "Start"
+	MethodAccountAddress      = "AccountAddress"
+	MethodCreateAddress       = "CreateAddress"
+	MethodPendingTransactions = "PendingTransactions"
+	MethodGenerateTransaction = "GenerateTransaction"
+	MethodSendTransaction     = "SendTransaction"
+	MethodPendingBalance      = "PendingBalance"
+	MethodSync                = "Sync"
+)
+
 type DaemonConfig struct {
 	ServerHost string
 	ServerPort int
@@ -93,6 +105,11 @@ type Config struct {
 	Asset core.AssetType
 
 	Logger btclog.Logger
+
+	// Metrics is a metric backend which is used to collect metrics from
+	// connector. In case of prometheus client they stored locally till
+	// they will be collected by prometheus server.
+	Metrics crypto.MetricsBackend
 }
 
 func (c *Config) validate() error {
@@ -114,6 +131,10 @@ func (c *Config) validate() error {
 
 	if c.Asset == "" {
 		return errors.New("asset should be specified")
+	}
+
+	if c.Metrics == nil {
+		return errors.New("metrics backend should be specified")
 	}
 
 	return nil
@@ -170,6 +191,9 @@ func (c *Connector) Start() error {
 		return nil
 	}
 
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodStart, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	c.log.Info("Creating RPC client...")
 	url := fmt.Sprintf("http://%v:%v", c.cfg.DaemonCfg.ServerHost,
 		c.cfg.DaemonCfg.ServerPort)
@@ -178,6 +202,7 @@ func (c *Connector) Start() error {
 	c.log.Info("Opening BoltDB database...")
 	database, err := db.Open(c.cfg.DataDir, strings.ToLower(string(c.cfg.Asset)))
 	if err != nil {
+		m.AddError(errToSeverity(ErrOpenDatabase))
 		return errors.Errorf("unable to open db: %v", err)
 	}
 	c.db = database
@@ -189,6 +214,7 @@ func (c *Connector) Start() error {
 	} else {
 		lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
 		if err != nil {
+			m.AddError(errToSeverity(ErrInitLastSyncedBlock))
 			return errors.Errorf("unable to fetch last block synced "+
 				"hash: %v", err)
 		}
@@ -197,6 +223,7 @@ func (c *Connector) Start() error {
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
+		m.AddError(errToSeverity(ErrGetDefaultAddress))
 		return errors.Errorf("unable to fetch default address: %v", err)
 	}
 	c.log.Infof("Default address %v", defaultAddress)
@@ -219,64 +246,16 @@ func (c *Connector) Start() error {
 			select {
 			case <-time.After(drainDelay):
 				if err := c.drainTransactions(); err != nil {
+					m.AddError(errToSeverity(ErrOpenDatabase))
 					c.log.Errorf("unable to drain old applied transactions"+
 						": %v", err)
 				}
 			case <-syncingTicker.C:
-				bestBlockNumber, err := c.client.EthBlockNumber()
+				var err error
+				lastSyncedBlockHash, err = c.sync(lastSyncedBlockHash)
 				if err != nil {
-					c.log.Errorf("unable to fetch best block number: %v", err)
-					continue
+					c.log.Errorf("unable to sync: %v", err)
 				}
-
-				lastSyncedBlock, err := c.client.EthGetBlockByHash(lastSyncedBlockHash, false)
-				if err != nil {
-					// TODO(andrew.shvv) Check reoginizations
-					c.log.Errorf("unable to get last sync block from daemon: %v", err)
-					continue
-				}
-
-				// Sync block below minimum confirmations threshold and send
-				// payment notification.
-				lastSyncedBlock, err = c.syncConfirmed(bestBlockNumber, lastSyncedBlock)
-				if err != nil {
-					c.log.Errorf("unable to process blocks: %v", err)
-					continue
-				}
-				lastSyncedBlockHash = lastSyncedBlock.Hash
-
-				// Sync block above minimum confirmation threshold and
-				// populate unconfirmed pending map with transactions.
-				unconfirmedTxs, err := c.syncUnconfirmed(bestBlockNumber,
-					lastSyncedBlock.Number)
-				if err != nil {
-					c.log.Errorf("unable to sync unconfirmed txs: %v", err)
-					continue
-				}
-
-				c.pendingLock.Lock()
-				c.unconfirmedTxs.merge(unconfirmedTxs,
-					func(tx *common.BlockchainPendingPayment) {
-						c.log.Infof("Unconfirmed tx(%v) were added, "+
-							"account(%v), amount(%v), confirmations(%v), "+
-							"left(%v)", tx.ID, tx.Account, tx.Amount,
-							tx.Confirmations, tx.ConfirmationsLeft)
-					})
-				c.pendingLock.Unlock()
-
-				memPoolTxs, err := c.syncPending()
-				if err != nil {
-					c.log.Errorf("unable to fetch mempool txs: %v", err)
-					continue
-				}
-
-				c.pendingLock.Lock()
-				c.memPoolTxs.merge(memPoolTxs, func(tx *common.BlockchainPendingPayment) {
-					c.log.Infof("Mempool tx(%v) were added, "+
-						"account(%v), amount(%v)", tx.ID, tx.Account, tx.Amount)
-				})
-				c.pendingLock.Unlock()
-
 			case <-c.quit:
 				return
 			}
@@ -307,10 +286,14 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 
 // AccountAddress return the deposit address of account.
 func (c *Connector) AccountAddress(account string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodAccountAddress, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	var address string
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		accountsBucket, err := tx.CreateBucketIfNotExists(accountsToAddressesBucket)
 		if err != nil {
+			m.AddError(errToSeverity(ErrDatabase))
 			return errors.Errorf("unable to get accounts bucket: %v", err)
 		}
 
@@ -325,10 +308,14 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 
 // CreateAddress is used to create deposit address.
 func (c *Connector) CreateAddress(account string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodCreateAddress, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	var address string
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		accountsBucket, err := tx.CreateBucketIfNotExists(accountsToAddressesBucket)
 		if err != nil {
+			m.AddError(errToSeverity(ErrDatabase))
 			return errors.Errorf("unable to get accounts bucket: %v", err)
 		}
 
@@ -339,22 +326,26 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 
 		address, err = c.client.PersonalNewAccount(c.cfg.DaemonCfg.Password)
 		if err != nil {
+			m.AddError(errToSeverity(ErrCreateAddress))
 			return errors.Errorf("unable to create account: %v", err)
 		}
 
 		addressesBucket, err := tx.CreateBucketIfNotExists(addressesToAccountsBucket)
 		if err != nil {
+			m.AddError(errToSeverity(ErrDatabase))
 			return errors.Errorf("unable to get addresses bucket: %v", err)
 		}
 
 		err = addressesBucket.Put([]byte(address), []byte(account))
 		if err != nil {
+			m.AddError(errToSeverity(ErrDatabase))
 			return errors.Errorf("unable to create address <-> account link"+
 				": %v", err)
 		}
 
 		err = accountsBucket.Put([]byte(account), []byte(address))
 		if err != nil {
+			m.AddError(errToSeverity(ErrDatabase))
 			return errors.Errorf("unable to create account <-> address link"+
 				": %v", err)
 		}
@@ -369,6 +360,10 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 // the required by payment system.
 func (c *Connector) PendingTransactions(account string) (
 	[]*common.BlockchainPendingPayment, error) {
+
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingTransactions, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
 
@@ -387,11 +382,21 @@ func (c *Connector) PendingTransactions(account string) (
 // GenerateTransaction generates raw blockchain transaction.
 func (c *Connector) GenerateTransaction(to, amount string) (
 	common.GeneratedTransaction, error) {
-	return c.generateTransaction(c.defaultAddress, to, amount, false)
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodGenerateTransaction, c.cfg.Metrics)
+	defer finishHandler(m)
+
+	tx, err := c.generateTransaction(c.defaultAddress, to, amount, false)
+	if err != nil {
+		m.AddError(errToSeverity(ErrCraftTx))
+		return nil, err
+	}
+
+	return tx, err
 }
 
 func (c *Connector) generateTransaction(from, to, amount string, includeFee bool) (
 	common.GeneratedTransaction, error) {
+
 	a, err := decimal.NewFromString(amount)
 	if err != nil {
 		return nil, errors.Errorf("unable parse amount: %v", err)
@@ -447,8 +452,12 @@ func (c *Connector) generateTransaction(from, to, amount string, includeFee bool
 
 // SendTransaction sens the given transaction to the blockchain network.
 func (c *Connector) SendTransaction(rawTx []byte) error {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodSendTransaction, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	_, err := c.client.EthSendRawTransaction(string(rawTx))
 	if err != nil {
+		m.AddError(errToSeverity(ErrSendTx))
 		return errors.Errorf("unable to execute send tx rpc call: %v", err)
 	}
 
@@ -457,6 +466,9 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 
 // PendingBalance return the amount of funds waiting to be confirmed.
 func (c *Connector) PendingBalance(account string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingBalance, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
 
@@ -482,7 +494,7 @@ func (c *Connector) ReceivedPayments() <-chan []*common.Payment {
 // syncUnconfirmed process blocks above the minimum confirmations threshold
 // and creates the in-memory map of unconfirmed transactions.
 func (c *Connector) syncUnconfirmed(bestBlockNumber,
-	lastSyncedBlockNumber int) (pendingMap, error) {
+lastSyncedBlockNumber int) (pendingMap, error) {
 
 	unconfirmedTxs := make(pendingMap)
 	for {
@@ -861,4 +873,66 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	}
 
 	return defaultAddress, nil
+}
+
+func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodSync, c.cfg.Metrics)
+	defer finishHandler(m)
+
+	bestBlockNumber, err := c.client.EthBlockNumber()
+	if err != nil {
+		m.AddError(errToSeverity(ErrGetBlockchainInfo))
+		return lastSyncedBlockHash, errors.Errorf("unable to fetch best block number: %v", err)
+	}
+
+	lastSyncedBlock, err := c.client.EthGetBlockByHash(lastSyncedBlockHash, false)
+	if err != nil {
+		// TODO(andrew.shvv) Check reoginizations
+		m.AddError(errToSeverity(ErrGetBlockchainInfo))
+		return lastSyncedBlockHash, errors.Errorf("unable to get last sync block from daemon: %v", err)
+	}
+
+	// Sync block below minimum confirmations threshold and send
+	// payment notification.
+	lastSyncedBlock, err = c.syncConfirmed(bestBlockNumber, lastSyncedBlock)
+	if err != nil {
+		m.AddError(errToSeverity(ErrGetBlockchainInfo))
+		return lastSyncedBlockHash, errors.Errorf("unable to process blocks: %v", err)
+	}
+	lastSyncedBlockHash = lastSyncedBlock.Hash
+
+	// Sync block above minimum confirmation threshold and
+	// populate unconfirmed pending map with transactions.
+	unconfirmedTxs, err := c.syncUnconfirmed(bestBlockNumber,
+		lastSyncedBlock.Number)
+	if err != nil {
+		m.AddError(errToSeverity(ErrSyncUnconfirmed))
+		return lastSyncedBlockHash, errors.Errorf("unable to sync unconfirmed txs: %v", err)
+	}
+
+	c.pendingLock.Lock()
+	c.unconfirmedTxs.merge(unconfirmedTxs,
+		func(tx *common.BlockchainPendingPayment) {
+			c.log.Infof("Unconfirmed tx(%v) were added, "+
+				"account(%v), amount(%v), confirmations(%v), "+
+				"left(%v)", tx.ID, tx.Account, tx.Amount,
+				tx.Confirmations, tx.ConfirmationsLeft)
+		})
+	c.pendingLock.Unlock()
+
+	memPoolTxs, err := c.syncPending()
+	if err != nil {
+		m.AddError(errToSeverity(ErrSyncPending))
+		return lastSyncedBlockHash,
+			errors.Errorf("unable to fetch mempool txs: %v", err)
+	}
+
+	c.pendingLock.Lock()
+	c.memPoolTxs.merge(memPoolTxs, func(tx *common.BlockchainPendingPayment) {
+		c.log.Infof("Mempool tx(%v) were added, "+
+			"account(%v), amount(%v)", tx.ID, tx.Account, tx.Amount)
+	})
+	c.pendingLock.Unlock()
+
+	return lastSyncedBlockHash, nil
 }
