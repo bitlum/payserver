@@ -80,6 +80,7 @@ func backendMain() error {
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
+			Name:       "bitcoinabc",
 			ServerHost: loadedConfig.BitcoinCash.Host,
 			ServerPort: loadedConfig.BitcoinCash.Port,
 			User:       loadedConfig.BitcoinCash.User,
@@ -100,6 +101,7 @@ func backendMain() error {
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
+			Name:       "bitcoind",
 			ServerHost: loadedConfig.Bitcoin.Host,
 			ServerPort: loadedConfig.Bitcoin.Port,
 			User:       loadedConfig.Bitcoin.User,
@@ -120,6 +122,7 @@ func backendMain() error {
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.Dash.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
+			Name:       "dashd",
 			ServerHost: loadedConfig.Dash.Host,
 			ServerPort: loadedConfig.Dash.Port,
 			User:       loadedConfig.Dash.User,
@@ -140,6 +143,7 @@ func backendMain() error {
 		// TODO(andrew.shvv) Create subsystem to return current fee per unit
 		FeePerUnit: loadedConfig.Litecoin.FeePerUnit,
 		DaemonCfg: &bitcoind.DaemonConfig{
+			Name:       "litecoind",
 			ServerHost: loadedConfig.Litecoin.Host,
 			ServerPort: loadedConfig.Litecoin.Port,
 			User:       loadedConfig.Litecoin.User,
@@ -158,6 +162,7 @@ func backendMain() error {
 		Logger:           mainLog,
 		Metrics:          cryptoMetricsBackend,
 		DaemonCfg: &geth.DaemonConfig{
+			Name:       "geth",
 			ServerHost: loadedConfig.Ethereum.Host,
 			ServerPort: loadedConfig.Ethereum.Port,
 			Password:   loadedConfig.Ethereum.Password,
@@ -175,6 +180,7 @@ func backendMain() error {
 	}
 
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
+		Name:       "lnd",
 		Host:        loadedConfig.BitcoinLightning.Host,
 		Port:        loadedConfig.BitcoinLightning.Port,
 		TlsCertPath: loadedConfig.BitcoinLightning.TlsCertPath,

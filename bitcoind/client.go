@@ -63,6 +63,7 @@ const (
 )
 
 type DaemonConfig struct {
+	Name       string
 	ServerHost string
 	ServerPort int
 	User       string
@@ -201,7 +202,8 @@ func (c *Connector) Start() error {
 		return nil
 	}
 
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodStart, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodStart, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	host := fmt.Sprintf("%v:%v", c.cfg.DaemonCfg.ServerHost,
@@ -362,7 +364,8 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 //
 // NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) AccountAddress(account string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodAccountAddress, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodAccountAddress, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	addresses, err := c.client.GetAddressesByAccount(account)
@@ -383,7 +386,8 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 //
 // NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) CreateAddress(account string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodCreateAddress, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodCreateAddress, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	address, err := c.client.GetAccountAddress(account)
@@ -402,7 +406,8 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 func (c *Connector) PendingTransactions(account string) (
 	[]*common.BlockchainPendingPayment, error) {
 
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingTransactions, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodPendingTransactions, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	transactions := make([]*common.BlockchainPendingPayment, len(c.pending[account]))
@@ -417,7 +422,8 @@ func (c *Connector) PendingTransactions(account string) (
 //
 // NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) GenerateTransaction(address string, amount string) (common.GeneratedTransaction, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodGenerateTransaction, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodGenerateTransaction, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address)
@@ -472,7 +478,8 @@ func (c *Connector) GenerateTransaction(address string, amount string) (common.G
 //
 // NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) SendTransaction(rawTx []byte) error {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodSendTransaction, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodSendTransaction, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	wireTx := new(wire.MsgTx)
@@ -496,7 +503,8 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 //
 // NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) PendingBalance(account string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingBalance, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodPendingBalance, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	var amount decimal.Decimal
@@ -866,7 +874,8 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 }
 
 func (c *Connector) sync() error {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodSync, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodSync, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	if err := c.proceedNextBlock(); err != nil {

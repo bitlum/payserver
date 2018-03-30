@@ -13,7 +13,7 @@ const (
 	// with other namespaces on your prometheus server.
 	Namespace = "connector"
 
-	// netLabel is used to distinguish different blockchain network names in
+	// NetLabel is used to distinguish different blockchain network names in
 	// which service is working e.g simnet, testnet, mainnet, during the
 	// process of metric analysis and alert rule constructing.
 	NetLabel = "net"

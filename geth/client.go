@@ -73,6 +73,7 @@ const (
 )
 
 type DaemonConfig struct {
+	Name       string
 	ServerHost string
 	ServerPort int
 	Password   string
@@ -191,7 +192,8 @@ func (c *Connector) Start() error {
 		return nil
 	}
 
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodStart, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodStart, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	c.log.Info("Creating RPC client...")
@@ -286,7 +288,8 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 
 // AccountAddress return the deposit address of account.
 func (c *Connector) AccountAddress(account string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodAccountAddress, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name,string(c.cfg.Asset),
+		MethodAccountAddress, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	var address string
@@ -308,7 +311,8 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 
 // CreateAddress is used to create deposit address.
 func (c *Connector) CreateAddress(account string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodCreateAddress, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodCreateAddress, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	var address string
@@ -361,7 +365,8 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 func (c *Connector) PendingTransactions(account string) (
 	[]*common.BlockchainPendingPayment, error) {
 
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingTransactions, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodPendingTransactions, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	c.pendingLock.Lock()
@@ -382,7 +387,8 @@ func (c *Connector) PendingTransactions(account string) (
 // GenerateTransaction generates raw blockchain transaction.
 func (c *Connector) GenerateTransaction(to, amount string) (
 	common.GeneratedTransaction, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodGenerateTransaction, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodGenerateTransaction, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	tx, err := c.generateTransaction(c.defaultAddress, to, amount, false)
@@ -452,7 +458,8 @@ func (c *Connector) generateTransaction(from, to, amount string, includeFee bool
 
 // SendTransaction sens the given transaction to the blockchain network.
 func (c *Connector) SendTransaction(rawTx []byte) error {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodSendTransaction, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodSendTransaction, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	_, err := c.client.EthSendRawTransaction(string(rawTx))
@@ -466,7 +473,8 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 
 // PendingBalance return the amount of funds waiting to be confirmed.
 func (c *Connector) PendingBalance(account string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingBalance, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodPendingBalance, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	c.pendingLock.Lock()
@@ -876,7 +884,8 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 }
 
 func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
-	m := crypto.NewMetric(string(c.cfg.Asset), MethodSync, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodSync, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	bestBlockNumber, err := c.client.EthBlockNumber()

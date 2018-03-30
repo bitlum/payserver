@@ -36,6 +36,9 @@ const (
 
 // Config is a connector config.
 type Config struct {
+	// Name of the daemon client.
+	Name string
+
 	// Port is gRPC port of lnd daemon.
 	Port int
 
@@ -111,7 +114,7 @@ func (c *Connector) Start() error {
 		return nil
 	}
 
-	m := crypto.NewMetric("BTC", MethodStart, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name,"BTC", MethodStart, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	creds, err := credentials.NewClientTLSFromFile(c.cfg.TlsCertPath, "")
@@ -239,7 +242,7 @@ func (c *Connector) Stop(reason string) error {
 //
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) CreateInvoice(account string, amount string) (string, error) {
-	m := crypto.NewMetric("BTC", MethodCreateInvoice, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name,"BTC", MethodCreateInvoice, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	satoshis, err := btcToSatoshi(amount)
@@ -267,7 +270,7 @@ func (c *Connector) CreateInvoice(account string, amount string) (string, error)
 //
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) SendTo(invoice string) error {
-	m := crypto.NewMetric("BTC", MethodSendTo, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name,"BTC", MethodSendTo, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	req := &lnrpc.SendRequest{
@@ -300,7 +303,7 @@ func (c *Connector) ReceivedPayments() <-chan *common.Payment {
 //
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) Info() (*common.LightningInfo, error) {
-	m := crypto.NewMetric("BTC", MethodInfo, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name,"BTC", MethodInfo, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	req := &lnrpc.GetInfoRequest{}
@@ -324,7 +327,7 @@ func (c *Connector) Info() (*common.LightningInfo, error) {
 //
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error) {
-	m := crypto.NewMetric("BTC", MethodQueryRoutes, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name,"BTC", MethodQueryRoutes, c.cfg.Metrics)
 	defer finishHandler(m)
 
 	satoshis, err := btcToSatoshi(amount)

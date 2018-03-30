@@ -2,7 +2,6 @@ package crypto
 
 import "time"
 
-
 // Metric is an enhancement of Metric backend, which is more suited for this
 // package usage.
 type Metric struct {
@@ -22,6 +21,11 @@ type Metric struct {
 	// asset is an asset with which cryptocurrency daemon is working.
 	// Used as an additional label in the Metric server.
 	asset string
+
+	// daemon is an daemon name with which we interacting, this label would
+	// helps as quickly grasp which daemon has a problem if something bas
+	// happened.
+	daemon string
 }
 
 // NewMetric creates new metricsBackend with specified request name, sets start time
@@ -30,13 +34,16 @@ type Metric struct {
 // Note: we use not pointer type receiver so any changes within method
 // do not change original struct fields. Each call creates new `metricsBackend`
 // with copied fields.
-func NewMetric(asset, request string, backend MetricsBackend) Metric {
+func NewMetric(daemon, asset, request string, backend MetricsBackend) Metric {
 	m := Metric{}
+
 	m.backend = backend
 	m.requestName = request
 	m.startTime = time.Now()
 	m.asset = asset
-	m.backend.AddRequest(m.asset, request)
+	m.daemon = daemon
+
+	m.backend.AddRequest(m.daemon, m.asset, request)
 	return m
 }
 
@@ -46,12 +53,12 @@ func NewMetric(asset, request string, backend MetricsBackend) Metric {
 // do not change original struct fields. Each call creates new `metricsBackend`
 // with copied fields.
 func (m Metric) AddError(severity string) {
-	m.backend.AddError(m.asset, m.requestName, severity)
+	m.backend.AddError(m.daemon, m.asset, m.requestName, severity)
 }
 
 // AddPanic adds panic metric
 func (m Metric) AddPanic() {
-	m.backend.AddPanic(m.asset, m.requestName)
+	m.backend.AddPanic(m.daemon, m.asset, m.requestName)
 }
 
 // AddRequestDuration adds request duration metric. Supposed to be
@@ -67,5 +74,5 @@ func (m Metric) AddRequestDuration() {
 	}
 
 	dur := time.Now().Sub(m.startTime)
-	m.backend.AddRequestDuration(m.asset, m.requestName, dur)
+	m.backend.AddRequestDuration(m.daemon, m.asset, m.requestName, dur)
 }

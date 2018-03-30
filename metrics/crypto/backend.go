@@ -11,7 +11,7 @@ import (
 const (
 	// subsystem is used as the second part in the name of the metric,
 	// after the metrics namespace.
-	subsystem = "bitcoind"
+	subsystem = "crypto"
 
 	// requestLabel is used to distinguish different RPC requests during the
 	// process of metric analysis and alert rule constructing.
@@ -24,15 +24,19 @@ const (
 	// severityLabel is used to distinguish different error codes by its
 	// level of importance.
 	severityLabel = "severity"
+
+	// daemonLabel is used to distinguish different daemon names,
+	// and quickly identify the problem if such occurs.
+	daemonLabel = "daemon"
 )
 
 // MetricsBackend is a system which is responsible for receiving and storing
 // the connector metricsBackend.
 type MetricsBackend interface {
-	AddRequest(asset, request string)
-	AddError(asset, request, severity string)
-	AddPanic(asset, request string)
-	AddRequestDuration(asset, request string, dur time.Duration)
+	AddRequest(daemon, asset, request string)
+	AddError(daemon, asset, request, severity string)
+	AddPanic(daemon, asset, request string)
+	AddRequestDuration(daemon, asset, request string, dur time.Duration)
 }
 
 // EmptyBackend is used as an empty metricsBackend backend in order to avoid
@@ -63,11 +67,12 @@ type PrometheusBackend struct {
 //
 // NOTE: Non-pointer receiver made by intent to avoid conflict in the system
 // with parallel metrics report.
-func (m PrometheusBackend) AddRequest(asset, request string) {
+func (m PrometheusBackend) AddRequest(asset, request, daemon string) {
 	m.requestsTotal.With(
 		prometheus.Labels{
 			requestLabel: request,
 			assetLabel:   asset,
+			daemonLabel:  daemon,
 		},
 	).Add(1)
 }
@@ -80,12 +85,13 @@ func (m PrometheusBackend) AddRequest(asset, request string) {
 //
 // NOTE: Non-pointer receiver made by intent to avoid conflict in the system
 // with parallel metrics report.
-func (m PrometheusBackend) AddError(asset, request, severity string) {
+func (m PrometheusBackend) AddError(daemon, asset, request, severity string) {
 	m.errorsTotal.With(
 		prometheus.Labels{
 			requestLabel:  request,
 			severityLabel: severity,
 			assetLabel:    asset,
+			daemonLabel:   daemon,
 		},
 	).Add(1)
 }
@@ -94,11 +100,12 @@ func (m PrometheusBackend) AddError(asset, request, severity string) {
 //
 // NOTE: Non-pointer receiver made by intent to avoid conflict in the system
 // with parallel metrics report.
-func (m PrometheusBackend) AddPanic(asset, request string) {
+func (m PrometheusBackend) AddPanic(daemon, asset, request string) {
 	m.panicsTotal.With(
 		prometheus.Labels{
 			requestLabel: request,
 			assetLabel:   asset,
+			daemonLabel:  daemon,
 		},
 	).Add(1)
 }
@@ -108,11 +115,13 @@ func (m PrometheusBackend) AddPanic(asset, request string) {
 //
 // NOTE: Non-pointer receiver made by intent to avoid conflict in the system
 // with parallel metrics report.
-func (m PrometheusBackend) AddRequestDuration(asset, request string, dur time.Duration) {
+func (m PrometheusBackend) AddRequestDuration(daemon, asset, request string,
+	dur time.Duration) {
 	m.requestDurationSeconds.With(
 		prometheus.Labels{
 			requestLabel: request,
 			assetLabel:   asset,
+			daemonLabel:  daemon,
 		},
 	).Observe(dur.Seconds())
 }
@@ -136,6 +145,7 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 		[]string{
 			requestLabel,
 			assetLabel,
+			daemonLabel,
 		},
 	)
 
@@ -162,6 +172,7 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 			requestLabel,
 			assetLabel,
 			severityLabel,
+			daemonLabel,
 		},
 	)
 
@@ -187,6 +198,7 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 		[]string{
 			requestLabel,
 			assetLabel,
+			daemonLabel,
 		},
 	)
 
@@ -212,6 +224,7 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 		[]string{
 			requestLabel,
 			assetLabel,
+			daemonLabel,
 		},
 	)
 
