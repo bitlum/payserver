@@ -10,6 +10,8 @@ import (
 
 	"github.com/btcsuite/btclog"
 	"github.com/jrick/logrotate/rotator"
+	"github.com/bitlum/connector/metrics"
+	"github.com/bitlum/connector/lnd"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -45,16 +47,22 @@ var (
 	// It is written to by the Write method of the logWriter type.
 	logRotatorPipe *io.PipeWriter
 
-	mainLog = backendLog.Logger("MAIN")
+	metricsLog = backendLog.Logger("METRICS")
+	mainLog    = backendLog.Logger("MAIN")
+	lndLog     = backendLog.Logger("LND")
 )
 
 // Initialize package-global logger variables.
 func init() {
+	metrics.UseLogger(metricsLog)
+	lnd.UseLogger(lndLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
 var subsystemLoggers = map[string]btclog.Logger{
-	"MAIN": mainLog,
+	"MAIN":    mainLog,
+	"METRICS": metricsLog,
+	"LND":     lndLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and
