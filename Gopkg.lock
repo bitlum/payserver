@@ -10,29 +10,36 @@
 [[projects]]
   branch = "master"
   name = "github.com/bitlum/btcd"
-  packages = ["blockchain","btcec","btcjson","chaincfg","chaincfg/chainhash","database","rpcclient","txscript","wire"]
+  packages = [
+    "blockchain",
+    "btcec",
+    "btcjson",
+    "chaincfg",
+    "chaincfg/chainhash",
+    "database",
+    "rpcclient",
+    "txscript",
+    "wire"
+  ]
   revision = "072770c03d1d3b9bc18e2a4a39384bb9fdb409c4"
 
 [[projects]]
   branch = "master"
   name = "github.com/bitlum/btcutil"
-  packages = [".","base58","bech32"]
+  packages = [
+    ".",
+    "base58",
+    "bech32"
+  ]
   revision = "ff69c1bdcd79a3d2687b553361283bc7d04a25a3"
-
-[[projects]]
-  name = "github.com/boltdb/bolt"
-  packages = ["."]
-  revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
-  version = "v1.3.1"
 
 [[projects]]
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
-  revision = "50de9da05b50eb15658bb350f6ea24368a111ab7"
+  revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
 
 [[projects]]
-  branch = "master"
   name = "github.com/btcsuite/btclog"
   packages = ["."]
   revision = "84c8d2346e9fc8c7b947e243b9c24e6df9fd206a"
@@ -56,22 +63,39 @@
   revision = "31079b6807923eb23992c421b114992b95131b55"
 
 [[projects]]
+  name = "github.com/coreos/bbolt"
+  packages = ["."]
+  revision = "4f5275f4ebbf6fe7cb772de987fa96ee674460a7"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
-  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
-  version = "v1.1.0"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
 
 [[projects]]
   name = "github.com/ethereum/go-ethereum"
-  packages = ["common","common/hexutil","common/math","core/types","crypto","crypto/secp256k1","crypto/sha3","log","params","rlp","trie"]
-  revision = "4bb3c89d44e372e6a9ab85a8be0c9345265c763a"
-  version = "v1.7.3"
+  packages = [
+    "common",
+    "common/hexutil",
+    "common/math",
+    "core/types",
+    "crypto",
+    "crypto/secp256k1",
+    "crypto/sha3",
+    "ethdb",
+    "log",
+    "metrics",
+    "params",
+    "rlp",
+    "trie"
+  ]
+  revision = "b8b9f7f4476a30a0aaf6077daade6ae77f969960"
+  version = "v1.8.2"
 
 [[projects]]
   name = "github.com/go-errors/errors"
   packages = ["."]
-  revision = "3afebba5a48dbc89b574d890b6b34d9ee10b4785"
-  version = "v1.0.0"
+  revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
 
 [[projects]]
   name = "github.com/go-stack/stack"
@@ -81,33 +105,48 @@
 
 [[projects]]
   name = "github.com/golang/protobuf"
-  packages = ["jsonpb","proto","protoc-gen-go/descriptor","ptypes","ptypes/any","ptypes/duration","ptypes/struct","ptypes/timestamp"]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
-
-[[projects]]
-  name = "github.com/grpc-ecosystem/grpc-gateway"
-  packages = ["runtime","runtime/internal","utilities"]
-  revision = "07f5e79768022f9a3265235f0db4ac8c3f675fec"
-  version = "v1.3.1"
+  packages = [
+    "jsonpb",
+    "proto",
+    "protoc-gen-go/descriptor",
+    "ptypes/any",
+    "ptypes/struct"
+  ]
+  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
 
 [[projects]]
   branch = "master"
+  name = "github.com/golang/snappy"
+  packages = ["."]
+  revision = "553a641470496b2327abcac10b36396bd98e45c9"
+
+[[projects]]
+  name = "github.com/grpc-ecosystem/grpc-gateway"
+  packages = [
+    "runtime",
+    "runtime/internal",
+    "utilities"
+  ]
+  revision = "f2862b476edcef83412c7af8687c9cd8e4097c0f"
+
+[[projects]]
   name = "github.com/jrick/logrotate"
   packages = ["rotator"]
   revision = "a93b200c26cbae3bb09dd0dc2c7c7fe1468a034a"
 
 [[projects]]
-  branch = "master"
   name = "github.com/lightningnetwork/lnd"
   packages = ["lnrpc"]
-  revision = "d092b57d9cad4ac85633433e29795f213890f206"
+  revision = "b866806d67d80e5963ed398f55ab800031df1bf1"
+  version = "0.4-beta"
 
 [[projects]]
-  branch = "master"
   name = "github.com/ltcsuite/ltcd"
-  packages = ["chaincfg/chainhash","wire"]
-  revision = "92a0feb9b86f5971655013115ea4f95949403592"
+  packages = [
+    "chaincfg/chainhash",
+    "wire"
+  ]
+  revision = "5f654d5faab99ee2b3488fabba98e5f7a5257ee3"
 
 [[projects]]
   branch = "master"
@@ -119,7 +158,7 @@
   branch = "master"
   name = "github.com/onrik/ethrpc"
   packages = ["."]
-  revision = "f37d9f7ba18e8a4d1ee1e09ae2ddca6f579adfa9"
+  revision = "18d46a1916edc532894bafb32c1600b8420b925b"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -128,64 +167,125 @@
   version = "v0.8.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/rcrowley/go-metrics"
-  packages = ["."]
-  revision = "8732c616f52954686704c8645fe1a9d59e9df7c1"
-
-[[projects]]
   name = "github.com/schancel/cashaddr-converter"
-  packages = ["address","baseconv","cashaddress","legacy"]
+  packages = [
+    "address",
+    "baseconv",
+    "cashaddress",
+    "legacy"
+  ]
   revision = "0a38f5822f795dc3727b4caacc298e02938d9eb1"
   version = "v9"
 
 [[projects]]
-  branch = "master"
   name = "github.com/shopspring/decimal"
   packages = ["."]
-  revision = "e3482495ff4cba75613e4177ed79825c890058a9"
+  revision = "69b3a8ad1f5f2c8bd855cb6506d18593064a346b"
+  version = "1.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/syndtr/goleveldb"
+  packages = [
+    "leveldb",
+    "leveldb/cache",
+    "leveldb/comparer",
+    "leveldb/errors",
+    "leveldb/filter",
+    "leveldb/iterator",
+    "leveldb/journal",
+    "leveldb/memdb",
+    "leveldb/opt",
+    "leveldb/storage",
+    "leveldb/table",
+    "leveldb/util"
+  ]
+  revision = "169b1b37be738edb2813dab48c97a549bcf99bb5"
 
 [[projects]]
   branch = "master"
   name = "go4.org"
   packages = ["reflectutil"]
-  revision = "fba789b7e39ba524b9e60c45c37a50fae63a2a09"
+  revision = "e6a7f04a962e05f288f348eec6de20fe93b6b292"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["pbkdf2","ripemd160","scrypt"]
-  revision = "d9133f5469342136e669e85192a26056b587f503"
+  packages = [
+    "pbkdf2",
+    "ripemd160",
+    "scrypt"
+  ]
+  revision = "80db560fac1fb3e6ac81dbc7f8ae4c061f5257bd"
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
+  packages = [
+    "context",
+    "http2",
+    "http2/hpack",
+    "idna",
+    "internal/timeseries",
+    "lex/httplex",
+    "trace"
+  ]
+  revision = "ae89d30ce0c63142b652837da33d782e2b0a9b25"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "641605214e7dab930817f68e2fef560efbb033e5"
 
 [[projects]]
-  branch = "master"
   name = "golang.org/x/text"
-  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
-  revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+  packages = [
+    "collate",
+    "collate/build",
+    "internal/colltab",
+    "internal/gen",
+    "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
+    "language",
+    "secure/bidirule",
+    "transform",
+    "unicode/bidi",
+    "unicode/cldr",
+    "unicode/norm",
+    "unicode/rangetable"
+  ]
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
 
 [[projects]]
-  branch = "master"
   name = "google.golang.org/genproto"
-  packages = ["googleapis/api/annotations","googleapis/rpc/status"]
-  revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7"
+  packages = [
+    "googleapis/api/annotations",
+    "googleapis/rpc/status"
+  ]
+  revision = "df60624c1e9b9d2973e889c7a1cff73155da81c4"
 
 [[projects]]
   name = "google.golang.org/grpc"
-  packages = [".","balancer","balancer/base","balancer/roundrobin","codes","connectivity","credentials","encoding","grpclb/grpc_lb_v1/messages","grpclog","internal","keepalive","metadata","naming","peer","resolver","resolver/dns","resolver/passthrough","stats","status","tap","transport"]
-  revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
-  version = "v1.9.2"
+  packages = [
+    ".",
+    "codes",
+    "connectivity",
+    "credentials",
+    "grpclb/grpc_lb_v1",
+    "grpclog",
+    "internal",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "stats",
+    "status",
+    "tap",
+    "transport"
+  ]
+  revision = "b3ddf786825de56a4178401b7e174ee332173b66"
 
 [[projects]]
   branch = "v2"
@@ -196,6 +296,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8cf03c984f42175b817fd3f8557c6d39ba4e9507ea481b6dfc83f7cc124fa1e5"
+  inputs-digest = "f300c7996a8f5791dcd2a467065695eef0af0cb51abd1571711cdb1534f99990"
   solver-name = "gps-cdcl"
   solver-version = 1
