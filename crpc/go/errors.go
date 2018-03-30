@@ -4,27 +4,24 @@ import (
 	"fmt"
 )
 
+const (
+	ErrAssetNotSupported   = iota
+	ErrNetworkNotSupported
+	ErrInvalidArgument
+
+	// ErrInternal...
+	ErrInternal
+)
+
 type Error struct {
-	code   int
-	errMsg string
+	code     int
+	errMsg   string
+	internal bool
 }
 
 func (e Error) Error() string {
 	return e.errMsg
 }
-
-const (
-	// ErrAssetNotSupported...
-	ErrAssetNotSupported = iota + 1
-
-	ErrNetworkNotSupported
-
-	// ErrInternal...
-	ErrInternal
-
-	// ErrInvalidArgument...
-	ErrInvalidArgument
-)
 
 func newErrNetworkNotSupported(network, operation string) Error {
 	return Error{

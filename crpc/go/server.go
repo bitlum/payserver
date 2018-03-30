@@ -7,6 +7,21 @@ import (
 	"github.com/btcsuite/btclog"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/net/context"
+	"github.com/bitlum/connector/metrics/rpc"
+)
+
+const (
+	Estimate            = "Estimate"
+	CreateAddress       = "CreateAddress"
+	AccountAddress      = "AccountAddress"
+	PendingBalance      = "PendingBalance"
+	PendingTransactions = "PendingTransactions"
+	GenerateTransaction = "GenerateTransaction"
+	CheckReachable      = "CheckReachable"
+	SendTransaction     = "SendTransaction"
+	NetworkInfo         = "NetworkInfo"
+	CreateInvoice       = "CreateInvoice"
+	SendPayment         = "SendPayment"
 )
 
 // Server...
@@ -15,6 +30,7 @@ type Server struct {
 	lightningConnectors  map[core.AssetType]common.LightningConnector
 	estmtr               estimator.USDEstimator
 	log                  common.NamedLogger
+	metrics              rpc.MetricsBackend
 }
 
 // A compile time check to ensure that Server fully implements the
@@ -26,7 +42,8 @@ func NewRPCServer(
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector,
 	lightningConnectors map[core.AssetType]common.LightningConnector,
 	estmtr estimator.USDEstimator,
-	log btclog.Logger) (*Server, error) {
+	log btclog.Logger,
+	metrics rpc.MetricsBackend) (*Server, error) {
 	return &Server{
 		blockchainConnectors: blockchainConnectors,
 		lightningConnectors:  lightningConnectors,
@@ -35,6 +52,7 @@ func NewRPCServer(
 			Logger: log,
 			Name:   "RPC",
 		},
+		metrics: metrics,
 	}, nil
 }
 
@@ -50,6 +68,8 @@ func (s *Server) CreateAddress(_ context.Context, req *CreateAddressRequest) (*A
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(CreateAddress, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "create address")
 	}
 
@@ -79,6 +99,8 @@ func (s *Server) AccountAddress(_ context.Context,
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(AccountAddress, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "account address")
 	}
 
@@ -108,6 +130,8 @@ func (s *Server) PendingBalance(_ context.Context,
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(PendingBalance, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "pending balance")
 	}
 
@@ -138,6 +162,8 @@ func (s *Server) PendingTransactions(_ context.Context,
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(PendingTransactions, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "pending transactions")
 	}
 
@@ -182,6 +208,8 @@ func (s *Server) GenerateTransaction(_ context.Context,
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(GenerateTransaction, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "generate transaction")
 	}
 
@@ -212,6 +240,8 @@ func (s *Server) SendTransaction(_ context.Context,
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(SendTransaction, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "send transaction")
 	}
 
@@ -236,6 +266,8 @@ func (s *Server) NetworkInfo(_ context.Context,
 	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	if req.Type == string(common.Blockchain) {
+		severity := errMetricsInfo(ErrNetworkNotSupported)
+		s.metrics.AddError(NetworkInfo, severity)
 		return nil, newErrNetworkNotSupported(string(common.Blockchain),
 			"network info")
 	}
@@ -289,6 +321,8 @@ func (s *Server) CreateInvoice(_ context.Context,
 
 	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrNetworkNotSupported)
+		s.metrics.AddError(CreateInvoice, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "create invoice")
 	}
 
@@ -319,7 +353,9 @@ func (s *Server) SendPayment(_ context.Context,
 
 	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
 	if !ok {
-		return nil, newErrAssetNotSupported(req.Asset, "create invoice")
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(SendPayment, severity)
+		return nil, newErrAssetNotSupported(req.Asset, "send payment")
 	}
 
 	if err := c.SendTo(req.Invoice); err != nil {
@@ -346,6 +382,8 @@ func (s *Server) CheckReachable(_ context.Context,
 
 	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
 	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(CheckReachable, severity)
 		return nil, newErrAssetNotSupported(req.Asset, "create invoice")
 	}
 
