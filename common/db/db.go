@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/boltdb/bolt"
+	"github.com/coreos/bbolt"
 )
 
 const (

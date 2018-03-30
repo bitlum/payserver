@@ -21,7 +21,7 @@ import (
 	"github.com/bitlum/connector/common"
 	"github.com/bitlum/connector/common/core"
 	"github.com/bitlum/connector/common/db"
-	"github.com/boltdb/bolt"
+	"github.com/coreos/bbolt"
 	"github.com/btcsuite/btclog"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
