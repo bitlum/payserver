@@ -15,7 +15,10 @@ import (
 
 const (
 	defaultRPCHost = "0.0.0.0"
-	defaultRPCPort = 9002
+	defaultRPCPort = "9002"
+
+	defaultPrometheusEndpointHost = "0.0.0.0"
+	defaultPrometheusEndpointPort = "9999"
 
 	defaultTLSCertFilename = "server.cert"
 	defaultTLSKeyFilename  = "server.key"
@@ -35,6 +38,11 @@ var (
 	defaultLogDir      = filepath.Join(homeDir, defaultLogDirname)
 )
 
+type prometheusConfig struct {
+	Host string `long:"host" description:"The host of the prometheus metrics endpoint, from which metric server is trying to fetch metrics"`
+	Port string `long:"port" description:"The port of the prometheus metrics endpoint, from which metric server is trying to fetch metrics"`
+}
+
 // config defines the configuration options for lnd.
 //
 // See loadConfig for further details regarding the configuration
@@ -49,12 +57,14 @@ type config struct {
 	EnginePort int    `long:"engineport" description:"The port of the exchange engine server"`
 
 	RPCHost string `long:"rpchost" description:"The host of the RPC endpoint"`
-	RPCPort int    `long:"rpcport" description:"The port of the RPC endpoint"`
+	RPCPort string    `long:"rpcport" description:"The port of the RPC endpoint"`
 
 	ConfigFile string `long:"config" description:"Path to configuration file"`
 
 	LogDir     string `long:"logdir" description:"Directory to log output."`
 	DebugLevel string `long:"debuglevel" description:"Logging level for all subsystems {trace, debug, info, warn, error, critical} -- You may also specify <subsystem>=<level>,<subsystem2>=<level>,... to set the log level for individual subsystems -- Use show to list available subsystems"`
+
+	Prometheus *prometheusConfig `group:"Prometheus" namespace:"prometheus"`
 
 	Bitcoin          *BitcoindConfig `group:"bitcoin" namespace:"bitcoin"`
 	BitcoinLightning *LndConfig      `group:"bitcoinlightning" namespace:"bitcoinlightning"`
@@ -101,6 +111,11 @@ func getDefaultConfig() config {
 		ConfigFile: defaultConfigFile,
 		LogDir:     defaultLogDir,
 		DebugLevel: defaultLogLevel,
+
+		Prometheus: &prometheusConfig{
+			Host: defaultPrometheusEndpointHost,
+			Port: defaultPrometheusEndpointPort,
+		},
 	}
 }
 
