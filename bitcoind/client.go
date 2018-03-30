@@ -25,6 +25,7 @@ import (
 	"github.com/btcsuite/btclog"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
+	"github.com/bitlum/connector/metrics/crypto"
 )
 
 var (
@@ -48,6 +49,17 @@ var (
 
 	// drainDelay...
 	drainDelay = time.Hour
+)
+
+const (
+	MethodStart               = "Start"
+	MethodAccountAddress      = "AccountAddress"
+	MethodCreateAddress       = "CreateAddress"
+	MethodPendingTransactions = "PendingTransactions"
+	MethodGenerateTransaction = "GenerateTransaction"
+	MethodSendTransaction     = "SendTransaction"
+	MethodPendingBalance      = "PendingBalance"
+	MethodSync                = "Sync"
 )
 
 type DaemonConfig struct {
@@ -79,7 +91,7 @@ type Config struct {
 	// which interact with the payment system network.
 	DaemonCfg *DaemonConfig
 
-	// Asset...
+	// Asset is an asset with which this connector is working.
 	Asset core.AssetType
 
 	// FeePerUnit fee per unit, where in bitcoin and litecoin unit is weight,
@@ -88,6 +100,10 @@ type Config struct {
 	FeePerUnit int
 
 	Logger btclog.Logger
+
+	// Metric is an metrics backend which is used for tracking the metrics of
+	// connector.
+	Metrics crypto.MetricsBackend
 }
 
 func (c *Config) validate() error {
@@ -119,10 +135,15 @@ func (c *Config) validate() error {
 		return errors.New("fee per unit should be specified")
 	}
 
+	if c.Metrics == nil {
+		return errors.New("metrics backend should be specified")
+	}
+
 	return nil
 }
 
-// Connector...
+// Connector implements common.BlockchainConnector interface for bitcoind
+// client.
 type Connector struct {
 	started  int32
 	shutdown int32
@@ -133,7 +154,10 @@ type Connector struct {
 	client *ExtendedRPCClient
 	db     *db.DB
 
-	pending       map[string][]*common.BlockchainPendingPayment
+	// pending is a map of blockhain pending payments,
+	// which hasn't been confirmed from connector point of view.
+	pending map[string][]*common.BlockchainPendingPayment
+
 	notifications chan []*common.Payment
 
 	lastSyncedBlockHash *chainhash.Hash
@@ -142,11 +166,11 @@ type Connector struct {
 
 	coinSelectMtx sync.Mutex
 
-	// Unspent is used to store btc uxto set locally,
+	// unspent is used to store btc uxto set locally,
 	// in order to craft transactions faster.
 	unspent map[string]btcjson.ListUnspentResult
 
-	// UnspentSyncMtx is used to lock the utxo lcoal map during is
+	// unspentSyncMtx is used to lock the utxo local map during is
 	// usage/population.
 	unspentSyncMtx sync.Mutex
 }
@@ -177,6 +201,9 @@ func (c *Connector) Start() error {
 		return nil
 	}
 
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodStart, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	host := fmt.Sprintf("%v:%v", c.cfg.DaemonCfg.ServerHost,
 		c.cfg.DaemonCfg.ServerPort)
 	cfg := &rpcclient.ConnConfig{
@@ -191,6 +218,7 @@ func (c *Connector) Start() error {
 	c.log.Info("Creating RPC client...")
 	client, err := rpcclient.New(cfg, nil)
 	if err != nil {
+		m.AddError(errToSeverity(ErrCreateRPCClient))
 		return errors.Errorf("unable to create RPC client: %v", err)
 	}
 	c.client = &ExtendedRPCClient{
@@ -201,12 +229,14 @@ func (c *Connector) Start() error {
 	if c.cfg.Asset == core.AssetDASH {
 		resp, err := c.client.GetDashBlockChainInfo()
 		if err != nil {
+			m.AddError(errToSeverity(ErrGetBlockchainInfo))
 			return errors.Errorf("unable to get type of network: %v", err)
 		}
 		chain = resp.Chain
 	} else {
 		resp, err := c.client.GetBlockChainInfo()
 		if err != nil {
+			m.AddError(errToSeverity(ErrGetBlockchainInfo))
 			return errors.Errorf("unable to get type of network: %v", err)
 		}
 		chain = resp.Chain
@@ -214,6 +244,7 @@ func (c *Connector) Start() error {
 
 	c.netParams, err = net.GetParams(string(c.cfg.Asset), chain)
 	if err != nil {
+		m.AddError(errToSeverity(ErrGetNetParams))
 		return errors.Errorf("failed to get net params: %v", err)
 	}
 
@@ -222,6 +253,7 @@ func (c *Connector) Start() error {
 
 	database, err := db.Open(c.cfg.DataDir, strings.ToLower(string(c.cfg.Asset)))
 	if err != nil {
+		m.AddError(errToSeverity(ErrOpenDatabase))
 		return err
 	}
 	c.db = database
@@ -231,11 +263,13 @@ func (c *Connector) Start() error {
 	if c.cfg.LastSyncedBlockHash != "" {
 		c.lastSyncedBlockHash, err = chainhash.NewHashFromStr(c.cfg.LastSyncedBlockHash)
 		if err != nil {
+			m.AddError(errToSeverity(ErrInitLastSyncedBlock))
 			return errors.Errorf("unable to decode hash: %v", err)
 		}
 	} else {
 		c.lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
 		if err != nil {
+			m.AddError(errToSeverity(ErrInitLastSyncedBlock))
 			return errors.Errorf("unable to fetch last block synced "+
 				"hash: %v", err)
 		}
@@ -245,6 +279,7 @@ func (c *Connector) Start() error {
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
+		m.AddError(errToSeverity(ErrGetDefaultAddress))
 		return errors.Errorf("unable to fetch default address: %v", err)
 	}
 	c.log.Infof("Default address %v", defaultAddress)
@@ -260,27 +295,8 @@ func (c *Connector) Start() error {
 
 		syncDelay := time.Second * time.Duration(c.cfg.SyncLoopDelay)
 		for {
-			select {
-			case <-time.After(drainDelay):
-				if err := c.drainTransactions(); err != nil {
-					c.log.Errorf("unable to drain old applied transactions"+
-						": %v", err)
-				}
-			case <-time.After(syncDelay):
-			case <-c.quit:
-				return
-			}
-
-			if err := c.proceedNextBlock(); err != nil {
-				c.log.Errorf("unable to process blocks: %v", err)
-				continue
-			}
-
-			// As far as pending transaction may occur at any time,
-			// run it every cycle.
-			if err := c.syncUnconfirmed(); err != nil {
-				c.log.Errorf("unable to sync unconfirmed txs: %v", err)
-				continue
+			if err := c.sync(syncDelay); err != nil {
+				c.log.Error(err)
 			}
 		}
 	}()
@@ -295,7 +311,8 @@ func (c *Connector) Start() error {
 		for {
 
 			if err := c.syncUnspent(); err != nil {
-				c.log.Errorf("unablet tosync unspent: %v", err)
+				m.AddError(errToSeverity(ErrSyncUnspent))
+				c.log.Errorf("unable to main sync unspent: %v", err)
 			}
 
 			select {
@@ -329,9 +346,15 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 }
 
 // AccountAddress return the deposit address of account.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) AccountAddress(account string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodAccountAddress, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	addresses, err := c.client.GetAddressesByAccount(account)
 	if err != nil {
+		m.AddError(errToSeverity(ErrGetAddress))
 		return "", err
 	}
 
@@ -344,9 +367,15 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 }
 
 // CreateAddress is used to create deposit address.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) CreateAddress(account string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodCreateAddress, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	address, err := c.client.GetAccountAddress(account)
 	if err != nil {
+		m.AddError(errToSeverity(ErrCreateAddress))
 		return "", err
 	}
 
@@ -355,8 +384,14 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 
 // PendingTransactions return the transactions which has confirmation
 // number lower the required by payment system.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) PendingTransactions(account string) (
 	[]*common.BlockchainPendingPayment, error) {
+
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingTransactions, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	transactions := make([]*common.BlockchainPendingPayment, len(c.pending[account]))
 	for i, tx := range c.pending[account] {
 		transactions[i] = tx
@@ -365,40 +400,52 @@ func (c *Connector) PendingTransactions(account string) (
 	return transactions, nil
 }
 
-// GenerateTransaction...
+// GenerateTransaction generates raw blockchain transaction.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) GenerateTransaction(address string, amount string) (common.GeneratedTransaction, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodGenerateTransaction, c.cfg.Metrics)
+	defer finishHandler(m)
 
 	err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address)
 	if err != nil {
+		m.AddError(errToSeverity(ErrValidateAddress))
 		return nil, errors.Errorf("invalid address: %v", err)
 	}
 
 	decodedAddress, err := btcutil.DecodeAddress(address, c.netParams)
 	if err != nil {
+		m.AddError(errToSeverity(ErrDecodeAddress))
+
 		return nil, errors.Errorf("unable to decode address: %v", err)
 	}
 
 	amt, err := decimal.NewFromString(amount)
 	if err != nil {
+		m.AddError(errToSeverity(ErrDecodeAmount))
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
 	tx, _, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
 	if err != nil {
+		m.AddError(errToSeverity(ErrCraftTx))
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
 	}
 
 	signedTx, isSigned, err := c.client.SignRawTransaction(tx)
 	if err != nil {
+		m.AddError(errToSeverity(ErrSignTx))
 		return nil, errors.Errorf("unable to sign generated transaction: %v", err)
 	}
 
 	if !isSigned {
+		m.AddError(errToSeverity(ErrSignTx))
 		return nil, errors.Errorf("unable to sign all generated transaction inputs: %v", err)
 	}
 
 	var rawTx bytes.Buffer
 	if err := signedTx.Serialize(&rawTx); err != nil {
+		m.AddError(errToSeverity(ErrSerialiseTx))
 		return nil, errors.Errorf("unable serialize signed tx: %v", err)
 	}
 
@@ -408,18 +455,24 @@ func (c *Connector) GenerateTransaction(address string, amount string) (common.G
 	}, nil
 }
 
-// SendTo is used to send specific amount of money to address within this
-// payment system.
+// SendTransaction sends the given transaction to the blockchain network.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) SendTransaction(rawTx []byte) error {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodSendTransaction, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	wireTx := new(wire.MsgTx)
 	r := bytes.NewBuffer(rawTx)
 
 	if err := wireTx.Deserialize(r); err != nil {
+		m.AddError(errToSeverity(ErrDeserialiseTx))
 		return errors.Errorf("unable to deserialize raw tx: %v", err)
 	}
 
 	_, err := c.client.SendRawTransaction(wireTx, true)
 	if err != nil {
+		m.AddError(errToSeverity(ErrSendTx))
 		return errors.Errorf("unable to send transaction: %v", err)
 	}
 
@@ -427,7 +480,12 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 }
 
 // PendingBalance return the amount of funds waiting ro be confirmed.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) PendingBalance(account string) (string, error) {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodPendingBalance, c.cfg.Metrics)
+	defer finishHandler(m)
+
 	var amount decimal.Decimal
 	for _, tx := range c.pending[account] {
 		amount = amount.Add(tx.Amount)
@@ -439,6 +497,8 @@ func (c *Connector) PendingBalance(account string) (string, error) {
 // ReceivedPayments returns channel with transactions which
 // passed the minimum threshold required by the bitcoin client to treat the
 // transactions as confirmed.
+//
+// NOTE: Part of the common.BlockchainConnector interface.
 func (c *Connector) ReceivedPayments() <-chan []*common.Payment {
 	return c.notifications
 }
@@ -790,4 +850,36 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	}
 
 	return defaultAddress, nil
+}
+
+func (c *Connector) sync(syncDelay time.Duration) error {
+	m := crypto.NewMetric(string(c.cfg.Asset), MethodSync, c.cfg.Metrics)
+	defer finishHandler(m)
+
+	select {
+	case <-time.After(drainDelay):
+		if err := c.drainTransactions(); err != nil {
+			m.AddError(errToSeverity(ErrDrainTransactions))
+			return errors.Errorf("unable to drain old applied transactions"+
+				": %v", err)
+		}
+	case <-time.After(syncDelay):
+	case <-c.quit:
+		return nil
+	}
+
+	if err := c.proceedNextBlock(); err != nil {
+		m.AddError(errToSeverity(ErrProceedNextBlock))
+		return errors.Errorf("unable to process blocks: %v", err)
+
+	}
+
+	// As far as pending transaction may occur at any time,
+	// run it every cycle.
+	if err := c.syncUnconfirmed(); err != nil {
+		m.AddError(errToSeverity(ErrSyncUnconfirmed))
+		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
+	}
+
+	return nil
 }

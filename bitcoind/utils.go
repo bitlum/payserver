@@ -7,6 +7,7 @@ import (
 
 	"github.com/bitlum/btcutil"
 	"github.com/shopspring/decimal"
+	"github.com/bitlum/connector/metrics/crypto"
 )
 
 var satoshiPerBitcoin = decimal.New(btcutil.SatoshiPerBitcoin, 0)
@@ -28,4 +29,15 @@ func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 func printAmount(a btcutil.Amount) string {
 	u := btcutil.AmountBTC
 	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u + 8), 64)
+}
+
+// finishHandler used as defer in handlers, to ensure that we track panics and
+// measure handler time.
+func finishHandler(metrics crypto.Metric) {
+	metrics.AddRequestDuration()
+
+	if r := recover(); r != nil {
+		metrics.AddPanic()
+		panic(r)
+	}
 }
