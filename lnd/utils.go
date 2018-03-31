@@ -5,6 +5,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/metrics/crypto"
+	"runtime/debug"
+	"strings"
 )
 
 func btcToSatoshi(amount string) (int64, error) {
@@ -30,6 +32,18 @@ func finishHandler(metrics crypto.Metric) {
 
 	if r := recover(); r != nil {
 		metrics.AddPanic()
-		panic(r)
+		panic(stackTrace())
 	}
+}
+
+func stackTrace() string {
+	s := string(debug.Stack())
+	ls := strings.Split(s, "\n")
+	for i, l := range ls {
+		if strings.Index(l, "src/runtime/panic.go") != -1 && i > 0 &&
+			strings.Index(ls[i-1], "panic(") == 0 {
+			return strings.TrimSpace(strings.Join(ls[i+2:], "\n"))
+		}
+	}
+	return s
 }
