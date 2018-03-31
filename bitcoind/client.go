@@ -204,7 +204,7 @@ func (c *Connector) Start() error {
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodStart, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	host := fmt.Sprintf("%v:%v", c.cfg.DaemonCfg.ServerHost,
 		c.cfg.DaemonCfg.ServerPort)
@@ -366,7 +366,7 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 func (c *Connector) AccountAddress(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodAccountAddress, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	addresses, err := c.client.GetAddressesByAccount(account)
 	if err != nil {
@@ -388,7 +388,7 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 func (c *Connector) CreateAddress(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodCreateAddress, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	address, err := c.client.GetAccountAddress(account)
 	if err != nil {
@@ -408,7 +408,7 @@ func (c *Connector) PendingTransactions(account string) (
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingTransactions, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	transactions := make([]*common.BlockchainPendingPayment, len(c.pending[account]))
 	for i, tx := range c.pending[account] {
@@ -424,7 +424,7 @@ func (c *Connector) PendingTransactions(account string) (
 func (c *Connector) GenerateTransaction(address string, amount string) (common.GeneratedTransaction, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodGenerateTransaction, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address)
 	if err != nil {
@@ -480,7 +480,7 @@ func (c *Connector) GenerateTransaction(address string, amount string) (common.G
 func (c *Connector) SendTransaction(rawTx []byte) error {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSendTransaction, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	wireTx := new(wire.MsgTx)
 	r := bytes.NewBuffer(rawTx)
@@ -505,7 +505,7 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 func (c *Connector) PendingBalance(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	var amount decimal.Decimal
 	for _, tx := range c.pending[account] {
@@ -876,7 +876,7 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 func (c *Connector) sync() error {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSync, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	if err := c.proceedNextBlock(); err != nil {
 		m.AddError(errToSeverity(ErrProceedNextBlock))

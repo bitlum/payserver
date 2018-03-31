@@ -8,7 +8,7 @@ import (
 )
 
 func TestGraphQLMetrics(t *testing.T) {
-	crypto.StartServer("localhost:9999")
+	metrics.StartServer("localhost:9999")
 
 	m, err := InitMetricsBackend("simnet")
 	if err != nil {

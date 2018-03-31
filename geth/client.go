@@ -194,7 +194,7 @@ func (c *Connector) Start() error {
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodStart, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	c.log.Info("Creating RPC client...")
 	url := fmt.Sprintf("http://%v:%v", c.cfg.DaemonCfg.ServerHost,
@@ -290,7 +290,7 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 func (c *Connector) AccountAddress(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name,string(c.cfg.Asset),
 		MethodAccountAddress, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	var address string
 	err := c.db.Update(func(tx *bolt.Tx) error {
@@ -313,7 +313,7 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 func (c *Connector) CreateAddress(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodCreateAddress, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	var address string
 	err := c.db.Update(func(tx *bolt.Tx) error {
@@ -367,7 +367,7 @@ func (c *Connector) PendingTransactions(account string) (
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingTransactions, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
@@ -389,7 +389,7 @@ func (c *Connector) GenerateTransaction(to, amount string) (
 	common.GeneratedTransaction, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodGenerateTransaction, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	tx, err := c.generateTransaction(c.defaultAddress, to, amount, false)
 	if err != nil {
@@ -460,7 +460,7 @@ func (c *Connector) generateTransaction(from, to, amount string, includeFee bool
 func (c *Connector) SendTransaction(rawTx []byte) error {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSendTransaction, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	_, err := c.client.EthSendRawTransaction(string(rawTx))
 	if err != nil {
@@ -475,7 +475,7 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 func (c *Connector) PendingBalance(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
@@ -886,7 +886,7 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSync, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	bestBlockNumber, err := c.client.EthBlockNumber()
 	if err != nil {

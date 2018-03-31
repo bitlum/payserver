@@ -1,6 +1,10 @@
 package crypto
 
-import "time"
+import (
+	"time"
+	"runtime/debug"
+	"strings"
+)
 
 // Metric is an enhancement of Metric backend, which is more suited for this
 // package usage.
@@ -75,4 +79,27 @@ func (m Metric) AddRequestDuration() {
 
 	dur := time.Now().Sub(m.startTime)
 	m.backend.AddRequestDuration(m.daemon, m.asset, m.requestName, dur)
+}
+
+// Finish used as defer in handlers, to ensure that we track panics and
+// measure handler time.
+func (m Metric) Finish() {
+	m.AddRequestDuration()
+
+	if r := recover(); r != nil {
+		m.AddPanic()
+		panic(stackTrace())
+	}
+}
+
+func stackTrace() string {
+	s := string(debug.Stack())
+	ls := strings.Split(s, "\n")
+	for i, l := range ls {
+		if strings.Index(l, "src/runtime/panic.go") != -1 && i > 0 &&
+			strings.Index(ls[i-1], "panic(") == 0 {
+			return strings.TrimSpace(strings.Join(ls[i+2:], "\n"))
+		}
+	}
+	return s
 }

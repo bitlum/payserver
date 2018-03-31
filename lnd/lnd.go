@@ -116,7 +116,7 @@ func (c *Connector) Start() error {
 	}
 
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodStart, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	creds, err := credentials.NewClientTLSFromFile(c.cfg.TlsCertPath, "")
 	if err != nil {
@@ -152,7 +152,7 @@ func (c *Connector) Start() error {
 	c.wg.Add(1)
 	go func() {
 		m := crypto.NewMetric(c.cfg.Name, "BTC", MethodHandleInvoice, c.cfg.Metrics)
-		defer finishHandler(m)
+		defer m.Finish()
 
 		defer c.wg.Done()
 		for {
@@ -246,7 +246,7 @@ func (c *Connector) Stop(reason string) error {
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) CreateInvoice(account string, amount string) (string, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodCreateInvoice, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	satoshis, err := btcToSatoshi(amount)
 	if err != nil {
@@ -274,7 +274,7 @@ func (c *Connector) CreateInvoice(account string, amount string) (string, error)
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) SendTo(invoice string) error {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodSendTo, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	req := &lnrpc.SendRequest{
 		PaymentRequest: invoice,
@@ -307,7 +307,7 @@ func (c *Connector) ReceivedPayments() <-chan *common.Payment {
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) Info() (*common.LightningInfo, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodInfo, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	req := &lnrpc.GetInfoRequest{}
 	info, err := c.client.GetInfo(context.Background(), req)
@@ -331,7 +331,7 @@ func (c *Connector) Info() (*common.LightningInfo, error) {
 // NOTE: Part of the common.LightningConnector interface.
 func (c *Connector) QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodQueryRoutes, c.cfg.Metrics)
-	defer finishHandler(m)
+	defer m.Finish()
 
 	satoshis, err := btcToSatoshi(amount)
 	if err != nil {

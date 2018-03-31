@@ -2,7 +2,6 @@ package geth
 
 import (
 	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/metrics/crypto"
 )
 
 // pendingMap stores the information about pending transactions corresponding
@@ -71,14 +70,3 @@ func (t *GeneratedTransaction) Bytes() []byte {
 }
 
 var _ common.GeneratedTransaction = (*GeneratedTransaction)(nil)
-
-// finishHandler used as defer in handlers, to ensure that we track panics and
-// measure handler time.
-func finishHandler(metrics crypto.Metric) {
-	metrics.AddRequestDuration()
-
-	if r := recover(); r != nil {
-		metrics.AddPanic()
-		panic(r)
-	}
-}
