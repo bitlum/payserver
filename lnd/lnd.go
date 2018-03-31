@@ -167,7 +167,14 @@ func (c *Connector) Start() error {
 					m.AddError(errToSeverity(ErrResubscribeInvoiceStream))
 					log.Errorf("unable to re-subscribe on invoice"+
 						" updates: %v", err)
-					continue
+
+					select {
+					case <-c.quit:
+						log.Info("Invoice receiver goroutine shutdown")
+						return
+					case <-time.After(time.Second * 5):
+						continue
+					}
 				}
 			}
 
@@ -175,15 +182,8 @@ func (c *Connector) Start() error {
 			if err != nil {
 				m.AddError(errToSeverity(ErrReadInvoiceStream))
 				log.Errorf("unable to read from invoice stream: %v", err)
-
-				select {
-				case <-c.quit:
-					log.Info("Invoice receiver goroutine shutdown")
-					return
-				case <-time.After(time.Second * 5):
-					invoiceSubscription = nil
-					continue
-				}
+				invoiceSubscription = nil
+				continue
 			}
 
 			if !invoiceUpdate.Settled {
@@ -204,6 +204,9 @@ func (c *Connector) Start() error {
 		repeat:
 			for {
 				select {
+				case <-c.quit:
+					log.Info("Invoice receiver goroutine shutdown")
+					return
 				case c.notifications <- payment:
 					break repeat
 				case <-time.After(time.Second):
