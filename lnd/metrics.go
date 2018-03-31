@@ -4,6 +4,23 @@ import (
 	"github.com/bitlum/connector/metrics"
 )
 
+const (
+	ErrSendPayment              = iota
+	ErrReadInvoiceStream
+	ErrAddInvoice
+	ErrResubscribeInvoiceStream
+	ErrSubscribeInvoiceStream
+	ErrNonSettledInvoice
+	ErrSendPaymentNotification
+	ErrConvertAmount
+	ErrGRPCConnect
+	ErrTLSRead
+	ErrCreateInvoice
+	ErrGetInfo
+	ErrUnableQueryRoutes
+	ErrPubkey
+)
+
 var errToSeverityMap = map[int]metrics.Severity{
 	ErrSendPayment:              metrics.HighSeverity,
 	ErrReadInvoiceStream:        metrics.HighSeverity,
@@ -17,7 +34,7 @@ var errToSeverityMap = map[int]metrics.Severity{
 	ErrTLSRead:                  metrics.HighSeverity,
 	ErrCreateInvoice:            metrics.HighSeverity,
 	ErrGetInfo:                  metrics.HighSeverity,
-	ErrUnableQueryRoutes:        metrics.HighSeverity,
+	ErrUnableQueryRoutes:        metrics.LowSeverity,
 	ErrPubkey:                   metrics.LowSeverity,
 }
 
