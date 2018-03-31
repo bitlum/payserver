@@ -147,14 +147,7 @@ func (c *Connector) Start() error {
 	}
 
 	c.nodeAddr = respInfo.IdentityPubkey
-
-	log.Info("Subscribe on invoice updates")
-	reqSubsc := &lnrpc.InvoiceSubscription{}
-	invoiceSubscription, err := c.client.SubscribeInvoices(context.Background(), reqSubsc)
-	if err != nil {
-		m.AddError(errToSeverity(ErrSubscribeInvoiceStream))
-		return errors.Errorf("unable to subscribe on invoice updates: %v", err)
-	}
+	var invoiceSubscription lnrpc.Lightning_SubscribeInvoicesClient
 
 	c.wg.Add(1)
 	go func() {
@@ -163,6 +156,21 @@ func (c *Connector) Start() error {
 
 		defer c.wg.Done()
 		for {
+			if invoiceSubscription == nil {
+				log.Info("Subscribe on invoice updates...")
+
+				// Trying to reconnect after receiving transport closing
+				// error.
+				reqSubsc := &lnrpc.InvoiceSubscription{}
+				invoiceSubscription, err = c.client.SubscribeInvoices(context.Background(), reqSubsc)
+				if err != nil {
+					m.AddError(errToSeverity(ErrResubscribeInvoiceStream))
+					log.Errorf("unable to re-subscribe on invoice"+
+						" updates: %v", err)
+					continue
+				}
+			}
+
 			invoiceUpdate, err := invoiceSubscription.Recv()
 			if err != nil {
 				m.AddError(errToSeverity(ErrReadInvoiceStream))
@@ -173,17 +181,7 @@ func (c *Connector) Start() error {
 					log.Info("Invoice receiver goroutine shutdown")
 					return
 				case <-time.After(time.Second * 5):
-					// Trying to reconnect after receiving transport closing
-					// error.
-					invoiceSubscription, err = c.client.SubscribeInvoices(context.Background(), reqSubsc)
-					if err != nil {
-						m.AddError(errToSeverity(ErrResubscribeInvoiceStream))
-						log.Errorf("unable to re-subscribe on invoice"+
-							" updates: %v", err)
-						continue
-					}
-
-					log.Info("Re-subscribe on invoice updates")
+					invoiceSubscription = nil
 					continue
 				}
 			}
