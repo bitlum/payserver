@@ -12,6 +12,7 @@ import (
 	"github.com/jrick/logrotate/rotator"
 	"github.com/bitlum/connector/metrics"
 	"github.com/bitlum/connector/lnd"
+	"github.com/bitlum/connector/crpc/go"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -49,6 +50,7 @@ var (
 
 	metricsLog = backendLog.Logger("METRICS")
 	mainLog    = backendLog.Logger("MAIN")
+	rpcLog     = backendLog.Logger("RPC")
 	lndLog     = backendLog.Logger("LND")
 )
 
@@ -56,6 +58,7 @@ var (
 func init() {
 	metrics.UseLogger(metricsLog)
 	lnd.UseLogger(lndLog)
+	crpc.UseLogger(rpcLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -63,6 +66,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"MAIN":    mainLog,
 	"METRICS": metricsLog,
 	"LND":     lndLog,
+	"RCP":     rpcLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and

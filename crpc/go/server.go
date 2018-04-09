@@ -29,7 +29,6 @@ type Server struct {
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector
 	lightningConnectors  map[core.AssetType]common.LightningConnector
 	estmtr               estimator.USDEstimator
-	log                  common.NamedLogger
 	metrics              rpc.MetricsBackend
 }
 
@@ -48,10 +47,6 @@ func NewRPCServer(
 		blockchainConnectors: blockchainConnectors,
 		lightningConnectors:  lightningConnectors,
 		estmtr:               estmtr,
-		log: common.NamedLogger{
-			Logger: log,
-			Name:   "RPC",
-		},
 		metrics: metrics,
 	}, nil
 }
@@ -64,7 +59,7 @@ func NewRPCServer(
 func (s *Server) CreateAddress(_ context.Context, req *CreateAddressRequest) (*Address,
 	error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -82,7 +77,7 @@ func (s *Server) CreateAddress(_ context.Context, req *CreateAddressRequest) (*A
 		Data: address,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -95,7 +90,7 @@ func (s *Server) CreateAddress(_ context.Context, req *CreateAddressRequest) (*A
 func (s *Server) AccountAddress(_ context.Context,
 	req *AccountAddressRequest) (*Address, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -113,7 +108,7 @@ func (s *Server) AccountAddress(_ context.Context,
 		Data: address,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -126,7 +121,7 @@ func (s *Server) AccountAddress(_ context.Context,
 func (s *Server) PendingBalance(_ context.Context,
 	req *PendingBalanceRequest) (*Balance, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -144,7 +139,7 @@ func (s *Server) PendingBalance(_ context.Context,
 		Data: balance,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -158,7 +153,7 @@ func (s *Server) PendingBalance(_ context.Context,
 func (s *Server) PendingTransactions(_ context.Context,
 	req *PendingTransactionsRequest) (*PendingTransactionsResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -191,7 +186,7 @@ func (s *Server) PendingTransactions(_ context.Context,
 		Payments: payments,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -204,7 +199,7 @@ func (s *Server) PendingTransactions(_ context.Context,
 func (s *Server) GenerateTransaction(_ context.Context,
 	req *GenerateTransactionRequest) (*GenerateTransactionResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -223,7 +218,7 @@ func (s *Server) GenerateTransaction(_ context.Context,
 		TxId:  genTx.ID(),
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -236,7 +231,7 @@ func (s *Server) GenerateTransaction(_ context.Context,
 func (s *Server) SendTransaction(_ context.Context,
 	req *SendTransactionRequest) (*EmtpyResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -251,7 +246,7 @@ func (s *Server) SendTransaction(_ context.Context,
 
 	resp := &EmtpyResponse{}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -263,7 +258,7 @@ func (s *Server) SendTransaction(_ context.Context,
 func (s *Server) NetworkInfo(_ context.Context,
 	req *NetworkInfoRequest) (*NetworkInfoResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	if req.Type == string(common.Blockchain) {
 		severity := errMetricsInfo(ErrNetworkNotSupported)
@@ -303,7 +298,7 @@ func (s *Server) NetworkInfo(_ context.Context,
 		},
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -317,7 +312,7 @@ func (s *Server) NetworkInfo(_ context.Context,
 func (s *Server) CreateInvoice(_ context.Context,
 	req *CreateInvoiceRequest) (*Invoice, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -335,7 +330,7 @@ func (s *Server) CreateInvoice(_ context.Context,
 		Data: invoice,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -349,7 +344,7 @@ func (s *Server) CreateInvoice(_ context.Context,
 func (s *Server) SendPayment(_ context.Context,
 	req *SendPaymentRequest) (*EmtpyResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -364,7 +359,7 @@ func (s *Server) SendPayment(_ context.Context,
 
 	resp := &EmtpyResponse{}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -378,7 +373,7 @@ func (s *Server) SendPayment(_ context.Context,
 func (s *Server) CheckReachable(_ context.Context,
 	req *CheckReachableRequest) (*CheckReachableResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
 	if !ok {
@@ -406,7 +401,7 @@ func (s *Server) CheckReachable(_ context.Context,
 		IsReachable: false,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
@@ -417,7 +412,7 @@ func (s *Server) CheckReachable(_ context.Context,
 func (s *Server) Estimate(_ context.Context,
 	req *EstimateRequest) (*EstimationResponse, error) {
 
-	s.log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
 	usdEstimation, err := s.estmtr.Estimate(req.Asset, req.Amount)
 	if err != nil {
@@ -428,7 +423,7 @@ func (s *Server) Estimate(_ context.Context,
 		Usd: usdEstimation,
 	}
 
-	s.log.Tracef("command(%v), response(%v)", getFunctionName(),
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		spew.Sdump(resp))
 
 	return resp, nil
