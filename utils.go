@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/common/core"
+	core "github.com/bitlum/viabtc_rpc_client"
 )
 
 // fileExists reports whether the named file or directory exists.

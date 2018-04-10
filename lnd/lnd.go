@@ -15,7 +15,7 @@ import (
 	"encoding/hex"
 
 	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/common/db"
+	"github.com/bitlum/connector/db"
 	"github.com/bitlum/btcd/btcec"
 	"github.com/bitlum/btcutil"
 	"github.com/go-errors/errors"

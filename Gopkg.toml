@@ -113,6 +113,10 @@
   name = "github.com/prometheus/client_golang"
   version = "0.8.0"
 
+[[constraint]]
+  branch = "master"
+  name = "github.com/bitlum/viabtc_rpc_client"
+
 [prune]
   go-tests = true
   unused-packages = true

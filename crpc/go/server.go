@@ -2,7 +2,7 @@ package crpc
 
 import (
 	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/common/core"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/bitlum/connector/estimator"
 	"github.com/btcsuite/btclog"
 	"github.com/davecgh/go-spew/spew"

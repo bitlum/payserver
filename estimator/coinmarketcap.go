@@ -11,7 +11,7 @@ import (
 
 	"encoding/json"
 
-	"github.com/bitlum/connector/common/core"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 )

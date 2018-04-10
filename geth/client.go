@@ -17,8 +17,8 @@ import (
 
 	"github.com/AndrewSamokhvalov/slice"
 	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/common/core"
-	"github.com/bitlum/connector/common/db"
+	core "github.com/bitlum/viabtc_rpc_client"
+	"github.com/bitlum/connector/db"
 	"github.com/coreos/bbolt"
 	"github.com/btcsuite/btclog"
 	"github.com/go-errors/errors"

@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/common/core"
 	"github.com/bitlum/connector/bitcoind"
 	rpc "github.com/bitlum/connector/crpc/go"
 	"github.com/bitlum/connector/estimator"
@@ -22,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"github.com/bitlum/connector/metrics"
+	core "github.com/bitlum/viabtc_rpc_client"
 	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
 	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 )

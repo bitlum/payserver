@@ -41,6 +41,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/bitlum/graphql-go"
+  packages = ["errors"]
+  revision = "e232a94bee37413aeca1cb8caa64b10283e9aea6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/bitlum/viabtc_rpc_client"
+  packages = ["."]
+  revision = "30868181d57220bfc5ab9a8e75aeb99e51932489"
+
+[[projects]]
+  branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
   revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
@@ -344,6 +356,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "01a2fb9036f8fafe8633a3231f5c565c554c049cc3330026c9c0491bd38e7eb3"
+  inputs-digest = "2ccb5e047ba1afca8ca10b9486a184497573e593dce8ca280ae19a9a2255bb7e"
   solver-name = "gps-cdcl"
   solver-version = 1
