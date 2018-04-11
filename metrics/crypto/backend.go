@@ -33,19 +33,12 @@ const (
 // MetricsBackend is a system which is responsible for receiving and storing
 // the connector metricsBackend.
 type MetricsBackend interface {
+	CurrentFunds(daemon, asset string, amount float64)
 	AddRequest(daemon, asset, request string)
 	AddError(daemon, asset, request, severity string)
 	AddPanic(daemon, asset, request string)
 	AddRequestDuration(daemon, asset, request string, dur time.Duration)
 }
-
-// EmptyBackend is used as an empty metricsBackend backend in order to avoid
-type EmptyBackend struct{}
-
-func (b *EmptyBackend) AddRequest(query string)                            {}
-func (b *EmptyBackend) AddError(query string, errCode string)              {}
-func (b *EmptyBackend) AddPanic(query string)                              {}
-func (b *EmptyBackend) AddRequestDuration(query string, dur time.Duration) {}
 
 // PrometheusBackend is the main subsystem metrics implementation. Uses
 // prometheus metrics singletons defined above.
@@ -61,6 +54,20 @@ type PrometheusBackend struct {
 	errorsTotal            *prometheus.CounterVec
 	panicsTotal            *prometheus.CounterVec
 	requestDurationSeconds *prometheus.HistogramVec
+	currentFunds           *prometheus.GaugeVec
+}
+
+// CurrentFunds sets the number of funds available under control of system.
+//
+// NOTE: Non-pointer receiver made by intent to avoid conflict in the system
+// with parallel metrics report.
+func (m PrometheusBackend) CurrentFunds(daemon, asset string, amount float64) {
+	m.currentFunds.With(
+		prometheus.Labels{
+			assetLabel:  asset,
+			daemonLabel: daemon,
+		},
+	).Set(amount)
 }
 
 // AddRequest increases request counter for the given request name.
@@ -224,6 +231,28 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 	if err := prometheus.Register(backend.requestDurationSeconds); err != nil {
 		return backend, errors.Errorf(
 			"unable to register 'requestDurationSeconds' metric: " +
+				err.Error())
+	}
+
+	backend.currentFunds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystem,
+			Name:      "current_funds",
+			Help:      "Number of funds corresponding to given asset",
+			ConstLabels: prometheus.Labels{
+				metrics.NetLabel: net,
+			},
+		},
+		[]string{
+			assetLabel,
+			daemonLabel,
+		},
+	)
+
+	if err := prometheus.Register(backend.currentFunds); err != nil {
+		return backend, errors.Errorf(
+			"unable to register 'currentFund' metric: " +
 				err.Error())
 	}
 
