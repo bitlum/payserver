@@ -65,6 +65,11 @@ func (m Metric) AddPanic() {
 	m.backend.AddPanic(m.daemon, m.asset, m.requestName)
 }
 
+// CurrentFunds set the current amount of funds available.
+func (m Metric) CurrentFunds(amount float64) {
+	m.backend.CurrentFunds(m.daemon, m.asset, amount)
+}
+
 // AddRequestDuration adds request duration metric. Supposed to be
 // called after `NewMetric` which defines `startTime`. Calculates
 // duration using `startTime` and now as end time.
