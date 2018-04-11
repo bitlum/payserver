@@ -14,7 +14,7 @@ const (
 	ErrGetDefaultAddress
 	ErrDrainTransactions
 	ErrProceedNextBlock
-	ErrSyncUnconfirmed
+	ErrSync
 	ErrSyncUnspent
 	ErrGetAddress
 	ErrCreateAddress
@@ -38,7 +38,7 @@ var errToSeverityMap = map[int]metrics.Severity{
 	ErrGetDefaultAddress:   metrics.HighSeverity,
 	ErrDrainTransactions:   metrics.MiddleSeverity,
 	ErrProceedNextBlock:    metrics.MiddleSeverity,
-	ErrSyncUnconfirmed:     metrics.MiddleSeverity,
+	ErrSync:                metrics.MiddleSeverity,
 	ErrSyncUnspent:         metrics.MiddleSeverity,
 	ErrGetAddress:          metrics.MiddleSeverity,
 	ErrCreateAddress:       metrics.HighSeverity,

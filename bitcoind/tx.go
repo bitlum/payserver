@@ -92,8 +92,7 @@ func (c *Connector) syncUnspent() error {
 		amount = amount.Add(a)
 	}
 
-	c.log.Tracef("Sync %v unspent inputs to craft transaction, "+
-		"overall(%v %v)", len(unspent), amount, c.cfg.Asset)
+	c.log.Debugf("Sync %v unspent inputs to craft transaction", len(unspent))
 
 	return nil
 }
@@ -111,13 +110,13 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 	c.coinSelectMtx.Lock()
 	defer c.coinSelectMtx.Unlock()
 
-	c.log.Tracef("Performing coin selection using %v sat/weight as fee "+
+	c.log.Debugf("Performing coin selection using %v sat/weight as fee "+
 		"rate", feeRatePerWeight)
 
 	// First of all unlock all unspent outputs, to exclude the situation where
 	// we accidentally locked inputs and server crashed or just forget to
 	// unlock them.
-	c.log.Trace("Unlocking unspent inputs...")
+	c.log.Debugf("Unlocking unspent inputs...")
 	if err := c.client.LockUnspent(true, nil); err != nil {
 		return nil, 0, errors.Errorf("unable to unlock unspent outputs")
 	}
@@ -146,9 +145,9 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 		return nil, 0, errors.Errorf("unable to select inputs: %v", err)
 	}
 
-	c.log.Tracef("Selected %v unspent inputs, amount(%v), change(%v), fee(%v)",
+	c.log.Debugf("Selected %v unspent inputs, amount(%v), change(%v), fee(%v)",
 		len(selectedInputs), printAmount(amt), printAmount(changeAmt),
-			printAmount(requiredFee))
+		printAmount(requiredFee))
 
 	// Lock the selected coins. These coins are now "reserved", this
 	// prevents concurrent funding requests from referring to and this

@@ -49,6 +49,12 @@ var (
 
 	// drainDelay...
 	drainDelay = time.Hour
+
+	// allAccounts denotes all accounts in rpc response to bitcoind.
+	allAccounts = "*"
+
+	// defaultAccount denotes default account of the bitcoind wallet.
+	defaultAccount = ""
 )
 
 const (
@@ -662,7 +668,7 @@ func (c *Connector) proceedNextBlock() error {
 			for _, detail := range tx.Details {
 				// Skip if details describe receive/send tp/from default
 				// account.
-				if detail.Account == "" {
+				if detail.Account == defaultAccount {
 					continue
 				}
 
@@ -857,7 +863,7 @@ func (c *Connector) fetchLastSyncedBlockHash() (*chainhash.Hash, error) {
 
 // fetchDefaultAddress...
 func (c *Connector) fetchDefaultAddress() (string, error) {
-	defaultAddress, err := c.AccountAddress("")
+	defaultAddress, err := c.AccountAddress(defaultAccount)
 	if err != nil {
 		return "", errors.Errorf("unable to get default address: %v", err)
 	}
@@ -887,9 +893,34 @@ func (c *Connector) sync() error {
 	// As far as pending transaction may occur at any time,
 	// run it every cycle.
 	if err := c.syncUnconfirmed(); err != nil {
-		m.AddError(errToSeverity(ErrSyncUnconfirmed))
+		m.AddError(errToSeverity(ErrSync))
 		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
 	}
 
+	balance, err := c.FundsAvailable()
+	if err != nil {
+		m.AddError(errToSeverity(ErrSync))
+		return errors.Errorf("unable to get available funds: %v", err)
+	}
+
+	c.log.Infof("Asset(%v), media(blockchain), available funds(%v)",
+		c.cfg.Asset, balance.Round(8).String())
+
+	f, _ := balance.Float64()
+	m.CurrentFunds(f)
+
 	return nil
+}
+
+// FundsAvailable returns number of funds available under control of
+// connector.
+//
+// NOTE: Part of the common.Connector interface.
+func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
+	balance, err := c.client.GetBalanceMinConf(allAccounts, c.cfg.MinConfirmations)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return decimal.New(int64(balance), 0), nil
 }
