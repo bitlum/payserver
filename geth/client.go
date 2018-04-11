@@ -25,6 +25,7 @@ import (
 	"github.com/onrik/ethrpc"
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/metrics/crypto"
+	"github.com/bitlum/connector/metrics"
 )
 
 var (
@@ -288,7 +289,7 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 
 // AccountAddress return the deposit address of account.
 func (c *Connector) AccountAddress(account string) (string, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name,string(c.cfg.Asset),
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodAccountAddress, c.cfg.Metrics)
 	defer m.Finish()
 
@@ -883,6 +884,19 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	return defaultAddress, nil
 }
 
+// FundsAvailable returns number of funds available under control of
+// connector.
+//
+// NOTE: Part of the common.Connector interface.
+func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
+	balance, err := c.client.EthGetBalance(c.defaultAddress, "latest")
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return decimal.NewFromBigInt(&balance, 0), nil
+}
+
 func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSync, c.cfg.Metrics)
@@ -942,6 +956,19 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 			"account(%v), amount(%v)", tx.ID, tx.Account, tx.Amount)
 	})
 	c.pendingLock.Unlock()
+
+	balance, err := c.FundsAvailable()
+	if err != nil {
+		m.AddError(string(metrics.MiddleSeverity))
+		return lastSyncedBlockHash, errors.Errorf("unable to "+
+			"get available funds: %v", err)
+	}
+
+	c.log.Infof("Asset(%v), media(blockchain), available funds(%v)",
+		c.cfg.Asset, balance.Round(8).String())
+
+	f, _ := balance.Float64()
+	m.CurrentFunds(f)
 
 	return lastSyncedBlockHash, nil
 }
