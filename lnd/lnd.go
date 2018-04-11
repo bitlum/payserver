@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"github.com/bitlum/connector/metrics/crypto"
+	"github.com/bitlum/connector/metrics"
 )
 
 const (
@@ -148,6 +149,31 @@ func (c *Connector) Start() error {
 
 	c.nodeAddr = respInfo.IdentityPubkey
 	var invoiceSubscription lnrpc.Lightning_SubscribeInvoicesClient
+
+	c.wg.Add(1)
+	go func() {
+		defer c.wg.Done()
+
+		for {
+			balance, err := c.FundsAvailable()
+			if err != nil {
+				m.AddError(string(metrics.MiddleSeverity))
+				log.Errorf("unable to get available funds: %v", err)
+			}
+
+			log.Infof("Asset(BTC), media(lightning), available funds(%v)",
+				balance.Round(8).String())
+
+			f, _ := balance.Float64()
+			m.CurrentFunds(f)
+
+			select {
+			case <-time.After(time.Second * 10):
+			case <-c.quit:
+				return
+			}
+		}
+	}()
 
 	c.wg.Add(1)
 	go func() {
@@ -365,4 +391,18 @@ func (c *Connector) QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error) {
 	}
 
 	return info.Routes, nil
+}
+
+// FundsAvailable returns number of funds available under control of
+// connector.
+//
+// NOTE: Part of the common.Connector interface.
+func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
+	req := &lnrpc.WalletBalanceRequest{}
+	resp, err := c.client.WalletBalance(context.Background(), req)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return decimal.New(resp.ConfirmedBalance, 0), nil
 }
