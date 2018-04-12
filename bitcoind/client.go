@@ -78,6 +78,9 @@ type DaemonConfig struct {
 
 // Config is a bitcoind config.
 type Config struct {
+	// Net blockchain network this connector should operate with.
+	Net string
+
 	// MinConfirmations is a minimum number of confirmations which is needed
 	// to treat transaction as confirmed.
 	MinConfirmations int
@@ -114,6 +117,10 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
+	if c.Net == "" {
+		return errors.New("net should be specified")
+	}
+
 	if c.MinConfirmations <= 0 {
 		return errors.New("min confirmations shouldn't be greater than zero")
 	}
@@ -249,6 +256,13 @@ func (c *Connector) Start() error {
 		}
 		chain = resp.Chain
 	}
+
+	if !isProperNet(c.cfg.Net, chain) {
+		return errors.Errorf("networks are different, desired: %v, "+
+			"actual: %v", c.cfg.Net, chain)
+	}
+
+	c.log.Infof("Init connector working with '%v' net", c.cfg.Net)
 
 	c.netParams, err = net.GetParams(string(c.cfg.Asset), chain)
 	if err != nil {

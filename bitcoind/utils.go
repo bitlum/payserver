@@ -29,3 +29,12 @@ func printAmount(a btcutil.Amount) string {
 	u := btcutil.AmountBTC
 	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u + 8), 64)
 }
+
+func isProperNet(desiredNet, actualNet string) bool {
+	// Handle the case of different simulation networks names
+	if desiredNet == "simnet" && actualNet == "regtest" {
+		return true
+	}
+
+	return desiredNet != actualNet
+}
