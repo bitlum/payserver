@@ -48,6 +48,7 @@ func NewRPCServer(net string,
 		lightningConnectors:  lightningConnectors,
 		estmtr:               estmtr,
 		metrics:              metrics,
+		net:                  net,
 	}, nil
 }
 
