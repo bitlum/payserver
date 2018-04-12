@@ -52,9 +52,9 @@ service Connector {
     rpc SendTransaction (SendTransactionRequest) returns (EmtpyResponse);
 
     //
-    // NetworkInfo returns information about the daemon and its network,
-    // depending on the requested
-    rpc NetworkInfo (NetworkInfoRequest) returns (NetworkInfoResponse);
+    // Info returns the information about the connector, it configaration and
+    // network information of daemon with which it is working.
+    rpc Info (InfoRequest) returns (InfoResponse);
 
     //
     // CreateInvoice creates recept for sender lightning node which contains
@@ -68,18 +68,18 @@ service Connector {
     // network.
     //
     // NOTE: Works only for lightning network daemons.
-    rpc SendPayment(SendPaymentRequest) returns (EmtpyResponse);
+    rpc SendPayment (SendPaymentRequest) returns (EmtpyResponse);
 
     //
     // CheckReachable checks that given node can be reached from our
     // lightning node.
     //
     // NOTE: Works only for lightning network daemons.
-    rpc CheckReachable(CheckReachableRequest) returns (CheckReachableResponse);
+    rpc CheckReachable (CheckReachableRequest) returns (CheckReachableResponse);
 
     //
     // Estimate estimates the dollar price of the choosen asset.
-    rpc Estimate(EstimateRequest) returns (EstimationResponse);
+    rpc Estimate (EstimateRequest) returns (EstimationResponse);
 }
 
 message EstimateRequest {
@@ -158,7 +158,8 @@ message Payment {
     string type = 5;
 }
 
-message EmtpyResponse {}
+message EmtpyResponse {
+}
 
 message Balance {
     string data = 1;
@@ -182,43 +183,47 @@ message PendingTransactionsResponse {
 }
 
 message GenerateTransactionRequest {
-    string asset  = 1;
+    string asset = 1;
     string receiver_address = 2;
     string amount = 3;
 }
 
 message SendTransactionRequest {
-    string asset  = 1;
+    string asset = 1;
     bytes raw_tx = 2;
 }
 
-message NetworkInfoRequest {
-    // Asset is the acronim name of asset.
-    string asset = 1;
-
-    // Type is a type of network which is used to deliver the payment.
-    string type = 2;
+message InfoRequest {
 }
 
 message LightningInfo {
     string host = 1;
 
+    // Port is the port over which other peers could connect to the lightning
+    // network daemon.
     string port = 2;
 
+    // MinAmount is the minimal amount of funds which could be used for
+    // payment via the lightning network daemon.
     string min_amount = 3;
 
+    // MaxAmount is the maximum amount of funds which could be used for
+    // payment via lightning network deaemon.
     string max_amount = 4;
 
-    // The identity pubkey of the current node.
+    // IdentityPubKey of lightning network node.
     string identity_pubkey = 5;
 
-    // If applicable, the alias of the current node, e.g. "bob"
+    // Alias is the string which represents the lightning network node in the
+    // network, this data could be seen in peer-to-peer discovery messages.
     string alias = 6;
 
-    // Number of pending channels
+    // NumPendingChannels is the number of channels which are in the state of
+    // awaitaning for blockchain confirmation.
     uint32 num_pending_channels = 7;
 
-    // Number of active channels
+    // NumPendingChannels is the number of channels which were confirmed and
+    // could be used for payments.
     uint32 num_active_channels = 8;
 
     // Number of peers
@@ -229,21 +234,17 @@ message LightningInfo {
 
     // The node's current view of the hash of the best block
     string block_hash = 11;
-
-    // Whether the wallet's view is synced to the main chain
-    bool synced_to_chain = 12;
-
-    // Whether the current node is connected to testnet
-    bool testnet = 13;
-
-    // A list of active chains the node is connected to
-    repeated string chains = 14;
 }
 
-message NetworkInfoResponse {
-    oneof Data {
-        LightningInfo lighting_info = 1;
-    }
+message InfoResponse {
+    // Net represent currently configures blockchain network supported by
+    // service.
+    Net net = 1;
+
+    // Time is the current connector local time.
+    string time = 2;
+
+    LightningInfo lighting_info = 3;
 }
 
 message CreateInvoiceRequest {
@@ -280,4 +281,10 @@ enum Market {
     BTCLTC = 2;
     BTCDASH = 3;
     ETHLTC = 4;
+}
+
+enum Net {
+    Simnet = 0;
+    Testnet = 1;
+    Mainnet = 2;
 }

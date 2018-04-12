@@ -54,13 +54,13 @@ export namespace Connector {
     static readonly requestType = rpc_pb.SendTransactionRequest;
     static readonly responseType = rpc_pb.EmtpyResponse;
   }
-  export class NetworkInfo {
-    static readonly methodName = "NetworkInfo";
+  export class Info {
+    static readonly methodName = "Info";
     static readonly service = Connector;
     static readonly requestStream = false;
     static readonly responseStream = false;
-    static readonly requestType = rpc_pb.NetworkInfoRequest;
-    static readonly responseType = rpc_pb.NetworkInfoResponse;
+    static readonly requestType = rpc_pb.InfoRequest;
+    static readonly responseType = rpc_pb.InfoResponse;
   }
   export class CreateInvoice {
     static readonly methodName = "CreateInvoice";

@@ -54,13 +54,13 @@ Connector.SendTransaction = {
   requestType: rpc_pb.SendTransactionRequest,
   responseType: rpc_pb.EmtpyResponse
 };
-Connector.NetworkInfo = {
-  methodName: "NetworkInfo",
+Connector.Info = {
+  methodName: "Info",
   service: Connector,
   requestStream: false,
   responseStream: false,
-  requestType: rpc_pb.NetworkInfoRequest,
-  responseType: rpc_pb.NetworkInfoResponse
+  requestType: rpc_pb.InfoRequest,
+  responseType: rpc_pb.InfoResponse
 };
 Connector.CreateInvoice = {
   methodName: "CreateInvoice",

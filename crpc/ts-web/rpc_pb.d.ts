@@ -435,27 +435,19 @@ export namespace SendTransactionRequest {
   }
 }
 
-export class NetworkInfoRequest extends jspb.Message {
-  getAsset(): string;
-  setAsset(value: string): void;
-
-  getType(): string;
-  setType(value: string): void;
-
+export class InfoRequest extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): NetworkInfoRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: NetworkInfoRequest): NetworkInfoRequest.AsObject;
+  toObject(includeInstance?: boolean): InfoRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: InfoRequest): InfoRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: NetworkInfoRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): NetworkInfoRequest;
-  static deserializeBinaryFromReader(message: NetworkInfoRequest, reader: jspb.BinaryReader): NetworkInfoRequest;
+  static serializeBinaryToWriter(message: InfoRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InfoRequest;
+  static deserializeBinaryFromReader(message: InfoRequest, reader: jspb.BinaryReader): InfoRequest;
 }
 
-export namespace NetworkInfoRequest {
+export namespace InfoRequest {
   export type AsObject = {
-    asset: string,
-    type: string,
   }
 }
 
@@ -493,17 +485,6 @@ export class LightningInfo extends jspb.Message {
   getBlockHash(): string;
   setBlockHash(value: string): void;
 
-  getSyncedToChain(): boolean;
-  setSyncedToChain(value: boolean): void;
-
-  getTestnet(): boolean;
-  setTestnet(value: boolean): void;
-
-  clearChainsList(): void;
-  getChainsList(): Array<string>;
-  setChainsList(value: Array<string>): void;
-  addChains(value: string, index?: number): string;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): LightningInfo.AsObject;
   static toObject(includeInstance: boolean, msg: LightningInfo): LightningInfo.AsObject;
@@ -527,37 +508,36 @@ export namespace LightningInfo {
     numPeers: number,
     blockHeight: number,
     blockHash: string,
-    syncedToChain: boolean,
-    testnet: boolean,
-    chainsList: Array<string>,
   }
 }
 
-export class NetworkInfoResponse extends jspb.Message {
+export class InfoResponse extends jspb.Message {
+  getNet(): Net;
+  setNet(value: Net): void;
+
+  getTime(): string;
+  setTime(value: string): void;
+
   hasLightingInfo(): boolean;
   clearLightingInfo(): void;
   getLightingInfo(): LightningInfo | undefined;
   setLightingInfo(value?: LightningInfo): void;
 
-  getDataCase(): NetworkInfoResponse.DataCase;
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): NetworkInfoResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: NetworkInfoResponse): NetworkInfoResponse.AsObject;
+  toObject(includeInstance?: boolean): InfoResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: InfoResponse): InfoResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: NetworkInfoResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): NetworkInfoResponse;
-  static deserializeBinaryFromReader(message: NetworkInfoResponse, reader: jspb.BinaryReader): NetworkInfoResponse;
+  static serializeBinaryToWriter(message: InfoResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): InfoResponse;
+  static deserializeBinaryFromReader(message: InfoResponse, reader: jspb.BinaryReader): InfoResponse;
 }
 
-export namespace NetworkInfoResponse {
+export namespace InfoResponse {
   export type AsObject = {
+    net: Net,
+    time: string,
     lightingInfo?: LightningInfo.AsObject,
-  }
-
-  export enum DataCase {
-    DATA_NOT_SET = 0,
-    LIGHTING_INFO = 1,
   }
 }
 
@@ -647,5 +627,11 @@ export enum Market {
   BTCLTC = 2,
   BTCDASH = 3,
   ETHLTC = 4,
+}
+
+export enum Net {
+  Simnet = 0,
+  Testnet = 1,
+  Mainnet = 2,
 }
 

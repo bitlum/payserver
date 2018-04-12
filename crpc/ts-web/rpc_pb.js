@@ -23,11 +23,12 @@ goog.exportSymbol('proto.crpc.EstimateRequest', null, global);
 goog.exportSymbol('proto.crpc.EstimationResponse', null, global);
 goog.exportSymbol('proto.crpc.GenerateTransactionRequest', null, global);
 goog.exportSymbol('proto.crpc.GenerateTransactionResponse', null, global);
+goog.exportSymbol('proto.crpc.InfoRequest', null, global);
+goog.exportSymbol('proto.crpc.InfoResponse', null, global);
 goog.exportSymbol('proto.crpc.Invoice', null, global);
 goog.exportSymbol('proto.crpc.LightningInfo', null, global);
 goog.exportSymbol('proto.crpc.Market', null, global);
-goog.exportSymbol('proto.crpc.NetworkInfoRequest', null, global);
-goog.exportSymbol('proto.crpc.NetworkInfoResponse', null, global);
+goog.exportSymbol('proto.crpc.Net', null, global);
 goog.exportSymbol('proto.crpc.Payment', null, global);
 goog.exportSymbol('proto.crpc.PendingBalanceRequest', null, global);
 goog.exportSymbol('proto.crpc.PendingTransactionsRequest', null, global);
@@ -3425,12 +3426,12 @@ proto.crpc.SendTransactionRequest.prototype.setRawTx = function(value) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.crpc.NetworkInfoRequest = function(opt_data) {
+proto.crpc.InfoRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.crpc.NetworkInfoRequest, jspb.Message);
+goog.inherits(proto.crpc.InfoRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
-  proto.crpc.NetworkInfoRequest.displayName = 'proto.crpc.NetworkInfoRequest';
+  proto.crpc.InfoRequest.displayName = 'proto.crpc.InfoRequest';
 }
 
 
@@ -3445,8 +3446,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     for transitional soy proto support: http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.crpc.NetworkInfoRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.crpc.NetworkInfoRequest.toObject(opt_includeInstance, this);
+proto.crpc.InfoRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.crpc.InfoRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -3455,13 +3456,12 @@ proto.crpc.NetworkInfoRequest.prototype.toObject = function(opt_includeInstance)
  * @param {boolean|undefined} includeInstance Whether to include the JSPB
  *     instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.crpc.NetworkInfoRequest} msg The msg instance to transform.
+ * @param {!proto.crpc.InfoRequest} msg The msg instance to transform.
  * @return {!Object}
  */
-proto.crpc.NetworkInfoRequest.toObject = function(includeInstance, msg) {
+proto.crpc.InfoRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    asset: msg.getAsset(),
-    type: msg.getType()
+
   };
 
   if (includeInstance) {
@@ -3475,37 +3475,29 @@ proto.crpc.NetworkInfoRequest.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.crpc.NetworkInfoRequest}
+ * @return {!proto.crpc.InfoRequest}
  */
-proto.crpc.NetworkInfoRequest.deserializeBinary = function(bytes) {
+proto.crpc.InfoRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.crpc.NetworkInfoRequest;
-  return proto.crpc.NetworkInfoRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.crpc.InfoRequest;
+  return proto.crpc.InfoRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.crpc.NetworkInfoRequest} msg The message object to deserialize into.
+ * @param {!proto.crpc.InfoRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.crpc.NetworkInfoRequest}
+ * @return {!proto.crpc.InfoRequest}
  */
-proto.crpc.NetworkInfoRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.crpc.InfoRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
     }
     var field = reader.getFieldNumber();
     switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setAsset(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setType(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -3518,10 +3510,10 @@ proto.crpc.NetworkInfoRequest.deserializeBinaryFromReader = function(msg, reader
 /**
  * Class method variant: serializes the given message to binary data
  * (in protobuf wire format), writing to the given BinaryWriter.
- * @param {!proto.crpc.NetworkInfoRequest} message
+ * @param {!proto.crpc.InfoRequest} message
  * @param {!jspb.BinaryWriter} writer
  */
-proto.crpc.NetworkInfoRequest.serializeBinaryToWriter = function(message, writer) {
+proto.crpc.InfoRequest.serializeBinaryToWriter = function(message, writer) {
   message.serializeBinaryToWriter(writer);
 };
 
@@ -3530,7 +3522,7 @@ proto.crpc.NetworkInfoRequest.serializeBinaryToWriter = function(message, writer
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.crpc.NetworkInfoRequest.prototype.serializeBinary = function() {
+proto.crpc.InfoRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
   this.serializeBinaryToWriter(writer);
   return writer.getResultBuffer();
@@ -3542,61 +3534,17 @@ proto.crpc.NetworkInfoRequest.prototype.serializeBinary = function() {
  * writing to the given BinaryWriter.
  * @param {!jspb.BinaryWriter} writer
  */
-proto.crpc.NetworkInfoRequest.prototype.serializeBinaryToWriter = function (writer) {
+proto.crpc.InfoRequest.prototype.serializeBinaryToWriter = function (writer) {
   var f = undefined;
-  f = this.getAsset();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = this.getType();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
 };
 
 
 /**
  * Creates a deep clone of this proto. No data is shared with the original.
- * @return {!proto.crpc.NetworkInfoRequest} The clone.
+ * @return {!proto.crpc.InfoRequest} The clone.
  */
-proto.crpc.NetworkInfoRequest.prototype.cloneMessage = function() {
-  return /** @type {!proto.crpc.NetworkInfoRequest} */ (jspb.Message.cloneMessage(this));
-};
-
-
-/**
- * optional string asset = 1;
- * @return {string}
- */
-proto.crpc.NetworkInfoRequest.prototype.getAsset = function() {
-  return /** @type {string} */ (jspb.Message.getFieldProto3(this, 1, ""));
-};
-
-
-/** @param {string} value  */
-proto.crpc.NetworkInfoRequest.prototype.setAsset = function(value) {
-  jspb.Message.setField(this, 1, value);
-};
-
-
-/**
- * optional string type = 2;
- * @return {string}
- */
-proto.crpc.NetworkInfoRequest.prototype.getType = function() {
-  return /** @type {string} */ (jspb.Message.getFieldProto3(this, 2, ""));
-};
-
-
-/** @param {string} value  */
-proto.crpc.NetworkInfoRequest.prototype.setType = function(value) {
-  jspb.Message.setField(this, 2, value);
+proto.crpc.InfoRequest.prototype.cloneMessage = function() {
+  return /** @type {!proto.crpc.InfoRequest} */ (jspb.Message.cloneMessage(this));
 };
 
 
@@ -3612,19 +3560,12 @@ proto.crpc.NetworkInfoRequest.prototype.setType = function(value) {
  * @constructor
  */
 proto.crpc.LightningInfo = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, proto.crpc.LightningInfo.repeatedFields_, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
 goog.inherits(proto.crpc.LightningInfo, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   proto.crpc.LightningInfo.displayName = 'proto.crpc.LightningInfo';
 }
-/**
- * List of repeated fields within this message type.
- * @private {!Array<number>}
- * @const
- */
-proto.crpc.LightningInfo.repeatedFields_ = [14];
-
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -3663,10 +3604,7 @@ proto.crpc.LightningInfo.toObject = function(includeInstance, msg) {
     numActiveChannels: msg.getNumActiveChannels(),
     numPeers: msg.getNumPeers(),
     blockHeight: msg.getBlockHeight(),
-    blockHash: msg.getBlockHash(),
-    syncedToChain: msg.getSyncedToChain(),
-    testnet: msg.getTestnet(),
-    chainsList: jspb.Message.getField(msg, 14)
+    blockHash: msg.getBlockHash()
   };
 
   if (includeInstance) {
@@ -3746,19 +3684,6 @@ proto.crpc.LightningInfo.deserializeBinaryFromReader = function(msg, reader) {
     case 11:
       var value = /** @type {string} */ (reader.readString());
       msg.setBlockHash(value);
-      break;
-    case 12:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setSyncedToChain(value);
-      break;
-    case 13:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setTestnet(value);
-      break;
-    case 14:
-      var value = /** @type {string} */ (reader.readString());
-      msg.getChainsList().push(value);
-      msg.setChainsList(msg.getChainsList());
       break;
     default:
       reader.skipField();
@@ -3872,27 +3797,6 @@ proto.crpc.LightningInfo.prototype.serializeBinaryToWriter = function (writer) {
   if (f.length > 0) {
     writer.writeString(
       11,
-      f
-    );
-  }
-  f = this.getSyncedToChain();
-  if (f) {
-    writer.writeBool(
-      12,
-      f
-    );
-  }
-  f = this.getTestnet();
-  if (f) {
-    writer.writeBool(
-      13,
-      f
-    );
-  }
-  f = this.getChainsList();
-  if (f.length > 0) {
-    writer.writeRepeatedString(
-      14,
       f
     );
   }
@@ -4073,62 +3977,6 @@ proto.crpc.LightningInfo.prototype.setBlockHash = function(value) {
 };
 
 
-/**
- * optional bool synced_to_chain = 12;
- * Note that Boolean fields may be set to 0/1 when serialized from a Java server.
- * You should avoid comparisons like {@code val === true/false} in those cases.
- * @return {boolean}
- */
-proto.crpc.LightningInfo.prototype.getSyncedToChain = function() {
-  return /** @type {boolean} */ (jspb.Message.getFieldProto3(this, 12, false));
-};
-
-
-/** @param {boolean} value  */
-proto.crpc.LightningInfo.prototype.setSyncedToChain = function(value) {
-  jspb.Message.setField(this, 12, value);
-};
-
-
-/**
- * optional bool testnet = 13;
- * Note that Boolean fields may be set to 0/1 when serialized from a Java server.
- * You should avoid comparisons like {@code val === true/false} in those cases.
- * @return {boolean}
- */
-proto.crpc.LightningInfo.prototype.getTestnet = function() {
-  return /** @type {boolean} */ (jspb.Message.getFieldProto3(this, 13, false));
-};
-
-
-/** @param {boolean} value  */
-proto.crpc.LightningInfo.prototype.setTestnet = function(value) {
-  jspb.Message.setField(this, 13, value);
-};
-
-
-/**
- * repeated string chains = 14;
- * If you change this array by adding, removing or replacing elements, or if you
- * replace the array itself, then you must call the setter to update it.
- * @return {!Array.<string>}
- */
-proto.crpc.LightningInfo.prototype.getChainsList = function() {
-  return /** @type {!Array.<string>} */ (jspb.Message.getField(this, 14));
-};
-
-
-/** @param {Array.<string>} value  */
-proto.crpc.LightningInfo.prototype.setChainsList = function(value) {
-  jspb.Message.setField(this, 14, value || []);
-};
-
-
-proto.crpc.LightningInfo.prototype.clearChainsList = function() {
-  jspb.Message.setField(this, 14, []);
-};
-
-
 
 /**
  * Generated by JsPbCodeGenerator.
@@ -4140,38 +3988,13 @@ proto.crpc.LightningInfo.prototype.clearChainsList = function() {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.crpc.NetworkInfoResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.crpc.NetworkInfoResponse.oneofGroups_);
+proto.crpc.InfoResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.crpc.NetworkInfoResponse, jspb.Message);
+goog.inherits(proto.crpc.InfoResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
-  proto.crpc.NetworkInfoResponse.displayName = 'proto.crpc.NetworkInfoResponse';
+  proto.crpc.InfoResponse.displayName = 'proto.crpc.InfoResponse';
 }
-/**
- * Oneof group definitions for this message. Each group defines the field
- * numbers belonging to that group. When of these fields' value is set, all
- * other fields in the group are cleared. During deserialization, if multiple
- * fields are encountered for a group, only the last value seen will be kept.
- * @private {!Array<!Array<number>>}
- * @const
- */
-proto.crpc.NetworkInfoResponse.oneofGroups_ = [[1]];
-
-/**
- * @enum {number}
- */
-proto.crpc.NetworkInfoResponse.DataCase = {
-  DATA_NOT_SET: 0,
-  LIGHTING_INFO: 1
-};
-
-/**
- * @return {proto.crpc.NetworkInfoResponse.DataCase}
- */
-proto.crpc.NetworkInfoResponse.prototype.getDataCase = function() {
-  return /** @type {proto.crpc.NetworkInfoResponse.DataCase} */(jspb.Message.computeOneofCase(this, proto.crpc.NetworkInfoResponse.oneofGroups_[0]));
-};
-
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -4185,8 +4008,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     for transitional soy proto support: http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.crpc.NetworkInfoResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.crpc.NetworkInfoResponse.toObject(opt_includeInstance, this);
+proto.crpc.InfoResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.crpc.InfoResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -4195,11 +4018,13 @@ proto.crpc.NetworkInfoResponse.prototype.toObject = function(opt_includeInstance
  * @param {boolean|undefined} includeInstance Whether to include the JSPB
  *     instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.crpc.NetworkInfoResponse} msg The msg instance to transform.
+ * @param {!proto.crpc.InfoResponse} msg The msg instance to transform.
  * @return {!Object}
  */
-proto.crpc.NetworkInfoResponse.toObject = function(includeInstance, msg) {
+proto.crpc.InfoResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
+    net: msg.getNet(),
+    time: msg.getTime(),
     lightingInfo: (f = msg.getLightingInfo()) && proto.crpc.LightningInfo.toObject(includeInstance, f)
   };
 
@@ -4214,23 +4039,23 @@ proto.crpc.NetworkInfoResponse.toObject = function(includeInstance, msg) {
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.crpc.NetworkInfoResponse}
+ * @return {!proto.crpc.InfoResponse}
  */
-proto.crpc.NetworkInfoResponse.deserializeBinary = function(bytes) {
+proto.crpc.InfoResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.crpc.NetworkInfoResponse;
-  return proto.crpc.NetworkInfoResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.crpc.InfoResponse;
+  return proto.crpc.InfoResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.crpc.NetworkInfoResponse} msg The message object to deserialize into.
+ * @param {!proto.crpc.InfoResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.crpc.NetworkInfoResponse}
+ * @return {!proto.crpc.InfoResponse}
  */
-proto.crpc.NetworkInfoResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.crpc.InfoResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -4238,6 +4063,14 @@ proto.crpc.NetworkInfoResponse.deserializeBinaryFromReader = function(msg, reade
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
+      var value = /** @type {!proto.crpc.Net} */ (reader.readEnum());
+      msg.setNet(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setTime(value);
+      break;
+    case 3:
       var value = new proto.crpc.LightningInfo;
       reader.readMessage(value,proto.crpc.LightningInfo.deserializeBinaryFromReader);
       msg.setLightingInfo(value);
@@ -4254,10 +4087,10 @@ proto.crpc.NetworkInfoResponse.deserializeBinaryFromReader = function(msg, reade
 /**
  * Class method variant: serializes the given message to binary data
  * (in protobuf wire format), writing to the given BinaryWriter.
- * @param {!proto.crpc.NetworkInfoResponse} message
+ * @param {!proto.crpc.InfoResponse} message
  * @param {!jspb.BinaryWriter} writer
  */
-proto.crpc.NetworkInfoResponse.serializeBinaryToWriter = function(message, writer) {
+proto.crpc.InfoResponse.serializeBinaryToWriter = function(message, writer) {
   message.serializeBinaryToWriter(writer);
 };
 
@@ -4266,7 +4099,7 @@ proto.crpc.NetworkInfoResponse.serializeBinaryToWriter = function(message, write
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.crpc.NetworkInfoResponse.prototype.serializeBinary = function() {
+proto.crpc.InfoResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
   this.serializeBinaryToWriter(writer);
   return writer.getResultBuffer();
@@ -4278,12 +4111,26 @@ proto.crpc.NetworkInfoResponse.prototype.serializeBinary = function() {
  * writing to the given BinaryWriter.
  * @param {!jspb.BinaryWriter} writer
  */
-proto.crpc.NetworkInfoResponse.prototype.serializeBinaryToWriter = function (writer) {
+proto.crpc.InfoResponse.prototype.serializeBinaryToWriter = function (writer) {
   var f = undefined;
+  f = this.getNet();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      1,
+      f
+    );
+  }
+  f = this.getTime();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
   f = this.getLightingInfo();
   if (f != null) {
     writer.writeMessage(
-      1,
+      3,
       f,
       proto.crpc.LightningInfo.serializeBinaryToWriter
     );
@@ -4293,30 +4140,60 @@ proto.crpc.NetworkInfoResponse.prototype.serializeBinaryToWriter = function (wri
 
 /**
  * Creates a deep clone of this proto. No data is shared with the original.
- * @return {!proto.crpc.NetworkInfoResponse} The clone.
+ * @return {!proto.crpc.InfoResponse} The clone.
  */
-proto.crpc.NetworkInfoResponse.prototype.cloneMessage = function() {
-  return /** @type {!proto.crpc.NetworkInfoResponse} */ (jspb.Message.cloneMessage(this));
+proto.crpc.InfoResponse.prototype.cloneMessage = function() {
+  return /** @type {!proto.crpc.InfoResponse} */ (jspb.Message.cloneMessage(this));
 };
 
 
 /**
- * optional LightningInfo lighting_info = 1;
+ * optional Net net = 1;
+ * @return {!proto.crpc.Net}
+ */
+proto.crpc.InfoResponse.prototype.getNet = function() {
+  return /** @type {!proto.crpc.Net} */ (jspb.Message.getFieldProto3(this, 1, 0));
+};
+
+
+/** @param {!proto.crpc.Net} value  */
+proto.crpc.InfoResponse.prototype.setNet = function(value) {
+  jspb.Message.setField(this, 1, value);
+};
+
+
+/**
+ * optional string time = 2;
+ * @return {string}
+ */
+proto.crpc.InfoResponse.prototype.getTime = function() {
+  return /** @type {string} */ (jspb.Message.getFieldProto3(this, 2, ""));
+};
+
+
+/** @param {string} value  */
+proto.crpc.InfoResponse.prototype.setTime = function(value) {
+  jspb.Message.setField(this, 2, value);
+};
+
+
+/**
+ * optional LightningInfo lighting_info = 3;
  * @return {proto.crpc.LightningInfo}
  */
-proto.crpc.NetworkInfoResponse.prototype.getLightingInfo = function() {
+proto.crpc.InfoResponse.prototype.getLightingInfo = function() {
   return /** @type{proto.crpc.LightningInfo} */ (
-    jspb.Message.getWrapperField(this, proto.crpc.LightningInfo, 1));
+    jspb.Message.getWrapperField(this, proto.crpc.LightningInfo, 3));
 };
 
 
 /** @param {proto.crpc.LightningInfo|undefined} value  */
-proto.crpc.NetworkInfoResponse.prototype.setLightingInfo = function(value) {
-  jspb.Message.setOneofWrapperField(this, 1, proto.crpc.NetworkInfoResponse.oneofGroups_[0], value);
+proto.crpc.InfoResponse.prototype.setLightingInfo = function(value) {
+  jspb.Message.setWrapperField(this, 3, value);
 };
 
 
-proto.crpc.NetworkInfoResponse.prototype.clearLightingInfo = function() {
+proto.crpc.InfoResponse.prototype.clearLightingInfo = function() {
   this.setLightingInfo(undefined);
 };
 
@@ -4325,8 +4202,8 @@ proto.crpc.NetworkInfoResponse.prototype.clearLightingInfo = function() {
  * Returns whether this field is set.
  * @return{!boolean}
  */
-proto.crpc.NetworkInfoResponse.prototype.hasLightingInfo = function() {
-  return jspb.Message.getField(this, 1) != null;
+proto.crpc.InfoResponse.prototype.hasLightingInfo = function() {
+  return jspb.Message.getField(this, 3) != null;
 };
 
 
@@ -4910,6 +4787,15 @@ proto.crpc.Market = {
   BTCLTC: 2,
   BTCDASH: 3,
   ETHLTC: 4
+};
+
+/**
+ * @enum {number}
+ */
+proto.crpc.Net = {
+  SIMNET: 0,
+  TESTNET: 1,
+  MAINNET: 2
 };
 
 goog.object.extend(exports, proto.crpc);

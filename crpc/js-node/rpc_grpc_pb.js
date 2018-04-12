@@ -136,6 +136,28 @@ function deserialize_crpc_GenerateTransactionResponse(buffer_arg) {
   return rpc_pb.GenerateTransactionResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_crpc_InfoRequest(arg) {
+  if (!(arg instanceof rpc_pb.InfoRequest)) {
+    throw new Error('Expected argument of type crpc.InfoRequest');
+  }
+  return new Buffer(arg.serializeBinary());
+}
+
+function deserialize_crpc_InfoRequest(buffer_arg) {
+  return rpc_pb.InfoRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_crpc_InfoResponse(arg) {
+  if (!(arg instanceof rpc_pb.InfoResponse)) {
+    throw new Error('Expected argument of type crpc.InfoResponse');
+  }
+  return new Buffer(arg.serializeBinary());
+}
+
+function deserialize_crpc_InfoResponse(buffer_arg) {
+  return rpc_pb.InfoResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_crpc_Invoice(arg) {
   if (!(arg instanceof rpc_pb.Invoice)) {
     throw new Error('Expected argument of type crpc.Invoice');
@@ -145,28 +167,6 @@ function serialize_crpc_Invoice(arg) {
 
 function deserialize_crpc_Invoice(buffer_arg) {
   return rpc_pb.Invoice.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_crpc_NetworkInfoRequest(arg) {
-  if (!(arg instanceof rpc_pb.NetworkInfoRequest)) {
-    throw new Error('Expected argument of type crpc.NetworkInfoRequest');
-  }
-  return new Buffer(arg.serializeBinary());
-}
-
-function deserialize_crpc_NetworkInfoRequest(buffer_arg) {
-  return rpc_pb.NetworkInfoRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_crpc_NetworkInfoResponse(arg) {
-  if (!(arg instanceof rpc_pb.NetworkInfoResponse)) {
-    throw new Error('Expected argument of type crpc.NetworkInfoResponse');
-  }
-  return new Buffer(arg.serializeBinary());
-}
-
-function deserialize_crpc_NetworkInfoResponse(buffer_arg) {
-  return rpc_pb.NetworkInfoResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_crpc_PendingBalanceRequest(arg) {
@@ -319,18 +319,18 @@ var ConnectorService = exports.ConnectorService = {
     responseDeserialize: deserialize_crpc_EmtpyResponse,
   },
   //
-  // NetworkInfo returns information about the daemon and its network,
-  // depending on the requested
-  networkInfo: {
-    path: '/crpc.Connector/NetworkInfo',
+  // Info returns the information about the connector, it configaration and
+  // network information of daemon with which it is working.
+  info: {
+    path: '/crpc.Connector/Info',
     requestStream: false,
     responseStream: false,
-    requestType: rpc_pb.NetworkInfoRequest,
-    responseType: rpc_pb.NetworkInfoResponse,
-    requestSerialize: serialize_crpc_NetworkInfoRequest,
-    requestDeserialize: deserialize_crpc_NetworkInfoRequest,
-    responseSerialize: serialize_crpc_NetworkInfoResponse,
-    responseDeserialize: deserialize_crpc_NetworkInfoResponse,
+    requestType: rpc_pb.InfoRequest,
+    responseType: rpc_pb.InfoResponse,
+    requestSerialize: serialize_crpc_InfoRequest,
+    requestDeserialize: deserialize_crpc_InfoRequest,
+    responseSerialize: serialize_crpc_InfoResponse,
+    responseDeserialize: deserialize_crpc_InfoResponse,
   },
   //
   // CreateInvoice creates recept for sender lightning node which contains

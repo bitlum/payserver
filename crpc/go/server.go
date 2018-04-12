@@ -4,10 +4,10 @@ import (
 	"github.com/bitlum/connector/common"
 	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/bitlum/connector/estimator"
-	"github.com/btcsuite/btclog"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/net/context"
 	"github.com/bitlum/connector/metrics/rpc"
+	"time"
 )
 
 const (
@@ -26,6 +26,7 @@ const (
 
 // Server...
 type Server struct {
+	net                  string
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector
 	lightningConnectors  map[core.AssetType]common.LightningConnector
 	estmtr               estimator.USDEstimator
@@ -37,21 +38,19 @@ type Server struct {
 var _ ConnectorServer = (*Server)(nil)
 
 // NewRPCServer creates and returns a new instance of the Server.
-func NewRPCServer(
+func NewRPCServer(net string,
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector,
 	lightningConnectors map[core.AssetType]common.LightningConnector,
 	estmtr estimator.USDEstimator,
-	log btclog.Logger,
 	metrics rpc.MetricsBackend) (*Server, error) {
 	return &Server{
 		blockchainConnectors: blockchainConnectors,
 		lightningConnectors:  lightningConnectors,
 		estmtr:               estmtr,
-		metrics: metrics,
+		metrics:              metrics,
 	}, nil
 }
 
-//
 // CreateAddress is used to create deposit address in choosen blockchain
 // network.
 //
@@ -255,21 +254,14 @@ func (s *Server) SendTransaction(_ context.Context,
 //
 // NetworkInfo returns information about the daemon and its network,
 // depending on the requested
-func (s *Server) NetworkInfo(_ context.Context,
-	req *NetworkInfoRequest) (*NetworkInfoResponse, error) {
+func (s *Server) Info(_ context.Context,
+	req *InfoRequest) (*InfoResponse, error) {
 
 	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
-	if req.Type == string(common.Blockchain) {
-		severity := errMetricsInfo(ErrNetworkNotSupported)
-		s.metrics.AddError(NetworkInfo, severity)
-		return nil, newErrNetworkNotSupported(string(common.Blockchain),
-			"network info")
-	}
-
-	c, ok := s.lightningConnectors[core.AssetType(req.Asset)]
+	c, ok := s.lightningConnectors[core.AssetType("BTC")]
 	if !ok {
-		return nil, newErrAssetNotSupported(req.Asset, "network info")
+		return nil, newErrAssetNotSupported("BTC", "network info")
 	}
 
 	info, err := c.Info()
@@ -277,24 +269,31 @@ func (s *Server) NetworkInfo(_ context.Context,
 		return nil, newErrInternal(err.Error())
 	}
 
-	resp := &NetworkInfoResponse{
-		Data: &NetworkInfoResponse_LightingInfo{
-			LightingInfo: &LightningInfo{
-				Host:               info.Host,
-				Port:               info.Port,
-				MinAmount:          info.MinAmount,
-				MaxAmount:          info.MaxAmount,
-				IdentityPubkey:     info.IdentityPubkey,
-				Alias:              info.Alias,
-				NumPendingChannels: info.NumPendingChannels,
-				NumActiveChannels:  info.NumActiveChannels,
-				NumPeers:           info.NumPeers,
-				BlockHeight:        info.BlockHeight,
-				BlockHash:          info.BlockHash,
-				SyncedToChain:      info.SyncedToChain,
-				Testnet:            info.Testnet,
-				Chains:             info.Chains,
-			},
+	var net Net
+	switch s.net {
+	case "simnet":
+		net = Net_Simnet
+	case "testnet":
+		net = Net_Testnet
+	case "mainnet":
+		net = Net_Mainnet
+	}
+
+	resp := &InfoResponse{
+		Time: time.Now().String(),
+		Net:  net,
+		LightingInfo: &LightningInfo{
+			Host:               info.Host,
+			Port:               info.Port,
+			MinAmount:          info.MinAmount,
+			MaxAmount:          info.MaxAmount,
+			IdentityPubkey:     info.IdentityPubkey,
+			Alias:              info.Alias,
+			NumPendingChannels: info.NumPendingChannels,
+			NumActiveChannels:  info.NumActiveChannels,
+			NumPeers:           info.NumPeers,
+			BlockHeight:        info.BlockHeight,
+			BlockHash:          info.BlockHash,
 		},
 	}
 
