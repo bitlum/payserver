@@ -18,27 +18,48 @@ end-notification:
 		--data '{"text":"`simnet.connector` deploy ended", \
 		"username": "$(USER)"}' $(HOOK)
 
+
+
+activate:
+		@$(call print, "Activating simnet.connector.bitlum.io machine...")
+		eval `docker-machine env simnet.connector.bitlum.io`
+
+deactivate:
+		@$(call print, "Deactivating simnet.connector.bitlum.io machine...")
+		eval `docker-machine env -u`
+
 build:
 		@$(call print, "Building connector...")
 		GOOS=linux GOARCH=amd64 go build -v -i -o ./docker/connector/connector
 
-		@$(call print, "Activating simnet.connector.bitlum.io machine...")
-		eval `docker-machine env simnet.connector.bitlum.io`
+		$(activate)
 
 		@$(call print, "Running docker-compose...")
 		docker-compose -f ./docker/simnet-docker-compose.yml -p connector up --build -d
 
-		@$(call print, "Deactivating simnet.connector.bitlum.io machine...")
-		eval `docker-machine env -u`
+		$(deactivate)
 
 		@$(call print, "Removing build binaries...")
 		rm ./docker/connector/connector
 
 ifeq ($(HOOK), "")
-deploy: @$(call print, "You forgot specify hook!")
+deploy:
+		@$(call print, "You forgot specify hook!")
 else
-deploy: start-notification build end-notification
+deploy: \
+		start-notification \
+		build \
+		end-notification
 endif
 
-.PHONY: deploy
+fetch-log:
+		@$(call print, "Fetching logs...")
+		docker-compose -f ./docker/simnet-docker-compose.yml -p connector logs --tail=1000 -f
+
+logs: \
+		activate \
+		fetch-log \
+		deactivate
+
+.PHONY: deploy logs
 
