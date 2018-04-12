@@ -1,0 +1,19 @@
+version: "3.4"
+services:
+
+  connector:
+    build:
+      context: ./connector
+    volumes:
+      - "db:/db"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "12m"
+        max-file: "500"
+    restart: always
+    network_mode: "host"
+    command: ["--config", "simnet-connector.conf"]
+
+volumes:
+  db:
