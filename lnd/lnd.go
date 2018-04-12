@@ -38,6 +38,9 @@ const (
 
 // Config is a connector config.
 type Config struct {
+	// Net blockchain network this connector should operate with.
+	Net string
+
 	// Name of the daemon client.
 	Name string
 
@@ -58,6 +61,10 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
+	if c.Net == "" {
+		return errors.Errorf("net should be specified")
+	}
+
 	if c.Port == 0 {
 		return errors.Errorf("port should be specified")
 	}
@@ -146,6 +153,20 @@ func (c *Connector) Start() error {
 		m.AddError(errToSeverity(ErrGetInfo))
 		return errors.Errorf("unable get lnd node info: %v", err)
 	}
+
+	// TODO(andrew.shvv) not working for mainnet, as far response don't have
+	// a mainnet param.
+	lndNet := "simnet"
+	if respInfo.Testnet {
+		lndNet = "testnet"
+	}
+
+	if lndNet != c.cfg.Net {
+		return errors.Errorf("hub net is '%v', but config net is '%v'",
+			c.cfg.Net, lndNet)
+	}
+
+	log.Infof("Init connector working with '%v' net", lndNet)
 
 	c.nodeAddr = respInfo.IdentityPubkey
 	var invoiceSubscription lnrpc.Lightning_SubscribeInvoicesClient
