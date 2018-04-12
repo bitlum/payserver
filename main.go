@@ -62,7 +62,7 @@ func backendMain() error {
 
 	// TODO(andrew.shvv) add net config and daemon checks
 	mainLog.Infof("Initialising metric for crypto clients...")
-	cryptoMetricsBackend, err := cryptoMetrics.InitMetricsBackend("simnet")
+	cryptoMetricsBackend, err := cryptoMetrics.InitMetricsBackend(loadedConfig.Net)
 	if err != nil {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
@@ -71,6 +71,7 @@ func backendMain() error {
 	// transaction, be able to answer on the question how many
 	// pending transaction user have and also to withdraw money from exchange.
 	bitcoinCashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		Net:              loadedConfig.Net,
 		MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
 		SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
 		DataDir:          "/tmp",
@@ -92,6 +93,7 @@ func backendMain() error {
 	}
 
 	bitcoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		Net:              loadedConfig.Net,
 		MinConfirmations: loadedConfig.Bitcoin.MinConfirmations,
 		SyncLoopDelay:    loadedConfig.Bitcoin.SyncDelay,
 		DataDir:          "/tmp",
@@ -113,6 +115,7 @@ func backendMain() error {
 	}
 
 	dashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		Net:              loadedConfig.Net,
 		MinConfirmations: loadedConfig.Dash.MinConfirmations,
 		SyncLoopDelay:    loadedConfig.Dash.SyncDelay,
 		DataDir:          "/tmp",
@@ -134,6 +137,7 @@ func backendMain() error {
 	}
 
 	litecoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		Net:              loadedConfig.Net,
 		MinConfirmations: loadedConfig.Litecoin.MinConfirmations,
 		SyncLoopDelay:    loadedConfig.Litecoin.SyncDelay,
 		DataDir:          "/tmp",
@@ -155,6 +159,7 @@ func backendMain() error {
 	}
 
 	ethConnector, err := geth.NewConnector(&geth.Config{
+		Net:              loadedConfig.Net,
 		MinConfirmations: loadedConfig.Ethereum.MinConfirmations,
 		SyncTickDelay:    loadedConfig.Ethereum.SyncDelay,
 		DataDir:          "/tmp",
@@ -173,6 +178,7 @@ func backendMain() error {
 	}
 
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
+		Net:              loadedConfig.Net,
 		Name:        "lnd",
 		Host:        loadedConfig.BitcoinLightning.Host,
 		Port:        loadedConfig.BitcoinLightning.Port,
@@ -229,7 +235,7 @@ func backendMain() error {
 
 	// TODO(andrew.shvv) add net config and daemon checks
 	mainLog.Infof("Initialising metric for rpc...")
-	rpcMetricsBackend, err := rpcMetrics.InitMetricsBackend("simnet")
+	rpcMetricsBackend, err := rpcMetrics.InitMetricsBackend(loadedConfig.Net)
 	if err != nil {
 		return errors.Errorf("unable to init rpc metrics: %v", err)
 	}
