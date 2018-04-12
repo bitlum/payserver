@@ -76,6 +76,8 @@ type config struct {
 	Litecoin         *BitcoindConfig `group:"litecoin" namespace:"litecoin"`
 	Dash             *BitcoindConfig `group:"dash" namespace:"dash"`
 	Ethereum         *GethConfig     `group:"ethereum" namespace:"ethereum"`
+
+	DataDir string `long:"datadir" description:"Path to data directory"`
 }
 
 type LndConfig struct {
