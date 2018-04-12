@@ -38,6 +38,16 @@ const (
 
 // Config is a connector config.
 type Config struct {
+	// PeerPort public port of the lnd via which other lightning network nodes
+	// could connect.
+	// TODO(andrew.shvv) Remove when lnd would return this info
+	PeerPort string
+
+	// PeerHost public host of the lnd via which other lightning network nodes
+	// could connect.
+	// TODO(andrew.shvv) Remove when lnd would return this info
+	PeerHost string
+
 	// Net blockchain network this connector should operate with.
 	Net string
 
@@ -61,6 +71,14 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
+	if c.PeerHost == "" {
+		return errors.Errorf("peer host should be specified")
+	}
+
+	if c.PeerHost == "" {
+		return errors.Errorf("peer port should be specified")
+	}
+
 	if c.Net == "" {
 		return errors.Errorf("net should be specified")
 	}
@@ -364,8 +382,8 @@ func (c *Connector) Info() (*common.LightningInfo, error) {
 	}
 
 	return &common.LightningInfo{
-		Host:            c.cfg.Host,
-		Port:            strconv.Itoa(c.cfg.Port),
+		Host:            c.cfg.PeerHost,
+		Port:            c.cfg.PeerPort,
 		MinAmount:       "0.00000001",
 		MaxAmount:       "0.042",
 		GetInfoResponse: info,
