@@ -178,7 +178,9 @@ func backendMain() error {
 	}
 
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
-		Net:              loadedConfig.Net,
+		PeerHost:    loadedConfig.BitcoinLightning.PeerHost,
+		PeerPort:    loadedConfig.BitcoinLightning.PeerPort,
+		Net:         loadedConfig.Net,
 		Name:        "lnd",
 		Host:        loadedConfig.BitcoinLightning.Host,
 		Port:        loadedConfig.BitcoinLightning.Port,
@@ -202,8 +204,8 @@ func backendMain() error {
 		core.AssetBTC: lightningConnector,
 	}
 
-	for asset, c := range blockchainConnectors {
-		switch c := c.(type) {
+	for asset, connector := range blockchainConnectors {
+		switch c := connector.(type) {
 		case *bitcoind.Connector:
 			if err := c.Start(); err != nil {
 				return errors.Errorf("unable to start %v connector: %v",
@@ -242,8 +244,8 @@ func backendMain() error {
 
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
-	rpcServer, err := rpc.NewRPCServer(blockchainConnectors,
-		lightningConnectors, estmtr, mainLog, rpcMetricsBackend)
+	rpcServer, err := rpc.NewRPCServer(loadedConfig.Net, blockchainConnectors,
+		lightningConnectors, estmtr, rpcMetricsBackend)
 	if err != nil {
 		return errors.Errorf("unable to init RPC server: %v", err)
 	}
