@@ -2,6 +2,7 @@ package geth
 
 import (
 	"github.com/bitlum/connector/common"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // pendingMap stores the information about pending transactions corresponding
@@ -16,8 +17,10 @@ func (m pendingMap) add(tx *common.BlockchainPendingPayment) {
 	m[tx.Account][tx.ID] = tx
 }
 
+// merge merges two pending maps and invokes handler with new entry populated
+// as an argument.
 func (m pendingMap) merge(m2 pendingMap,
-	f func(tx *common.BlockchainPendingPayment)) {
+	newEntryHandler func(tx *common.BlockchainPendingPayment)) {
 	for account, txs := range m2 {
 		// Add all txs if there is no transaction for this
 		// account and continue.
@@ -25,19 +28,18 @@ func (m pendingMap) merge(m2 pendingMap,
 			m[account] = txs
 
 			for _, tx := range txs {
-				f(tx)
+				newEntryHandler(tx)
 			}
 
 			continue
 		}
 
 		// If account exist that we should populate it
-		// with transactions
-		// which aren't there yet.
+		// with transactions which aren't there yet.
 		for txid, tx := range txs {
 			if _, ok := m[account][txid]; !ok {
 				m[account][txid] = tx
-				f(tx)
+				newEntryHandler(tx)
 			}
 		}
 	}
@@ -54,6 +56,19 @@ func (m pendingMap) merge(m2 pendingMap,
 			}
 		}
 	}
+}
+
+func convertVersion(actualNet string) string {
+	net := "simnet"
+
+	switch actualNet {
+	case params.TestChainConfig.ChainId.String():
+		net = "testnet"
+	case params.RinkebyChainConfig.ChainId.String():
+		net = "mainnet"
+	}
+
+	return net
 }
 
 type GeneratedTransaction struct {

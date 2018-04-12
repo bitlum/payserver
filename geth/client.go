@@ -82,6 +82,9 @@ type DaemonConfig struct {
 
 // Config is a connector config.
 type Config struct {
+	// Net blockchain network this connector should operate with.
+	Net string
+
 	// MinConfirmations is a minimum number of block on top of the
 	// one where transaction appeared, before we consider transaction as
 	// confirmed.
@@ -115,6 +118,10 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
+	if c.Net == "" {
+		return errors.New("net should be specified")
+	}
+
 	if c.DataDir == "" {
 		return errors.New("data dir should be specified")
 	}
@@ -209,6 +216,18 @@ func (c *Connector) Start() error {
 		return errors.Errorf("unable to open db: %v", err)
 	}
 	c.db = database
+
+	version, err := c.client.NetVersion()
+	if err != nil {
+		return errors.Errorf("unable to get net version: %v", err)
+	}
+
+	if c.cfg.Net != convertVersion(version) {
+		return errors.Errorf("networks are different, desired: %v, "+
+			"actual: %v", c.cfg.Net, convertVersion(version))
+	}
+
+	c.log.Infof("Init connector working with '%v' net", convertVersion(version))
 
 	c.log.Info("Getting last synced block hash...")
 	var lastSyncedBlockHash string
@@ -957,6 +976,8 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	})
 	c.pendingLock.Unlock()
 
+	// Check number of funds available and track this metric in metric
+	// backend for farther analysis.
 	balance, err := c.FundsAvailable()
 	if err != nil {
 		m.AddError(string(metrics.MiddleSeverity))
