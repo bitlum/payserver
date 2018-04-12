@@ -82,6 +82,12 @@ type LndConfig struct {
 	TlsCertPath string `long:"tlscertpath" description:"Path to the TLS certificate of the lnd daemon"`
 	Host        string `long:"host" description:"The host of the lnd daemon"`
 	Port        int    `long:"port" description:"The port of the lnd daemon"`
+
+	// TODO(andrew.shvv) Remove when lnd would return this info
+	PeerPort string `long:"peerport" description:"Public port of the lnd via which other lightning network nodes could connect"`
+
+	// TODO(andrew.shvv) Remove when lnd would return this info
+	PeerHost string `long:"peerhost" description:"Public host of the lnd via which other lightning network nodes could connect"`
 }
 
 type GethConfig struct {
