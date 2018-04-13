@@ -13,6 +13,7 @@ import (
 	"github.com/bitlum/connector/metrics"
 	"github.com/bitlum/connector/lnd"
 	"github.com/bitlum/connector/crpc/go"
+	"github.com/bitlum/connector/estimator"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -48,10 +49,11 @@ var (
 	// It is written to by the Write method of the logWriter type.
 	logRotatorPipe *io.PipeWriter
 
-	metricsLog = backendLog.Logger("METRICS")
-	mainLog    = backendLog.Logger("MAIN")
-	rpcLog     = backendLog.Logger("RPC")
-	lndLog     = backendLog.Logger("LND")
+	metricsLog   = backendLog.Logger("METRICS")
+	mainLog      = backendLog.Logger("MAIN")
+	rpcLog       = backendLog.Logger("RPC")
+	lndLog       = backendLog.Logger("LND")
+	estimatorLog = backendLog.Logger("EST")
 )
 
 // Initialize package-global logger variables.
@@ -59,6 +61,7 @@ func init() {
 	metrics.UseLogger(metricsLog)
 	lnd.UseLogger(lndLog)
 	crpc.UseLogger(rpcLog)
+	estimator.UseLogger(estimatorLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -67,6 +70,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"METRICS": metricsLog,
 	"LND":     lndLog,
 	"RCP":     rpcLog,
+	"EST":     estimatorLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and
