@@ -1,3 +1,5 @@
+.ONESHELL:
+
 GREEN := "\\033[0;32m"
 NC := "\\033[0m"
 define print
@@ -6,60 +8,65 @@ endef
 
 USER := $(shell whoami)
 
+
+# # # # #
+# Slack #
+# # # # #
+
 start-notification:
 		@$(call print, "Notify about start...")
 		curl -X POST -H 'Content-type: application/json' \
-		--data '{"text":"`simnet.connector` deploy started...", \
-		"username": "$(USER)"}' $(HOOK)
+		--data '{"text":"`simnet.exchange` deploy started...", \
+		"username": "$(USER)"}' \
+		 $(HOOK)
 
 end-notification:
 		@$(call print, "Notify about end...")
 		curl -X POST -H 'Content-type: application/json' \
-		--data '{"text":"`simnet.connector` deploy ended", \
-		"username": "$(USER)"}' $(HOOK)
+		--data '{"text":"`simnet.exchange` deploy ended", \
+		"username": "$(USER)"}' \
+		 $(HOOK)
 
+# # # # # # # # # #
+# Docker machine  #
+# # # # # # # # # #
 
+# NOTE: Eval function if working only with "&&" because every operation in
+# the makefile is working in standalone shell.
+build-compose:
+		@$(call print, "Activating simnet.connector.bitlum.io machine && building...")
+		eval `docker-machine env simnet.connector.bitlum.io` && \
+		docker-compose -f ./docker/simnet-docker-compose.yml up --build -d
 
-activate:
-		@$(call print, "Activating simnet.connector.bitlum.io machine...")
-		eval `docker-machine env simnet.connector.bitlum.io`
+# NOTE: Eval function if working only with "&&" because every operation in
+# the makefile is working in standalone shell.
+logs:
+		@$(call print, "Activating simnet.connector.bitlum.io machine && fetching logs")
+		eval `docker-machine env simnet.connector.bitlum.io` && \
+		docker-compose -f ./docker/simnet-docker-compose.yml logs --tail=1000 -f
 
-deactivate:
-		@$(call print, "Deactivating simnet.connector.bitlum.io machine...")
-		eval `docker-machine env -u`
+# # # # # # # # #
+# Golang build  #
+# # # # # # # # #
 
-build:
-		@$(call print, "Building connector...")
-		GOOS=linux GOARCH=amd64 go build -v -i -o ./docker/connector/connector
-
-		$(activate)
-
-		@$(call print, "Running docker-compose...")
-		docker-compose -f ./docker/simnet-docker-compose.yml -p connector up --build -d
-
-		$(deactivate)
-
+clean:
 		@$(call print, "Removing build binaries...")
 		rm ./docker/connector/connector
 
-ifeq ($(HOOK), "")
+build:
+		@$(call print, "Building exchange...")
+		GOOS=linux GOARCH=amd64 go build -v -i -o ./docker/connector/connector
+
+ifeq ($(HOOK),)
 deploy:
 		@$(call print, "You forgot specify hook!")
 else
-deploy: \
-		start-notification \
-		build \
-		end-notification
+deploy: build \
+		build-compose \
+		clean
 endif
 
-fetch-log:
-		@$(call print, "Fetching logs...")
-		docker-compose -f ./docker/simnet-docker-compose.yml -p connector logs --tail=1000 -f
-
-logs: \
-		activate \
-		fetch-log \
-		deactivate
-
-.PHONY: deploy logs
-
+.PHONY: deploy \
+		logs \
+		build \
+		clean
