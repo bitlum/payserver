@@ -63,7 +63,9 @@ func (e *Coinmarket) Start() error {
 			log.Info("Quit updating goroutine")
 		}()
 
-		// Make an initial price fetching to avoid
+		log.Info("Start updating goroutine")
+
+		// Make an initial price fetching to avoid return of zero funds.
 		for asset, name := range acronimToName {
 			select {
 			case <-e.quit:
@@ -86,6 +88,7 @@ func (e *Coinmarket) Start() error {
 
 					if err := e.update(asset, name); err != nil {
 						log.Errorf("unable to update price %v: %v", name, err)
+						continue
 					}
 				}
 			case cmd := <-e.commands:
