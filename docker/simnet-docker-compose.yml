@@ -2,8 +2,10 @@ version: "3.4"
 services:
 
   connector:
+    container_name: connector
     build:
       context: ./connector
+    image: bitlum/connector
     volumes:
       - "db:/db"
     logging:
