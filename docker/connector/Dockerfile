@@ -1,9 +1,10 @@
-FROM alpine:3.7
+FROM ubuntu:16.04
 MAINTAINER Samokhvalov Andrey <andrey@bitlum.io>
 
-# Install certificates to be able to make requests which requires TLS
-# connection.
-RUN apk --no-cache add openssl ca-certificates
+# Install root certificates so that we could fetch https links.
+RUN apt-get update
+RUN apt-get install -y ca-certificates
+RUN update-ca-certificates
 
 WORKDIR /
 
@@ -12,10 +13,10 @@ WORKDIR /
 COPY connector .
 
 # That is needed to have communication with lightning network daemon.
-COPY lnd-tls.cert .
+COPY lnd-tls.cert ./lnd-tls.cert
 
 # This implies that service config is defines and located in the
 # directory with docker file.
-COPY simnet-connector.conf .
+COPY connector.conf .
 
-ENTRYPOINT [ "./connector" ]
+ENTRYPOINT [ "./connector", "--config", "connector.conf"]

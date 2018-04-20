@@ -4,7 +4,7 @@ services:
   connector:
     container_name: connector
     build:
-      context: ./connector
+      context: ./connector/
     image: bitlum/connector
     volumes:
       - "db:/db"
@@ -15,7 +15,6 @@ services:
         max-file: "500"
     restart: always
     network_mode: "host"
-    command: ["--config", "simnet-connector.conf"]
 
 volumes:
   db:
