@@ -16,10 +16,8 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 			return &chaincfg.MainNetParams, nil
 		case "regtest":
 			return &chaincfg.RegressionNetParams, nil
-		case "testnet3":
+		case "test":
 			return &chaincfg.TestNet3Params, nil
-		default:
-			return nil, errors.New("invalid or unsupported net")
 		}
 
 	case "BCH":
@@ -28,7 +26,7 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 			return &bitcoincash.MainNetParams, nil
 		case "regtest":
 			return &bitcoincash.RegressionNetParams, nil
-		case "testnet3":
+		case "test":
 			return &bitcoincash.TestNet3Params, nil
 		}
 
@@ -40,7 +38,7 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 			return &litecoin.MainNetParamsLegacy, nil
 		case "regtest":
 			return &litecoin.RegressionNetParams, nil
-		case "testnet4":
+		case "test":
 			return &litecoin.TestNet4Params, nil
 		}
 
@@ -50,13 +48,15 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 			return &dash.MainNetParams, nil
 		case "regtest":
 			return &dash.RegressionNetParams, nil
-		case "testnet3":
+		case "test":
 			return &dash.TestNet3Params, nil
 		}
 
 	default:
-		return nil, errors.Errorf("%s asset is invalid or unsupported", asset)
+		return nil, errors.Errorf("asset '%v' is invalid or unsupported",
+			asset)
 	}
 
-	return nil, errors.Errorf("%s asset's net %s is invalid or unsupported", asset, netName)
+	return nil, errors.Errorf("asset's network '%s' is " +
+		"invalid or unsupported", asset, netName)
 }

@@ -61,7 +61,7 @@ type config struct {
 	RPCHost string `long:"rpchost" description:"The host of the RPC endpoint"`
 	RPCPort string `long:"rpcport" description:"The port of the RPC endpoint"`
 
-	Net string `long:"net" description:"The network of the daemon to which connector is connecting" choice:"simnet" choice:"testnet" choice:"mainnet"`
+	Network string `long:"network" description:"The network of the daemon to which connector is connecting" choice:"simnet" choice:"testnet" choice:"mainnet"`
 
 	ConfigFile string `long:"config" description:"Path to configuration file"`
 
@@ -124,7 +124,7 @@ func getDefaultConfig() config {
 		LogDir:     defaultLogDir,
 		DebugLevel: defaultLogLevel,
 
-		Net: defaultNet,
+		Network: defaultNet,
 
 		Prometheus: &prometheusConfig{
 			Host: defaultPrometheusEndpointHost,

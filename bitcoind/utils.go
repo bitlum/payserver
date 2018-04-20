@@ -36,5 +36,10 @@ func isProperNet(desiredNet, actualNet string) bool {
 		return true
 	}
 
-	return desiredNet != actualNet
+	// Handle the case of different testnet networks names
+	if desiredNet == "testnet" && actualNet == "test" {
+		return true
+	}
+
+	return desiredNet == actualNet
 }

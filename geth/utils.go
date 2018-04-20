@@ -62,9 +62,9 @@ func convertVersion(actualNet string) string {
 	net := "simnet"
 
 	switch actualNet {
-	case params.TestChainConfig.ChainId.String():
-		net = "testnet"
 	case params.RinkebyChainConfig.ChainId.String():
+		net = "testnet"
+	case params.MainnetChainConfig.ChainId.String():
 		net = "mainnet"
 	}
 
