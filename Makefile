@@ -47,6 +47,7 @@ end-testnet-notification:
 
 # NOTE: Eval function if working only with "&&" because every operation in
 # the makefile is working in standalone shell.
+
 simnet-build-compose:
 		@$(call print, "Activating simnet.connector.bitlum.io machine && building...")
 
@@ -59,8 +60,6 @@ simnet-build-compose:
 		rm ./docker/connector/connector.conf
 		rm ./docker/connector/lnd-tls.cert
 
-# NOTE: Eval function if working only with "&&" because every operation in
-# the makefile is working in standalone shell.
 testnet-build-compose:
 		@$(call print, "Activating testnet.connector.bitlum.io machine && building...")
 
@@ -73,19 +72,25 @@ testnet-build-compose:
 		rm ./docker/connector/connector.conf
 		rm ./docker/connector/lnd-tls.cert
 
-# NOTE: Eval function if working only with "&&" because every operation in
-# the makefile is working in standalone shell.
 simnet-logs:
 		@$(call print, "Activating simnet.connector.bitlum.io machine && fetching logs")
 		eval `docker-machine env simnet.connector.bitlum.io` && \
 		docker-compose -f ./docker/docker-compose.yml logs --tail=1000 -f
 
-# NOTE: Eval function if working only with "&&" because every operation in
-# the makefile is working in standalone shell.
 testnet-logs:
 		@$(call print, "Activating testnet.connector.bitlum.io machine && fetching logs")
 		eval `docker-machine env testnet.connector.bitlum.io` && \
 		docker-compose -f ./docker/docker-compose.yml logs --tail=1000 -f
+
+simnet-ps:
+		@$(call print, "Activating testnet.connector.bitlum.io machine && fetching logs")
+		eval `docker-machine env testnet.connector.bitlum.io` && \
+		docker-compose -f ./docker/docker-compose.yml ps
+
+testnet-ps:
+		@$(call print, "Activating testnet.connector.bitlum.io machine && fetching logs")
+		eval `docker-machine env testnet.connector.bitlum.io` && \
+		docker-compose -f ./docker/docker-compose.yml ps
 
 # # # # # # # # #
 # Golang build  #
@@ -126,5 +131,7 @@ endif
 .PHONY: deploy \
 		simnet-logs \
 		testnet-logs \
+		simnet-ps \
+		testnet-ps \
 		build \
 		clean
