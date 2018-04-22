@@ -59,7 +59,7 @@ var (
 	lastSyncedBlockHashKey = []byte("lastblockhash")
 
 	// weiInEth is a number of wei in the one ethereum.
-	weiInEth = decimal.NewFromFloat(10e16)
+	weiInEth = decimal.NewFromFloat(10e18)
 )
 
 const (
