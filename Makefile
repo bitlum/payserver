@@ -85,12 +85,12 @@ testnet-logs:
 simnet-ps:
 		@$(call print, "Activating testnet.connector.bitlum.io machine && fetching logs")
 		eval `docker-machine env testnet.connector.bitlum.io` && \
-		docker-compose -f ./docker/docker-compose.yml ps
+		docker ps
 
 testnet-ps:
 		@$(call print, "Activating testnet.connector.bitlum.io machine && fetching logs")
 		eval `docker-machine env testnet.connector.bitlum.io` && \
-		docker-compose -f ./docker/docker-compose.yml ps
+		docker ps
 
 # # # # # # # # #
 # Golang build  #
