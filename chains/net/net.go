@@ -14,9 +14,9 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 		switch netName {
 		case "mainnet":
 			return &chaincfg.MainNetParams, nil
-		case "regtest":
+		case "regtest","simnet":
 			return &chaincfg.RegressionNetParams, nil
-		case "test":
+		case "testnet3","test","testnet":
 			return &chaincfg.TestNet3Params, nil
 		}
 
@@ -24,9 +24,9 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 		switch netName {
 		case "mainnet":
 			return &bitcoincash.MainNetParams, nil
-		case "regtest":
+		case "regtest","simnet":
 			return &bitcoincash.RegressionNetParams, nil
-		case "test":
+		case "testnet3","test","testnet":
 			return &bitcoincash.TestNet3Params, nil
 		}
 
@@ -36,9 +36,9 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 			return &litecoin.MainNetParams, nil
 		case "mainnet-legacy":
 			return &litecoin.MainNetParamsLegacy, nil
-		case "regtest":
+		case "regtest","simnet":
 			return &litecoin.RegressionNetParams, nil
-		case "test":
+		case "testnet4","test","testnet":
 			return &litecoin.TestNet4Params, nil
 		}
 
@@ -46,9 +46,9 @@ func GetParams(asset string, netName string) (*chaincfg.Params, error) {
 		switch netName {
 		case "mainnet":
 			return &dash.MainNetParams, nil
-		case "regtest":
+		case "regtest","simnet":
 			return &dash.RegressionNetParams, nil
-		case "test":
+		case "testnet3","test","testnet":
 			return &dash.TestNet3Params, nil
 		}
 
