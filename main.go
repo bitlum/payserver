@@ -4,26 +4,28 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
+	"time"
 
 	"path/filepath"
 
 	"net"
 	"sync"
 
-	"github.com/bitlum/connector/common"
 	"github.com/bitlum/connector/bitcoind"
+	"github.com/bitlum/connector/common"
 	rpc "github.com/bitlum/connector/crpc/go"
 	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/geth"
 	"github.com/bitlum/connector/lnd"
+	"github.com/bitlum/connector/metrics"
+	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
+	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/go-flags"
 	"github.com/go-errors/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"github.com/bitlum/connector/metrics"
-	core "github.com/bitlum/viabtc_rpc_client"
-	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
-	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 )
 
 var (
@@ -242,10 +244,13 @@ func backendMain() error {
 		return errors.Errorf("unable to init rpc metrics: %v", err)
 	}
 
+	paymentsStore := common.NewMemoryPaymentsStore(30 * 24 * time.Hour)
+	paymentsStore.StartCleaner()
+
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
 	rpcServer, err := rpc.NewRPCServer(loadedConfig.Network, blockchainConnectors,
-		lightningConnectors, estmtr, rpcMetricsBackend)
+		lightningConnectors, paymentsStore, estmtr, rpcMetricsBackend)
 	if err != nil {
 		return errors.Errorf("unable to init RPC server: %v", err)
 	}
@@ -304,7 +309,16 @@ func backendMain() error {
 						return
 					case payments := <-client.ReceivedPayments():
 						for _, payment := range payments {
-							doDeposit(engine, payment, asset)
+							if isExchangePayment(payment) {
+								// if we received exchange payment we need to
+								// notify about it exchange
+								doDeposit(engine, payment, asset)
+							} else {
+								// else we need to add it in payment store
+								// for over services could check that
+								// payment is received
+								paymentsStore.AddPayment(payment)
+							}
 						}
 					}
 				}
@@ -329,7 +343,16 @@ func backendMain() error {
 					case <-quit:
 						return
 					case payment := <-client.ReceivedPayments():
-						doDeposit(engine, payment, asset)
+						if isExchangePayment(payment) {
+							// if we received exchange payment we need to
+							// notify about it exchange
+							doDeposit(engine, payment, asset)
+						} else {
+							// else we need to add it in payment store
+							// for over services could check that
+							// payment is received
+							paymentsStore.AddPayment(payment)
+						}
 					}
 				}
 			}(asset, client)
@@ -340,6 +363,7 @@ func backendMain() error {
 	}
 
 	addInterruptHandler(shutdownChannel, func() {
+		paymentsStore.StopCleaner()
 		grpcServer.Stop()
 
 		for _, c := range blockchainConnectors {
@@ -383,4 +407,9 @@ func main() {
 		}
 		os.Exit(1)
 	}
+}
+
+// isExchangePayment checks whether payment for exchange account
+func isExchangePayment(p *common.Payment) bool {
+	return strings.Index(p.Account, "exchange_") == 0
 }
