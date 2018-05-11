@@ -565,7 +565,7 @@ func TestHelpArgInternals(t *testing.T) {
 
 // TestMethodHelp ensures the method help function works as expected for various
 // command structs.
-func TestMethodHelp(t *testing.T) {
+func TestMethodHelp2(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
