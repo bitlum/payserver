@@ -29,6 +29,7 @@ type Server struct {
 	net                  string
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector
 	lightningConnectors  map[core.AssetType]common.LightningConnector
+	paymentsStore        common.PaymentsStore
 	estmtr               estimator.USDEstimator
 	metrics              rpc.MetricsBackend
 }
@@ -41,11 +42,13 @@ var _ ConnectorServer = (*Server)(nil)
 func NewRPCServer(net string,
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector,
 	lightningConnectors map[core.AssetType]common.LightningConnector,
+	paymentsStore common.PaymentsStore,
 	estmtr estimator.USDEstimator,
 	metrics rpc.MetricsBackend) (*Server, error) {
 	return &Server{
 		blockchainConnectors: blockchainConnectors,
 		lightningConnectors:  lightningConnectors,
+		paymentsStore:        paymentsStore,
 		estmtr:               estmtr,
 		metrics:              metrics,
 		net:                  net,
@@ -421,6 +424,28 @@ func (s *Server) Estimate(_ context.Context,
 
 	resp := &EstimationResponse{
 		Usd: usdEstimation,
+	}
+
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
+		spew.Sdump(resp))
+
+	return resp, nil
+}
+
+// PaymentReceived is used to determine if payment with given ID is received
+func (s *Server) PaymentReceived(_ context.Context,
+	req *PaymentReceivedRequest) (*PaymentReceivedResponse, error) {
+
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+
+	_, err := s.paymentsStore.Payment(req.Id)
+
+	if err != nil && err != common.PaymentNotFound {
+		return nil, err
+	}
+
+	resp := &PaymentReceivedResponse{
+		Received: err == nil,
 	}
 
 	log.Tracef("command(%v), response(%v)", getFunctionName(),

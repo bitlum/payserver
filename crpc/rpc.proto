@@ -80,6 +80,18 @@ service Connector {
     //
     // Estimate estimates the dollar price of the choosen asset.
     rpc Estimate (EstimateRequest) returns (EstimationResponse);
+
+    //
+    // PaymentReceived is used to determine if payment with given ID is received
+    rpc PaymentReceived (PaymentReceivedRequest) returns (PaymentReceivedResponse);
+}
+
+message PaymentReceivedRequest {
+    string id = 1;
+}
+
+message PaymentReceivedResponse {
+    bool received = 1;
 }
 
 message EstimateRequest {
