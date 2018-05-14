@@ -1,13 +1,14 @@
 package crpc
 
 import (
+	"time"
+
 	"github.com/bitlum/connector/common"
-	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/bitlum/connector/estimator"
+	"github.com/bitlum/connector/metrics/rpc"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/net/context"
-	"github.com/bitlum/connector/metrics/rpc"
-	"time"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 	NetworkInfo         = "NetworkInfo"
 	CreateInvoice       = "CreateInvoice"
 	SendPayment         = "SendPayment"
+	AccountBalance      = "AccountBalance"
 )
 
 // Server...
@@ -29,6 +31,7 @@ type Server struct {
 	net                  string
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector
 	lightningConnectors  map[core.AssetType]common.LightningConnector
+	paymentsStore        common.PaymentsStore
 	estmtr               estimator.USDEstimator
 	metrics              rpc.MetricsBackend
 }
@@ -41,11 +44,13 @@ var _ ConnectorServer = (*Server)(nil)
 func NewRPCServer(net string,
 	blockchainConnectors map[core.AssetType]common.BlockchainConnector,
 	lightningConnectors map[core.AssetType]common.LightningConnector,
+	paymentsStore common.PaymentsStore,
 	estmtr estimator.USDEstimator,
 	metrics rpc.MetricsBackend) (*Server, error) {
 	return &Server{
 		blockchainConnectors: blockchainConnectors,
 		lightningConnectors:  lightningConnectors,
+		paymentsStore:        paymentsStore,
 		estmtr:               estmtr,
 		metrics:              metrics,
 		net:                  net,
@@ -421,6 +426,68 @@ func (s *Server) Estimate(_ context.Context,
 
 	resp := &EstimationResponse{
 		Usd: usdEstimation,
+	}
+
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
+		spew.Sdump(resp))
+
+	return resp, nil
+}
+
+// PaymentReceived is used to determine if payment with given ID is received
+func (s *Server) PaymentReceived(_ context.Context,
+	req *PaymentReceivedRequest) (*PaymentReceivedResponse, error) {
+
+	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
+
+	_, err := s.paymentsStore.Payment(req.Id)
+
+	if err != nil && err != common.PaymentNotFound {
+		return nil, err
+	}
+
+	resp := &PaymentReceivedResponse{
+		Received: err == nil,
+	}
+
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
+		spew.Sdump(resp))
+
+	return resp, nil
+}
+
+//
+// AccountBalance is used to determine account balance state for
+// requested asset. This state includes available and pending balance.
+//
+// NOTE: Works only for blockchain daemons.
+func (s *Server) AccountBalance(_ context.Context,
+	req *AccountBalanceRequest) (*AccountBalanceResponse, error) {
+
+	log.Tracef("command(%v), request(%v)", getFunctionName(),
+		spew.Sdump(req))
+
+	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
+	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(AccountBalance, severity)
+		return nil, newErrAssetNotSupported(
+			req.Asset, "account balance")
+	}
+
+	available, err := c.ConfirmedBalance(req.Account)
+	if err != nil {
+		return nil, newErrInternal(err.Error())
+	}
+
+	pending, err := c.PendingBalance(req.Account)
+	if err != nil {
+		return nil, newErrInternal(err.Error())
+	}
+
+	resp := &AccountBalanceResponse{
+		Available: available,
+		Pending:   pending,
 	}
 
 	log.Tracef("command(%v), response(%v)", getFunctionName(),
