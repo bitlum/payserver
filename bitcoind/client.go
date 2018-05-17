@@ -19,13 +19,13 @@ import (
 	"github.com/bitlum/connector/bitcoind/rpcclient"
 	"github.com/bitlum/connector/chains/net"
 	"github.com/bitlum/connector/common"
-	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/bitlum/connector/db"
-	"github.com/coreos/bbolt"
+	"github.com/bitlum/connector/metrics/crypto"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/btclog"
+	"github.com/coreos/bbolt"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
-	"github.com/bitlum/connector/metrics/crypto"
 )
 
 var (
@@ -517,6 +517,19 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 	}
 
 	return nil
+}
+
+// ConfirmedBalance returns number of funds available under control of
+// connector.
+//
+// NOTE: Part of the common.Connector interface.
+func (c *Connector) ConfirmedBalance(account string) (string, error) {
+	balance, err := c.client.GetBalanceMinConf(account, c.cfg.MinConfirmations)
+	if err != nil {
+		return "", err
+	}
+	return decimal.NewFromFloat(
+		balance.ToBTC()).Round(8).String(), nil
 }
 
 // PendingBalance return the amount of funds waiting ro be confirmed.
