@@ -78,7 +78,10 @@ type BlockchainConnector interface {
 	// AccountAddress return the deposit address of account.
 	AccountAddress(account string) (string, error)
 
-	// PendingBalance return the amount of funds waiting ro be confirmed.
+	// ConfirmedBalance return the amount of confirmed funds available for account.
+	ConfirmedBalance(account string) (string, error)
+
+	// PendingBalance return the amount of funds waiting to be confirmed.
 	PendingBalance(account string) (string, error)
 
 	// PendingTransactions return the transactions which has confirmation
