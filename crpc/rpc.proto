@@ -84,6 +84,19 @@ service Connector {
     //
     // PaymentReceived is used to determine if payment with given ID is received
     rpc PaymentReceived (PaymentReceivedRequest) returns (PaymentReceivedResponse);
+
+    // AccountBalance is used to determine account balance for requested asset
+    rpc AccountBalance(AccountBalanceRequest) returns (AccountBalanceResponse);
+}
+
+message AccountBalanceRequest {
+    string account = 2;
+    string asset = 3;
+}
+
+message AccountBalanceResponse {
+    string available = 1;
+    string pending = 2;
 }
 
 message PaymentReceivedRequest {

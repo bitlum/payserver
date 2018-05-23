@@ -1,13 +1,14 @@
 package crpc
 
 import (
+	"time"
+
 	"github.com/bitlum/connector/common"
-	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/bitlum/connector/estimator"
+	"github.com/bitlum/connector/metrics/rpc"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/net/context"
-	"github.com/bitlum/connector/metrics/rpc"
-	"time"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 	NetworkInfo         = "NetworkInfo"
 	CreateInvoice       = "CreateInvoice"
 	SendPayment         = "SendPayment"
+	AccountBalance      = "AccountBalance"
 )
 
 // Server...
@@ -446,6 +448,45 @@ func (s *Server) PaymentReceived(_ context.Context,
 
 	resp := &PaymentReceivedResponse{
 		Received: err == nil,
+	}
+
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
+		spew.Sdump(resp))
+
+	return resp, nil
+}
+
+//
+// AccountBalance is used to determine account balance for requested asset
+//
+// NOTE: Works only for blockchain daemons.
+func (s *Server) AccountBalance(_ context.Context,
+	req *AccountBalanceRequest) (*AccountBalanceResponse, error) {
+
+	log.Tracef("command(%v), request(%v)", getFunctionName(),
+		spew.Sdump(req))
+
+	c, ok := s.blockchainConnectors[core.AssetType(req.Asset)]
+	if !ok {
+		severity := errMetricsInfo(ErrAssetNotSupported)
+		s.metrics.AddError(AccountBalance, severity)
+		return nil, newErrAssetNotSupported(
+			req.Asset, "account balance")
+	}
+
+	available, err := c.ConfirmedBalance(req.Account)
+	if err != nil {
+		return nil, newErrInternal(err.Error())
+	}
+
+	pending, err := c.PendingBalance(req.Account)
+	if err != nil {
+		return nil, newErrInternal(err.Error())
+	}
+
+	resp := &AccountBalanceResponse{
+		Available: available,
+		Pending:   pending,
 	}
 
 	log.Tracef("command(%v), response(%v)", getFunctionName(),
