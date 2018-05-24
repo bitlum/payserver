@@ -394,7 +394,7 @@ func (c *Connector) Info() (*common.LightningInfo, error) {
 // and insures the the capacity of the channels is sufficient.
 //
 // NOTE: Part of the common.LightningConnector interface.
-func (c *Connector) QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error) {
+func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Route, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodQueryRoutes, c.cfg.Metrics)
 	defer m.Finish()
 
@@ -419,8 +419,9 @@ func (c *Connector) QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error) {
 	}
 
 	req := &lnrpc.QueryRoutesRequest{
-		PubKey: pubKey,
-		Amt:    satoshis,
+		PubKey:    pubKey,
+		Amt:       satoshis,
+		NumRoutes: limit,
 	}
 
 	info, err := c.client.QueryRoutes(context.Background(), req)

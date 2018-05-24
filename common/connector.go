@@ -118,7 +118,7 @@ type LightningConnector interface {
 
 	// QueryRoutes returns list of routes from to the given lnd node,
 	// and insures the the capacity of the channels is sufficient.
-	QueryRoutes(pubKey, amount string) ([]*lnrpc.Route, error)
+	QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Route, error)
 
 	// FundsAvailable returns number of funds available under control of
 	// connector.

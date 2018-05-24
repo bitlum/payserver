@@ -383,7 +383,7 @@ func (s *Server) CheckReachable(_ context.Context,
 	}
 
 	amount := "0.00000001"
-	routes, err := c.QueryRoutes(req.IdentityKey, amount)
+	routes, err := c.QueryRoutes(req.IdentityKey, amount, 1)
 	if err != nil {
 		// TODO(andrew.shvv) distinguish errors
 		return &CheckReachableResponse{
@@ -391,14 +391,11 @@ func (s *Server) CheckReachable(_ context.Context,
 		}, nil
 	}
 
+	resp := &CheckReachableResponse{}
 	if len(routes) != 0 {
-		return &CheckReachableResponse{
-			IsReachable: true,
-		}, nil
-	}
-
-	resp := &CheckReachableResponse{
-		IsReachable: false,
+		resp.IsReachable = true
+	} else {
+		resp.IsReachable = false
 	}
 
 	log.Tracef("command(%v), response(%v)", getFunctionName(),
