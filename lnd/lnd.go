@@ -2,6 +2,7 @@ package lnd
 
 import (
 	"context"
+	"io/ioutil"
 
 	"sync"
 
@@ -14,17 +15,19 @@ import (
 
 	"encoding/hex"
 
-	"github.com/bitlum/connector/common"
-	"github.com/bitlum/connector/db"
 	"github.com/bitlum/btcd/btcec"
 	"github.com/bitlum/btcutil"
+	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/db"
+	"github.com/bitlum/connector/metrics"
+	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/go-errors/errors"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"github.com/bitlum/connector/metrics/crypto"
-	"github.com/bitlum/connector/metrics"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 const (
@@ -63,6 +66,10 @@ type Config struct {
 	// TlsCertPath is a path to certificate, which is needed to have a secure
 	// gRPC connection with lnd daemon.
 	TlsCertPath string
+
+	// MacaroonPath is path to macaroon which will be used to make authorizaed
+	// RPC requests. Should be empty if lnd run with --no-macaroon option.
+	MacaroonPath string
 
 	// Metrics is a metric backend which is used to collect metrics from
 	// connector. In case of prometheus client they stored locally till
@@ -152,6 +159,21 @@ func (c *Connector) Start() error {
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
+	}
+
+	if c.cfg.MacaroonPath != "" {
+		macaroonBytes, err := ioutil.ReadFile(c.cfg.MacaroonPath)
+		if err != nil {
+			return errors.Errorf("Unable to read macaroon file: %v", err)
+		}
+
+		mac := &macaroon.Macaroon{}
+		if err = mac.UnmarshalBinary(macaroonBytes); err != nil {
+			return errors.Errorf("Unable to unmarshal macaroon: %v", err)
+		}
+
+		opts = append(opts,
+			grpc.WithPerRPCCredentials(macaroons.NewMacaroonCredential(mac)))
 	}
 
 	target := net.JoinHostPort(c.cfg.Host, strconv.Itoa(c.cfg.Port))
