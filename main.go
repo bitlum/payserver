@@ -180,14 +180,15 @@ func backendMain() error {
 	}
 
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
-		PeerHost:    loadedConfig.BitcoinLightning.PeerHost,
-		PeerPort:    loadedConfig.BitcoinLightning.PeerPort,
-		Net:         loadedConfig.Network,
-		Name:        "lnd",
-		Host:        loadedConfig.BitcoinLightning.Host,
-		Port:        loadedConfig.BitcoinLightning.Port,
-		TlsCertPath: loadedConfig.BitcoinLightning.TlsCertPath,
-		Metrics:     cryptoMetricsBackend,
+		PeerHost:     loadedConfig.BitcoinLightning.PeerHost,
+		PeerPort:     loadedConfig.BitcoinLightning.PeerPort,
+		Net:          loadedConfig.Network,
+		Name:         "lnd",
+		Host:         loadedConfig.BitcoinLightning.Host,
+		Port:         loadedConfig.BitcoinLightning.Port,
+		TlsCertPath:  loadedConfig.BitcoinLightning.TlsCertPath,
+		MacaroonPath: loadedConfig.BitcoinLightning.MacaroonPath,
+		Metrics:      cryptoMetricsBackend,
 	})
 	if err != nil {
 		return errors.Errorf("unable to create lightning bitcoin connector"+
