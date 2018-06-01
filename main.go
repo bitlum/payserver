@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"path/filepath"
@@ -57,9 +56,13 @@ func backendMain() error {
 		return errors.Errorf("unable to create engine client: %v", err)
 	}
 
-	engine, err := core.GetEngine()
-	if err != nil {
-		return errors.Errorf("unable to get engine: %s", err)
+	var engine *core.Engine
+	if !loadedConfig.EngineDisabled {
+		var err error
+		engine, err = core.GetEngine()
+		if err != nil {
+			return errors.Errorf("unable to get engine: %s", err)
+		}
 	}
 
 	// TODO(andrew.shvv) add net config and daemon checks
@@ -310,16 +313,10 @@ func backendMain() error {
 						return
 					case payments := <-client.ReceivedPayments():
 						for _, payment := range payments {
-							if isExchangePayment(payment) {
-								// if we received exchange payment we need to
-								// notify about it exchange
+							if !loadedConfig.EngineDisabled {
 								doDeposit(engine, payment, asset)
-							} else {
-								// else we need to add it in payment store
-								// for over services could check that
-								// payment is received
-								paymentsStore.AddPayment(payment)
 							}
+							paymentsStore.AddPayment(payment)
 						}
 					}
 				}
@@ -344,16 +341,10 @@ func backendMain() error {
 					case <-quit:
 						return
 					case payment := <-client.ReceivedPayments():
-						if isExchangePayment(payment) {
-							// if we received exchange payment we need to
-							// notify about it exchange
+						if !loadedConfig.EngineDisabled {
 							doDeposit(engine, payment, asset)
-						} else {
-							// else we need to add it in payment store
-							// for over services could check that
-							// payment is received
-							paymentsStore.AddPayment(payment)
 						}
+						paymentsStore.AddPayment(payment)
 					}
 				}
 			}(asset, client)
@@ -408,9 +399,4 @@ func main() {
 		}
 		os.Exit(1)
 	}
-}
-
-// isExchangePayment checks whether payment for exchange account
-func isExchangePayment(p *common.Payment) bool {
-	return strings.Index(p.Account, "exchange_") == 0
 }
