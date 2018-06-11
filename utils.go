@@ -85,7 +85,13 @@ func doDeposit(engine *core.Engine, payment *common.Payment,
 	return
 }
 
+// getUserIDFromAccount extracts user ID string from account with
+// system prefix and parses it to uint32.
 func getUserIDFromAccount(account string) (uint32, error) {
+	parts := strings.Split(account, "_")
+	if len(parts) == 2 {
+		account = strings.TrimPrefix(account, "exchange_")
+	}
 	id, err := strconv.ParseUint(account, 10, 32)
 	if err != nil {
 		return 0, err

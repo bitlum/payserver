@@ -24,19 +24,6 @@
 #   go-tests = true
 #   unused-packages = true
 
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/AndrewSamokhvalov/slice"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/bitlum/btcd"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/bitlum/btcutil"
-
 [[constraint]]
   name = "github.com/coreos/bbolt"
   revision = "4f5275f4ebbf6fe7cb772de987fa96ee674460a7"
@@ -44,18 +31,6 @@
 [[constraint]]
   name = "github.com/btcsuite/btclog"
   revision = "84c8d2346e9fc8c7b947e243b9c24e6df9fd206a"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/btcsuite/go-flags"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/btcsuite/go-socks"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/btcsuite/websocket"
 
 [[constraint]]
   name = "github.com/davecgh/go-spew"
@@ -69,9 +44,9 @@
   name = "github.com/go-errors/errors"
   revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
 
-[[constraint]]
+[[override]]
   name = "github.com/golang/protobuf"
-  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
+  version = "1.1.0"
 
 [[constraint]]
   name = "github.com/jrick/logrotate"
@@ -79,15 +54,7 @@
 
 [[constraint]]
   name = "github.com/lightningnetwork/lnd"
-  version = "0.4.1-beta"
-
-[[constraint]]
-  name = "github.com/ltcsuite/ltcd"
-  revision = "5f654d5faab99ee2b3488fabba98e5f7a5257ee3"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/onrik/ethrpc"
+  revision = "991c9fb7dd534a7cbc7ce9505e7eca8fa2a63bc8"
 
 [[constraint]]
   name = "github.com/pkg/errors"
@@ -113,10 +80,10 @@
   name = "github.com/prometheus/client_golang"
   version = "0.8.0"
 
-[[constraint]]
-  branch = "master"
-  name = "github.com/bitlum/viabtc_rpc_client"
-
 [prune]
   go-tests = true
   unused-packages = true
+
+[[prune.project]]
+  name = "github.com/ethereum/go-ethereum"
+  unused-packages = false

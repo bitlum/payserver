@@ -4,26 +4,27 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"path/filepath"
 
 	"net"
 	"sync"
 
-	"github.com/bitlum/connector/common"
 	"github.com/bitlum/connector/bitcoind"
+	"github.com/bitlum/connector/common"
 	rpc "github.com/bitlum/connector/crpc/go"
 	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/geth"
 	"github.com/bitlum/connector/lnd"
+	"github.com/bitlum/connector/metrics"
+	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
+	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/go-flags"
 	"github.com/go-errors/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"github.com/bitlum/connector/metrics"
-	core "github.com/bitlum/viabtc_rpc_client"
-	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
-	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 )
 
 var (
@@ -55,9 +56,13 @@ func backendMain() error {
 		return errors.Errorf("unable to create engine client: %v", err)
 	}
 
-	engine, err := core.GetEngine()
-	if err != nil {
-		return errors.Errorf("unable to get engine: %s", err)
+	var engine *core.Engine
+	if !loadedConfig.EngineDisabled {
+		var err error
+		engine, err = core.GetEngine()
+		if err != nil {
+			return errors.Errorf("unable to get engine: %s", err)
+		}
 	}
 
 	// TODO(andrew.shvv) add net config and daemon checks
@@ -178,14 +183,15 @@ func backendMain() error {
 	}
 
 	lightningConnector, err := lnd.NewConnector(&lnd.Config{
-		PeerHost:    loadedConfig.BitcoinLightning.PeerHost,
-		PeerPort:    loadedConfig.BitcoinLightning.PeerPort,
-		Net:         loadedConfig.Network,
-		Name:        "lnd",
-		Host:        loadedConfig.BitcoinLightning.Host,
-		Port:        loadedConfig.BitcoinLightning.Port,
-		TlsCertPath: loadedConfig.BitcoinLightning.TlsCertPath,
-		Metrics:     cryptoMetricsBackend,
+		PeerHost:     loadedConfig.BitcoinLightning.PeerHost,
+		PeerPort:     loadedConfig.BitcoinLightning.PeerPort,
+		Net:          loadedConfig.Network,
+		Name:         "lnd",
+		Host:         loadedConfig.BitcoinLightning.Host,
+		Port:         loadedConfig.BitcoinLightning.Port,
+		TlsCertPath:  loadedConfig.BitcoinLightning.TlsCertPath,
+		MacaroonPath: loadedConfig.BitcoinLightning.MacaroonPath,
+		Metrics:      cryptoMetricsBackend,
 	})
 	if err != nil {
 		return errors.Errorf("unable to create lightning bitcoin connector"+
@@ -242,10 +248,13 @@ func backendMain() error {
 		return errors.Errorf("unable to init rpc metrics: %v", err)
 	}
 
+	paymentsStore := common.NewMemoryPaymentsStore(30 * 24 * time.Hour)
+	paymentsStore.StartCleaner()
+
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
 	rpcServer, err := rpc.NewRPCServer(loadedConfig.Network, blockchainConnectors,
-		lightningConnectors, estmtr, rpcMetricsBackend)
+		lightningConnectors, paymentsStore, estmtr, rpcMetricsBackend)
 	if err != nil {
 		return errors.Errorf("unable to init RPC server: %v", err)
 	}
@@ -304,7 +313,10 @@ func backendMain() error {
 						return
 					case payments := <-client.ReceivedPayments():
 						for _, payment := range payments {
-							doDeposit(engine, payment, asset)
+							if !loadedConfig.EngineDisabled {
+								doDeposit(engine, payment, asset)
+							}
+							paymentsStore.AddPayment(payment)
 						}
 					}
 				}
@@ -329,7 +341,10 @@ func backendMain() error {
 					case <-quit:
 						return
 					case payment := <-client.ReceivedPayments():
-						doDeposit(engine, payment, asset)
+						if !loadedConfig.EngineDisabled {
+							doDeposit(engine, payment, asset)
+						}
+						paymentsStore.AddPayment(payment)
 					}
 				}
 			}(asset, client)
@@ -340,6 +355,7 @@ func backendMain() error {
 	}
 
 	addInterruptHandler(shutdownChannel, func() {
+		paymentsStore.StopCleaner()
 		grpcServer.Stop()
 
 		for _, c := range blockchainConnectors {
