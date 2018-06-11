@@ -17,3 +17,5 @@ vendor/
 .idea
 
 ./connector
+
+docker/**/bin

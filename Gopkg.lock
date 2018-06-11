@@ -76,6 +76,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/btcsuite/golangcrypto"
+  packages = [
+    "nacl/secretbox",
+    "pbkdf2",
+    "poly1305",
+    "salsa20/salsa",
+    "scrypt"
+  ]
+  revision = "53f62d9b43e87a6c56975cf862af7edf33a8d0df"
+
+[[projects]]
+  branch = "master"
   name = "github.com/btcsuite/websocket"
   packages = ["."]
   revision = "31079b6807923eb23992c421b114992b95131b55"
@@ -130,7 +142,8 @@
     "ptypes/any",
     "ptypes/struct"
   ]
-  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -153,10 +166,18 @@
   revision = "a93b200c26cbae3bb09dd0dc2c7c7fe1468a034a"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/juju/loggo"
+  packages = ["."]
+  revision = "584905176618da46b895b176c721b02c476b6993"
+
+[[projects]]
   name = "github.com/lightningnetwork/lnd"
-  packages = ["lnrpc"]
-  revision = "6fa93a78c18180a3bc77116b749b3c5e279d5a33"
-  version = "v0.4.1-beta"
+  packages = [
+    "lnrpc",
+    "macaroons"
+  ]
+  revision = "991c9fb7dd534a7cbc7ce9505e7eca8fa2a63bc8"
 
 [[projects]]
   name = "github.com/ltcsuite/ltcd"
@@ -227,6 +248,20 @@
   revision = "780932d4fbbe0e69b84c34c20f5c8d0981e109ea"
 
 [[projects]]
+  name = "github.com/roasbeef/btcwallet"
+  packages = [
+    "internal/zero",
+    "snacl"
+  ]
+  revision = "ccd48bb4720f2baeaa795cac81264f6ced2da4c7"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/rogpeppe/fastuuid"
+  packages = ["."]
+  revision = "6724a57986aff9bff1a1770e9347036def7c89f6"
+
+[[projects]]
   name = "github.com/schancel/cashaddr-converter"
   packages = [
     "address",
@@ -272,8 +307,13 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = [
+    "curve25519",
+    "nacl/box",
+    "nacl/secretbox",
     "pbkdf2",
+    "poly1305",
     "ripemd160",
+    "salsa20/salsa",
     "scrypt"
   ]
   revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
@@ -348,14 +388,34 @@
   revision = "b3ddf786825de56a4178401b7e174ee332173b66"
 
 [[projects]]
+  branch = "v1"
+  name = "gopkg.in/errgo.v1"
+  packages = ["."]
+  revision = "c17903c6b19d5dedb9cfba9fa314c7fae63e554f"
+
+[[projects]]
   branch = "v2"
   name = "gopkg.in/karalabe/cookiejar.v2"
   packages = ["collections/prque"]
   revision = "8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57"
 
+[[projects]]
+  name = "gopkg.in/macaroon-bakery.v2"
+  packages = [
+    "bakery",
+    "bakery/checkers",
+    "bakery/internal/macaroonpb"
+  ]
+  revision = "94012773d2874a067572bd16d7d11ae02968b47b"
+
+[[projects]]
+  name = "gopkg.in/macaroon.v2"
+  packages = ["."]
+  revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2ccb5e047ba1afca8ca10b9486a184497573e593dce8ca280ae19a9a2255bb7e"
+  inputs-digest = "6df17f34b5db443f284cb29fa919ac93e59cab8fd7b26371088b1fca57115c74"
   solver-name = "gps-cdcl"
   solver-version = 1

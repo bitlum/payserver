@@ -80,11 +80,36 @@ service Connector {
     //
     // Estimate estimates the dollar price of the choosen asset.
     rpc Estimate (EstimateRequest) returns (EstimationResponse);
+
+    //
+    // PaymentReceived is used to determine if payment with given ID is received
+    rpc PaymentReceived (PaymentReceivedRequest) returns (PaymentReceivedResponse);
+
+    // AccountBalance is used to determine account balance for requested asset
+    rpc AccountBalance(AccountBalanceRequest) returns (AccountBalanceResponse);
+}
+
+message AccountBalanceRequest {
+    string account = 2;
+    string asset = 3;
+}
+
+message AccountBalanceResponse {
+    string available = 1;
+    string pending = 2;
+}
+
+message PaymentReceivedRequest {
+    string id = 1;
+}
+
+message PaymentReceivedResponse {
+    bool received = 1;
 }
 
 message EstimateRequest {
-    string Asset = 1;
-    string Amount = 2;
+    string asset = 1;
+    string amount = 2;
 }
 
 message EstimationResponse {
