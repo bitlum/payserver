@@ -1,0 +1,45 @@
+FROM ubuntu:18.04 AS builder
+
+ARG LITECOIN_VERSION
+
+RUN apt-get update && apt-get install -y \
+ca-certificates \
+curl \
+&& rm -rf /var/lib/apt/lists/*
+
+RUN curl https://download.litecoin.org/litecoin-$LITECOIN_VERSION/linux/litecoin-${LITECOIN_VERSION}-x86_64-linux-gnu.tar.gz \
+| tar xz --wildcards --strip 2 \
+*/bin/litecoind \
+*/bin/litecoin-cli
+
+
+
+FROM ubuntu:18.04
+
+# ROLE is bitcoin node role: primary or secondary.
+#
+# Primary role means that this node will init new blockchain if it not
+# exists during deploy or restart.
+#
+# Secondary rank means that this node will try to connect to primary
+# node and use blockchain of latter.
+ARG ROLE
+
+# RPC port.
+EXPOSE 12332
+
+# P2P port.
+EXPOSE 12333
+
+# Copying required binaries from builder stage.
+COPY --from=builder litecoind litecoin-cli /usr/local/bin/
+
+# Default config used to initalize datadir volume
+# at first or cleaned deploy.
+COPY litecoin.simnet.$ROLE.conf /root/default/litecoin.conf
+
+# Entrypoint script used to init datadir if required and for
+# starting litecoin daemon.
+COPY entrypoint.sh /root/
+
+ENTRYPOINT bash /root/entrypoint.sh

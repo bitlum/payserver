@@ -1,0 +1,410 @@
+version: "3.5"
+
+networks:
+
+  # Explicitly defined connector network to be able to set static IPs
+  connector.simnet:
+    name: connector.simnet
+    driver: bridge
+    ipam:
+      config:
+      - subnet: 172.100.0.0/24
+
+services:
+
+  ######################################################################
+  #
+  # Environment variables and arguments
+  #
+  # This arguments and environment variables used across containers.
+  #
+  # EXTERNAL_IP is server's public IP address available for other
+  # nodes or clients to connect and used by daemon to announce
+  # right location.
+  #
+  # PRIVATE_IP is IP address from private network which is not
+  # public accessible. It is used by secure subsystems to bind on.
+  #
+  # ROLE is coins' node role: `primary` or `secondary`.
+  # Primary role means that this node will init new blockchain if it not
+  # exists during deploy or restart.
+  # Secondary rank means that this node will try to connect to primary
+  # node and use blockchain of latter.
+  #
+  ######################################################################
+
+
+  ######################################################################
+  #
+  # Single simnet containers
+  #
+  # This containers are used both by primary and secondary containers
+  # and should be started only once.
+  #
+  ######################################################################
+
+  blocks-generator.simnet:
+    container_name: blocks-generator.simnet
+    image: blocks-generator.simnet
+    image: blocks-generator.simnet
+    build:
+      context: ./blocks-generator
+      args:
+        - BITCOIN_VERSION
+        - BITCOIN_CASH_VERSION
+        - DASH_VERSION
+        - LITECOIN_VERSION
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.102
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin.simnet.primary
+      - bitcoin-cash.simnet.primary
+      - dash.simnet.primary
+      - litecoin.simnet.primary
+
+  ethereum-bootnode.simnet:
+    container_name: ethereum-bootnode.simnet
+    image: ethereum-bootnode.simnet
+    build:
+      context: ./ethereum-bootnode
+      args:
+        - ETHEREUM_REVISION
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/ethereum-bootnode.simnet:/bootnode
+    logging:
+      driver: journald
+    restart: always
+
+
+
+  ######################################################################
+  #
+  # Simnet primary containers
+  #
+  ######################################################################
+
+  connector.simnet.primary:
+    container_name: connector.simnet.primary
+    image: connector.simnet.primary
+    build:
+      context: ./connector
+      args:
+        - ROLE=primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.100
+    volumes:
+      - /connector/connector.simnet.primary:/root/.connector
+      - /connector/bitcoin-lightning.simnet.primary:/root/.lnd/:ro
+    ports:
+      # RPC port
+      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9002:9002"
+      # Prometheus monitoring
+      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9999:9999"
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin.simnet.primary
+      - bitcoin-lightning.simnet.primary
+      - bitcoin-cash.simnet.primary
+      - dash.simnet.primary
+      - ethereum.simnet.primary
+      - litecoin.simnet.primary
+
+  bitcoin.simnet.primary:
+    container_name: bitcoin.simnet.primary
+    image: bitcoin.simnet.primary
+    build:
+      context: ./bitcoin
+      args:
+        - BITCOIN_VERSION
+        - ROLE=primary
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/bitcoin.simnet.primary:/root/.bitcoin
+    logging:
+      driver: journald
+    restart: always
+
+  bitcoin-lightning.simnet.primary:
+    container_name: bitcoin-lightning.simnet.primary
+    image: bitcoin-lightning.simnet.primary
+    build:
+      context: ./bitcoin-lightning
+      args:
+        - LND_REVISION
+        - ROLE=primary
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.101
+    volumes:
+      - /connector/bitcoin.simnet.primary:/root/.bitcoin:ro
+      - /connector/bitcoin-lightning.simnet.primary:/root/.lnd
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin.simnet.primary
+      - blocks-generator.simnet
+
+  bitcoin-lightning-helper.simnet.primary:
+    container_name: bitcoin-lightning-helper.simnet.primary
+    image: bitcoin-lightning-helper.simnet.primary
+    build:
+      context: ./bitcoin-lightning-helper
+      args:
+        - LND_REVISION
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/bitcoin-lightning.simnet.primary:/root/.lnd/:ro
+    ports:
+      - "80:80"
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin-lightning.simnet.primary
+
+  bitcoin-cash.simnet.primary:
+    container_name: bitcoin-cash.simnet.primary
+    image: bitcoin-cash.simnet.primary
+    build:
+      context: ./bitcoin-cash
+      args:
+        - BITCOIN_CASH_VERSION
+        - ROLE=primary
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/bitcoin-cash.simnet.primary:/root/.bitcoin
+    logging:
+      driver: journald
+    restart: always
+
+  dash.simnet.primary:
+    container_name: dash.simnet.primary
+    image: dash.simnet.primary
+    build:
+      context: ./dash
+      args:
+        - DASH_VERSION
+        - ROLE=primary
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/dash.simnet.primary:/root/.dashcore
+    logging:
+      driver: journald
+    restart: always
+
+  ethereum.simnet.primary:
+    container_name: ethereum.simnet.primary
+    image: ethereum.simnet.primary
+    build:
+      context: ./ethereum
+      args:
+        - ETHEREUM_REVISION
+        - ROLE=primary
+    environment:
+      - EXTERNAL_IP
+      # MINE to mine or not, should be 1 or 0.
+      - MINE=1
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/ethereum.simnet.primary:/root/.ethereum
+      - /connector/ethereum-bootnode.simnet:/bootnode
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - ethereum-bootnode.simnet
+
+  litecoin.simnet.primary:
+    container_name: litecoin.simnet.primary
+    image: litecoin.simnet.primary
+    build:
+      context: ./litecoin
+      args:
+        - LITECOIN_VERSION
+        - ROLE=primary
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/litecoin.simnet.primary:/root/.litecoin
+    logging:
+      driver: journald
+    restart: always
+
+
+
+  ######################################################################
+  #
+  # Simnet secondary containers
+  #
+  ######################################################################
+
+  connector.simnet.secondary:
+    container_name: connector.simnet.secondary
+    image: connector.simnet.secondary
+    build:
+      context: ./connector
+      args:
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.200
+    volumes:
+      - /connector/connector.simnet.secondary:/root/.connector
+      - /connector/bitcoin-lightning.simnet.secondary:/root/.lnd/:ro
+    ports:
+      # RPC port
+      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9003:9003"
+      # Prometheus monitoring
+      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9998:9998"
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin.simnet.secondary
+      - bitcoin-lightning.simnet.secondary
+      - bitcoin-cash.simnet.secondary
+      - dash.simnet.secondary
+      - ethereum.simnet.secondary
+      - litecoin.simnet.secondary
+
+  bitcoin.simnet.secondary:
+    container_name: bitcoin.simnet.secondary
+    image: bitcoin.simnet.secondary
+    build:
+      context: ./bitcoin
+      args:
+        - BITCOIN_VERSION
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/bitcoin.simnet.secondary:/root/.bitcoin
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin.simnet.primary
+
+  bitcoin-lightning.simnet.secondary:
+    container_name: bitcoin-lightning.simnet.secondary
+    image: bitcoin-lightning.simnet.secondary
+    build:
+      context: ./bitcoin-lightning
+      args:
+        - LND_REVISION
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.201
+    volumes:
+      - /connector/bitcoin.simnet.secondary:/root/.bitcoin:ro
+      - /connector/bitcoin-lightning.simnet.secondary:/root/.lnd
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin.simnet.secondary
+      - blocks-generator.simnet
+
+  bitcoin-cash.simnet.secondary:
+    container_name: bitcoin-cash.simnet.secondary
+    image: bitcoin-cash.simnet.secondary
+    build:
+      context: ./bitcoin-cash
+      args:
+        - BITCOIN_CASH_VERSION
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/bitcoin-cash.simnet.secondary:/root/.bitcoin
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - bitcoin-cash.simnet.primary
+
+  dash.simnet.secondary:
+    container_name: dash.simnet.secondary
+    image: dash.simnet.secondary
+    build:
+      context: ./dash
+      args:
+        - DASH_VERSION
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/dash.simnet.secondary:/root/.dashcore
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - dash.simnet.primary
+
+  ethereum.simnet.secondary:
+    container_name: ethereum.simnet.secondary
+    image: ethereum.simnet.secondary
+    build:
+      context: ./ethereum
+      args:
+        - ETHEREUM_REVISION
+        - ROLE=secondary
+    environment:
+      - EXTERNAL_IP
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/ethereum.simnet.secondary:/root/.ethereum
+      - /connector/ethereum-bootnode.simnet:/bootnode
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - ethereum-bootnode.simnet
+      - ethereum.simnet.primary
+
+  litecoin.simnet.secondary:
+    container_name: litecoin.simnet.secondary
+    image: litecoin.simnet.secondary
+    build:
+      context: ./litecoin
+      args:
+        - LITECOIN_VERSION
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+    volumes:
+      - /connector/litecoin.simnet.secondary:/root/.litecoin
+    logging:
+      driver: journald
+    restart: always
+    depends_on:
+      - litecoin.simnet.primary
