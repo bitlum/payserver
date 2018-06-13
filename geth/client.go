@@ -2,6 +2,7 @@ package geth
 
 import (
 	"fmt"
+	"strconv"
 
 	"time"
 
@@ -17,15 +18,15 @@ import (
 
 	"github.com/AndrewSamokhvalov/slice"
 	"github.com/bitlum/connector/common"
-	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/bitlum/connector/db"
-	"github.com/coreos/bbolt"
+	"github.com/bitlum/connector/metrics"
+	"github.com/bitlum/connector/metrics/crypto"
+	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/btclog"
+	"github.com/coreos/bbolt"
 	"github.com/go-errors/errors"
 	"github.com/onrik/ethrpc"
 	"github.com/shopspring/decimal"
-	"github.com/bitlum/connector/metrics/crypto"
-	"github.com/bitlum/connector/metrics"
 )
 
 var (
@@ -69,6 +70,7 @@ const (
 	MethodPendingTransactions = "PendingTransactions"
 	MethodGenerateTransaction = "GenerateTransaction"
 	MethodSendTransaction     = "SendTransaction"
+	MethodConfirmedBalance    = "ConfirmedBalance"
 	MethodPendingBalance      = "PendingBalance"
 	MethodSync                = "Sync"
 )
@@ -491,6 +493,39 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 	return nil
 }
 
+// ConfirmedBalance returns number of funds available under control of
+// connector.
+//
+// NOTE: Part of the common.Connector interface.
+func (c *Connector) ConfirmedBalance(account string) (string, error) {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodConfirmedBalance, c.cfg.Metrics)
+	defer m.Finish()
+
+	balance := "0"
+
+	err := c.db.View(func(tx *bolt.Tx) error {
+		accountsBucket, err := tx.CreateBucketIfNotExists(accountsToAddressesBucket)
+		if err != nil {
+			m.AddError(errToSeverity(ErrDatabase))
+			return errors.Errorf("unable to get accounts bucket: %v", err)
+		}
+		addressBytes := accountsBucket.Get([]byte(account))
+		if addressBytes == nil {
+			return nil
+		}
+		weis, err := c.client.EthGetBalance(string(addressBytes), "latest")
+		if err != nil {
+			return err
+		}
+		ethers := weis.Uint64() / uint64(weiInEth.IntPart())
+		balance = strconv.FormatUint(ethers, 10)
+		return nil
+	})
+
+	return balance, err
+}
+
 // PendingBalance return the amount of funds waiting to be confirmed.
 func (c *Connector) PendingBalance(account string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
@@ -522,7 +557,7 @@ func (c *Connector) ReceivedPayments() <-chan []*common.Payment {
 // syncUnconfirmed process blocks above the minimum confirmations threshold
 // and creates the in-memory map of unconfirmed transactions.
 func (c *Connector) syncUnconfirmed(bestBlockNumber,
-lastSyncedBlockNumber int) (pendingMap, error) {
+	lastSyncedBlockNumber int) (pendingMap, error) {
 
 	unconfirmedTxs := make(pendingMap)
 	for {

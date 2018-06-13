@@ -565,10 +565,11 @@ func TestHelpArgInternals(t *testing.T) {
 
 // TestMethodHelp ensures the method help function works as expected for various
 // command structs.
-func TestMethodHelp(t *testing.T) {
+func TestMethodHelpWithVariousCommandStructs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		s
 		name        string
 		method      string
 		reflectType reflect.Type

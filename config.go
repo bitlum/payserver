@@ -55,8 +55,9 @@ type config struct {
 	TLSCertPath string `long:"tlscertpath" description:"Path to TLS certificate which is used to encrypt RPC endpoint"`
 	TLSKeyPath  string `long:"tlskeypath" description:"Path to TLS private key which is used to encrypt RPC endpoint"`
 
-	EngineHost string `long:"enginehost" description:"The host of the exchange engine server"`
-	EnginePort int    `long:"engineport" description:"The port of the exchange engine server"`
+	EngineHost     string `long:"enginehost" description:"The host of the exchange engine server"`
+	EnginePort     int    `long:"engineport" description:"The port of the exchange engine server"`
+	EngineDisabled bool   `long:"enginedisabled" description:"Do we need to notify exchange about payments"`
 
 	RPCHost string `long:"rpchost" description:"The host of the RPC endpoint"`
 	RPCPort string `long:"rpcport" description:"The port of the RPC endpoint"`
@@ -81,9 +82,11 @@ type config struct {
 }
 
 type LndConfig struct {
-	TlsCertPath string `long:"tlscertpath" description:"Path to the TLS certificate of the lnd daemon"`
-	Host        string `long:"host" description:"The host of the lnd daemon"`
-	Port        int    `long:"port" description:"The port of the lnd daemon"`
+	Host string `long:"host" description:"The host of the lnd daemon"`
+	Port int    `long:"port" description:"The port of the lnd daemon"`
+
+	TlsCertPath  string `long:"tlscertpath" description:"Path to the TLS certificate of the lnd daemon"`
+	MacaroonPath string `long:"macaroonpath" description:"Path to the RPC authorization macaroon"`
 
 	// TODO(andrew.shvv) Remove when lnd would return this info
 	PeerPort string `long:"peerport" description:"Public port of the lnd via which other lightning network nodes could connect"`
