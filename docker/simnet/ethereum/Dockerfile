@@ -1,4 +1,4 @@
-FROM golang:1.9.6 AS builder
+FROM golang:1.10.3 AS builder
 
 ARG ETHEREUM_REVISION
 
