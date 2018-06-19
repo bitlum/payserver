@@ -33,12 +33,9 @@ if [ ! -f $ENODE ]; then
     exit 3
 fi
 
-# At first deploy config in datadir should not exists so we
-# copying from default config shipped with docker.
-if [ ! -f $CONFIG ]; then
-    echo "Copying default config"
-    cp $DEFAULTS_DIR/ethereum.conf $CONFIG
-fi
+# We always restoring default config shipped with docker.
+echo "Restoring default config"
+cp $DEFAULTS_DIR/ethereum.conf $CONFIG
 
 # At first deploy genesis in datadir should not exists so we
 # copying from default genesis shipped with docker.
