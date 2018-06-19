@@ -119,8 +119,8 @@
     "rlp",
     "trie"
   ]
-  revision = "329ac18ef617d0238f71637bffe78f028b0f13f7"
-  version = "v1.8.3"
+  revision = "dea1ce052a10cd7d401a5c04f83f371a06fe293c"
+  version = "v1.8.11"
 
 [[projects]]
   name = "github.com/go-errors/errors"
@@ -416,6 +416,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6df17f34b5db443f284cb29fa919ac93e59cab8fd7b26371088b1fca57115c74"
+  inputs-digest = "553591267a381bb48e929115ff85370a7186a8551bd94ee6055d642998aa1d75"
   solver-name = "gps-cdcl"
   solver-version = 1
