@@ -23,7 +23,9 @@ cp $DEFAULTS_DIR/bitcoin.conf $CONFIG
 
 # If external IP defined when we need to set corresponding run option
 if [ ! -z "$EXTERNAL_IP" ]; then
+    echo "Setting external IP"
     EXTERNAL_IP_OPT="-externalip=$EXTERNAL_IP"
 fi
 
-bitcoin-cashd $EXTERNAL_IP_OPT
+bitcoin-cashd $EXTERNAL_IP_OPT \
+--rpcauth=$BITCOIN_CASH_RPC_AUTH

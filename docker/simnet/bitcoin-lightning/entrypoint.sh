@@ -16,12 +16,9 @@ if [ ! -d $DATA_DIR ]; then
     exit 1
 fi
 
-# At first deploy config in datadir should not exists so we
-# copying it from default config shipped with docker.
-if [ ! -f $CONFIG ]; then
-    echo "Copying default config"
-    cp $DEFAULTS_DIR/lnd.conf $CONFIG
-fi
+# We always restoring default config shipped with docker.
+echo "Restoring default config"
+cp $DEFAULTS_DIR/lnd.conf $CONFIG
 
 # If external IP defined we need to set corresponding run option.
 if [ ! -z $EXTERNAL_IP ]; then
