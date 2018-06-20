@@ -31,7 +31,12 @@ LTC_OPTS="\
 --rpcuser=$RPC_USER --rpcpassword=$RPC_PASSWORD \
 --regtest"
 
+# We need to wait until all primary blockchain nodes are started.
+echo "$(date '+%Y-%m-%d %H:%M:%S') Waiting for all primary blockchains nodes are started"
+sleep 60
+
 # Initial blocks generation.
+echo "$(date '+%Y-%m-%d %H:%M:%S') Initial blocks generation"
 bitcoin-cli $BTC_OPTS generate 400
 bitcoin-cash-cli $BCH_OPTS generate 100
 dash-cli $DASH_OPTS generate 100
@@ -40,6 +45,7 @@ litecoin-cli $LTC_OPTS generate 100
 # Periodically block generation.
 while true
 do
+    echo "$(date '+%Y-%m-%d %H:%M:%S') Periodical blocks generation"
     bitcoin-cli $BTC_OPTS generate 1
     bitcoin-cash-cli $BCH_OPTS generate 1
     dash-cli $DASH_OPTS generate 1
