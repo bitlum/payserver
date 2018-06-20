@@ -154,7 +154,7 @@ services:
     build:
       context: ./bitcoin-lightning
       args:
-        - LND_REVISION
+        - BITCOIN_LIGHTNING_REVISION
         - ROLE=primary
     environment:
       - EXTERNAL_IP
@@ -175,7 +175,7 @@ services:
     build:
       context: ./bitcoin-lightning-helper
       args:
-        - LND_REVISION
+        - BITCOIN_LIGHTNING_REVISION
     volumes:
       - /connector/bitcoin-lightning.simnet.primary:/root/.lnd/:ro
     ports:
@@ -300,7 +300,7 @@ services:
     build:
       context: ./bitcoin-lightning
       args:
-        - LND_REVISION
+        - BITCOIN_LIGHTNING_REVISION
         - ROLE=secondary
     networks:
       connector.simnet:
