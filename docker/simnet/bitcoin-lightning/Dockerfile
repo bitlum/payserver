@@ -1,17 +1,18 @@
-FROM golang:1.10.2 AS builder
+FROM golang:1.10.3 AS builder
 
-ARG LND_REVISION
+ARG BITCOIN_LIGHTNING_REVISION
 
 RUN go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
-RUN curl -L https://github.com/lightningnetwork/lnd/archive/$LND_REVISION.tar.gz \
-| tar xz --strip 1
+RUN git clone https://github.com/lightningnetwork/lnd.git .
+
+RUN git checkout $BITCOIN_LIGHTNING_REVISION
 
 RUN dep ensure -v
 
-RUN go install -v ./...
+RUN make install
 
 
 

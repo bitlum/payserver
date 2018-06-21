@@ -6,12 +6,13 @@ RUN go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
-RUN curl -L https://github.com/lightningnetwork/lnd/archive/$BITCOIN_LIGHTNING_REVISION.tar.gz \
-| tar xz --strip 1
+RUN git clone https://github.com/lightningnetwork/lnd.git .
+
+RUN git checkout $BITCOIN_LIGHTNING_REVISION
 
 RUN dep ensure -v
 
-RUN go install -v ./...
+RUN make install
 
 
 
