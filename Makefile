@@ -1,13 +1,20 @@
 help:
 	@echo -e "Usage: make [command]\n\
 Commands:\n\
-    simnet-deploy	deploy to remote simnet droplet\n\
-    simnet-init     init simnet docker containers\n\
-    simnet-logs		watch remote simnet droplet's logs\n\
-    simnet-ps		watch remote simnet droplet currently working containers\n\
-    testnet-deploy	deploy to remote testnet droplet\n\
-    testnet-logs	watch remote testnet droplet's logs\n\
-    tesnet-ps		watch remote testnet droplet currently working containers"
+    simnet-deploy    deploy to remote simnet droplet\n\
+    simnet-init      init simnet docker containers\n\
+    simnet-logs      watch remote simnet droplet's logs\n\
+    simnet-ps        watch remote simnet droplet currently working containers\n\
+    simnet-purge     stops and remove siment dockers, purge all data\n\
+    testnet-deploy   deploy to remote testnet droplet\n\
+    testnet-logs     watch remote testnet droplet's logs\n\
+    tesnet-ps        watch remote testnet droplet currently working containers\n\
+\n\
+    (Commands bellow are for rare use and required only when configs are changed or during first deploy)\n\
+    simnet-rsyslog-deploy      deploy rsyslog confg to simnet host\n\
+    simnet-logrotate-deploy    deploy logrotate config to simnet host\n\
+    testnet-rsyslog-deploy     deploy rsyslog confg to testnet host\n\
+    testnet-logrotate-deploy   deploy logrotate config to testnet host"
 
 
 
@@ -22,9 +29,6 @@ define exit_error
 	echo $(RED)$1$(NC)
 	exit
 endef
-
-
-HOOK := "https://hooks.slack.com/services/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"
 
 
 # # # # # # # #
@@ -47,6 +51,8 @@ endif
 # Slack #
 # # # # #
 
+SLACK_HOOK := "https://hooks.slack.com/services/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"
+
 # We use USERNAME makefile variable to make variable interpolation work
 # in commands below.
 USERNAME := $(BITLUM_NAME)
@@ -55,25 +61,25 @@ simnet-start-notification:
 	@$(call print,"Notify about start...")
 	curl -X POST -H 'Content-type: application/json' -w "\n" \
 		--data '{"text":"`simnet.connector` deploy started...","username":"$(USERNAME)"}' \
-		$(HOOK)
+		$(SLACK_HOOK)
 
 simnet-end-notification:
 	@$(call print,"Notify about end...")
 	curl -X POST -H 'Content-type: application/json' -w "\n" \
 		--data '{"text":"`simnet.connector` deploy ended","username":"$(USERNAME)"}' \
-		$(HOOK)
+		$(SLACK_HOOK)
 
 testnet-start-notification:
 	@$(call print,"Notify about start...")
 		curl -X POST -H 'Content-type: application/json' -w "\n" \
 		--data '{"text":"`testnet.connector` deploy started...","username":"$(USERNAME)"}' \
-		$(HOOK)
+		$(SLACK_HOOK)
 
 testnet-end-notification:
 	@$(call print,"Notify about end...")
 	curl -X POST -H 'Content-type: application/json' -w "\n" \
 		--data '{"text":"`testnet.connector` deploy ended","username":"$(USERNAME)"}' \
-		$(HOOK)
+		$(SLACK_HOOK)
 
 
 
@@ -93,14 +99,25 @@ simnet-build-compose:
 		docker-compose up --build -d
 
 simnet-ps:
-	@$(call print,"Activating testnet.connector.bitlum.io machine && fetching logs")
-	eval `docker-machine env testnet.connector.bitlum.io` && \
-	docker ps
+	@$(call print,"Activating simnet.connector.bitlum.io machine && getting ps")
+	eval `docker-machine env simnet.connector.bitlum.io` && \
+		docker ps
 
 simnet-logs:
-	@$(call print,"Activating simnet.connector.bitlum.io machine && fetching logs")
+	@$(call print,"Connecting to simnet.connector.bitlum.io machine && fetching logs")
+	docker-machine ssh simnet.connector.bitlum.io tail -f /var/log/connector/*
+
+simnet-purge:
+	@$(call print,"Purgin simnet.connector.bitlum.io machine")
+
 	eval `docker-machine env simnet.connector.bitlum.io` && \
-	docker-compose -f ./docker/simnet/docker-compose.yml logs --tail=1000 -f
+		docker stop `docker ps -q` || true
+
+	eval `docker-machine env simnet.connector.bitlum.io` && \
+		docker rm `docker ps -aq` || true
+
+	docker-machine ssh simnet.connector.bitlum.io \
+		rm -rf /connector/*
 
 testnet-build-compose:
 	@$(call print,"Activating testnet.connector.bitlum.io machine && building...")
@@ -119,15 +136,14 @@ testnet-build-compose:
 		EXCHANGE_DISABLED=0 \
 		docker-compose up --build -d
 
-testnet-logs:
-	@$(call print,"Activating testnet.connector.bitlum.io machine && fetching logs")
-	eval `docker-machine env testnet.connector.bitlum.io` && \
-	docker-compose -f ./docker/testnet/docker-compose.yml logs --tail=1000 -f
-
 testnet-ps:
-	@$(call print,"Activating testnet.connector.bitlum.io machine && fetching logs")
-	eval `docker-machine env testnet.connector.bitlum.io` && \
-	docker ps
+	@$(call print,"Activating testnet.connector.bitlum.io machine && getting ps")
+
+	eval `docker-machine env testnet.connector.bitlum.io-for-zigzag` && \
+		docker ps
+
+	eval `docker-machine env testnet.connector.bitlum.io-for-exchange` && \
+		docker ps
 
 
 
@@ -165,16 +181,70 @@ testnet-deploy: \
 # # # # # # # #
 
 simnet-init:
-    eval `docker-machine env simnet.connector.bitlum.io` && \
+	@$(call print,"Initing simnet...")
+
+	eval `docker-machine env simnet.connector.bitlum.io` && \
 		cd ./docker/simnet && \
 		perl init.pl
 
 
 
+# # # # # # # # # # # # # # # # #
+# Rsyslog and logrotate deploy  #
+# # # # # # # # # # # # # # # # #
+
+simnet-rsyslog-deploy:
+	@$(call print,"Deploying simnet rsyslog...")
+
+	docker-machine scp \
+		./docker/simnet/rsyslog.conf \
+		simnet.connector.bitlum.io:/etc/rsyslog.d/10-connector.conf
+
+	docker-machine ssh simnet.connector.bitlum.io systemctl restart syslog.service
+
+simnet-logrotate-deploy:
+	@$(call print,"Deploying simnet logrotate...")
+
+	docker-machine scp \
+		./docker/simnet/logrotate.conf \
+		simnet.connector.bitlum.io:/etc/logrotate.d/connector
+
+testnet-rsyslog-deploy:
+	@$(call print,"Deploying testnet rsyslog...")
+
+	docker-machine scp ./docker/testnet/rsyslog.conf \
+		testnet.connector.bitlum.io-for-zigzag:/etc/rsyslog.d/10-connector.conf
+
+	docker-machine ssh testnet.connector.bitlum.io-for-zigzag \
+		systemctl restart syslog.service
+
+	docker-machine scp ./docker/testnet/rsyslog.conf \
+			testnet.connector.bitlum.io-for-exchange:/etc/rsyslog.d/10-connector.conf
+
+	docker-machine ssh testnet.connector.bitlum.io-for-exchange \
+		systemctl restart syslog.service
+
+testnet-logrotate-deploy:
+	@$(call print,"Deploying testnet logrotate...")
+
+	docker-machine scp \
+		./docker/testnet/logrotate.conf \
+		testnet.connector.bitlum.io-for-zigzag:/etc/logrotate.d/connector
+
+	docker-machine scp \
+		./docker/testnet/logrotate.conf \
+		testnet.connector.bitlum.io-for-exchange:/etc/logrotate.d/connector
+
+
+
 .PHONY: simnet-deploy \
-	testnet-deploy \
+	simnet-init \
 	simnet-logs \
-	testnet-logs \
 	simnet-ps \
+	simnet-purge \
+	simnet-rsyslog-deploy \
+	simnet-logrotate-deploy \
+	testnet-deploy \
 	testnet-ps \
-	simnet-init
+	testnet-rsyslog-deploy \
+	testnet-logrotate-deploy
