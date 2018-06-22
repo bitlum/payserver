@@ -51,7 +51,7 @@ endif
 # Slack #
 # # # # #
 
-SLACK_HOOK := "https://hooks.slack.com/services/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"
+SLACK_HOOK := $(BITLUM_SLACK_HOOK)
 
 # We use USERNAME makefile variable to make variable interpolation work
 # in commands below.
