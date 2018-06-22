@@ -30,6 +30,9 @@ x-defaults:
   # Restart on exit.
   restart: always
 
+  # Wait for one minute for gracefull shutdown
+  stop_grace_period: 1m
+
 
 
 services:

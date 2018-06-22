@@ -25,4 +25,6 @@ if [ ! -z $EXTERNAL_IP ]; then
     EXTERNAL_IP_OPT="--externalip=$EXTERNAL_IP"
 fi
 
-lnd $EXTERNAL_IP_OPT
+# We are using `exec` to enable gracefull shutdown of running daemon.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+exec lnd $EXTERNAL_IP_OPT

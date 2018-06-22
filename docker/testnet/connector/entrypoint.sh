@@ -26,7 +26,9 @@ if [ $EXCHANGE_DISABLED -eq 1 ]; then
     EXCHANGE_DISABLED_OPT="--enginedisabled"
 fi
 
-connector --config /root/.connector/connector.conf $EXCHANGE_DISABLED_OPT \
+# We are using `exec` to enable gracefull shutdown of running daemon.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+exec connector --config /root/.connector/connector.conf $EXCHANGE_DISABLED_OPT \
 --bitcoin.user=$BITCOIN_RPC_USER \
 --bitcoin.password=$BITCOIN_RPC_PASSWORD \
 --bitcoincash.user=$BITCOIN_CASH_RPC_USER \

@@ -42,4 +42,6 @@ COPY litecoin.simnet.$ROLE.conf /root/default/litecoin.conf
 # starting litecoin daemon.
 COPY entrypoint.sh /root/
 
-ENTRYPOINT bash /root/entrypoint.sh
+# We are using exec syntax to enable gracefull shutdown. Check
+# http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+ENTRYPOINT ["bash", "/root/entrypoint.sh"]

@@ -42,6 +42,16 @@ bitcoin-cash-cli $BCH_OPTS generate 100
 dash-cli $DASH_OPTS generate 100
 litecoin-cli $LTC_OPTS generate 100
 
+# Proper way to catch shutdown signal and stop infinite loop. In this
+# solution we consider blockchains' cli runs are not long running process
+# so we need to stop sleep only.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+shutdown() {
+    kill -s SIGTERM $!
+    exit 0
+}
+trap shutdown SIGINT SIGTERM
+
 # Periodically block generation.
 while true
 do
@@ -52,5 +62,6 @@ do
     litecoin-cli $LTC_OPTS generate 1
 
     # Wait for next period.
-    sleep $PERIOD
+    sleep $PERIOD &
+    wait $!
 done
