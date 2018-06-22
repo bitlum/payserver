@@ -18,4 +18,6 @@ fi
 echo "Restoring default config"
 cp $DEFAULTS_DIR/connector.conf $CONFIG
 
-connector --config /root/.connector/connector.conf
+# We are using `exec` to enable gracefull shutdown of running daemon.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+exec connector --config /root/.connector/connector.conf

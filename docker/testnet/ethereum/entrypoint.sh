@@ -35,7 +35,9 @@ if [ ! -z "$EXTERNAL_IP" ]; then
     EXTERNAL_IP_OPT="--nat extip:$EXTERNAL_IP"
 fi
 
-geth --rinkeby \
+# We are using `exec` to enable gracefull shutdown of running daemon.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+exec geth --rinkeby \
 --datadir $DATA_DIR \
 --config $CONFIG \
 $EXTERNAL_IP_OPT

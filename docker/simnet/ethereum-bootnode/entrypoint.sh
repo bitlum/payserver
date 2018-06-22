@@ -43,4 +43,6 @@ fi
 # Start bootnode with computed key file on defined bind address and
 # with optional nat external IP.
 echo "Starting bootnode"
-bootnode --nodekey=$KEY_FILE --addr=$BIND_ADDR $EXTERNAL_IP_OPT
+# We are using `exec` to enable gracefull shutdown of running daemon.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+exec bootnode --nodekey=$KEY_FILE --addr=$BIND_ADDR $EXTERNAL_IP_OPT

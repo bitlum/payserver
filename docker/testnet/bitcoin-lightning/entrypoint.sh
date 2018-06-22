@@ -28,6 +28,8 @@ fi
 
 RPC_USER_OPT="--bitcoind.rpcuser="
 
-lnd $EXTERNAL_IP_OPT \
+# We are using `exec` to enable gracefull shutdown of running daemon.
+# Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
+exec lnd $EXTERNAL_IP_OPT \
 --bitcoind.rpcuser=$BITCOIN_RPC_USER \
 --bitcoind.rpcpass=$BITCOIN_RPC_PASSWORD
