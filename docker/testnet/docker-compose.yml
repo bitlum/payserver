@@ -154,7 +154,7 @@ services:
       # RPC port
       - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:13332:13332"
       # P2P port
-      - "13333:13333"
+      - "18333:18333"
 
   bitcoin-cash.testnet:
     << : *defaults
