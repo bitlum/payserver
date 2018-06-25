@@ -17,11 +17,8 @@ RUN go install -v . ./cmd/btcctl
 
 FROM ubuntu:18.04
 
-# RPC port.
-EXPOSE 13332
-
 # P2P port.
-EXPOSE 13333
+EXPOSE 18333
 
 # Copying required binaries from builder stage.
 COPY --from=builder /go/bin/btcd /go/bin/btcctl /usr/local/bin/
