@@ -35,5 +35,6 @@ exec connector --config /root/.connector/connector.conf $EXCHANGE_DISABLED_OPT \
 --bitcoincash.password=$BITCOIN_CASH_RPC_PASSWORD \
 --dash.user=$DASH_RPC_USER \
 --dash.password=$DASH_RPC_PASSWORD \
+--ethereum.password=$ETHEREUM_ACCOUNT_PASSWORD \
 --litecoin.user=$LITECOIN_RPC_USER \
 --litecoin.password=$LITECOIN_RPC_PASSWORD
