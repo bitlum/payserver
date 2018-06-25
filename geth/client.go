@@ -459,6 +459,12 @@ func (c *Connector) generateTransaction(from, to, amount string, includeFee bool
 		return nil, errors.Errorf("unable to unlock sender account: %v", err)
 	}
 
+	// We need to obtain transaction count including pending ones.
+	txCount, err := c.client.EthGetTransactionCount(from, "pending")
+	if err != nil {
+		return nil, errors.Errorf("unable to get transactions count: %v", err)
+	}
+
 	tx, rawTx, err := c.client.EthSignTransaction(ethrpc.T{
 		From:     from,
 		To:       to,
@@ -466,7 +472,7 @@ func (c *Connector) generateTransaction(from, to, amount string, includeFee bool
 		GasPrice: gasPrice,
 		Value:    txAmount,
 		Data:     "",
-		Nonce:    0,
+		Nonce:    txCount,
 	})
 	if err != nil {
 		return nil, errors.Errorf("unable to sign tx: %v", err)
