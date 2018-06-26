@@ -29,4 +29,4 @@ COPY http-server.py /
 
 # We are using exec syntax to enable gracefull shutdown. Check
 # http://veithen.github.io/2014/11/16/sigterm-propagation.html.
-ENTRYPOINT ["bash", "/root/entrypoint.sh"]ython http-server.py
+ENTRYPOINT ["python", "http-server.py"]
