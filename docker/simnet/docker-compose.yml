@@ -182,7 +182,7 @@ services:
     volumes:
       - /connector/bitcoin-lightning.simnet.primary:/root/.lnd/:ro
     ports:
-      - "80:80"
+      - "3000:80"
     depends_on:
       - bitcoin-lightning.simnet.primary
 
