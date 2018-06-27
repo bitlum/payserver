@@ -1,0 +1,228 @@
+version: "3.5"
+
+# Explicitly defined connector network to be able to set static IPs
+networks:
+  connector.mainnet:
+    name: connector.mainnet
+    driver: bridge
+    ipam:
+      config:
+      - subnet: 172.100.2.0/24
+
+
+
+# Default settings for all containers.
+x-defaults:
+  &defaults
+
+  # Using automatically assigned ip address from connect.mainnet network.
+  networks:
+    connector.mainnet:
+
+  # Using syslog driver and set tag to container_name.
+  logging:
+    driver: syslog
+    options:
+      tag: "connector-docker/{{ .Name }}"
+
+  # Restart on exit.
+  restart: always
+
+  # Wait for one minute for gracefull shutdown
+  stop_grace_period: 1m
+
+
+
+services:
+
+  ######################################################################
+  #
+  # Environment variables and arguments
+  #
+  # This arguments and environment variables used across containers.
+  #
+  # EXTERNAL_IP is server's public IP address available for other
+  # nodes or clients to connect and used by daemon to announce
+  # right location.
+  #
+  ######################################################################
+
+  ######################################################################
+  #
+  # mainnet containers
+  #
+  # This containers intended to be run on standalone machine. You should
+  # create new machine for each deploy.
+  #
+  ######################################################################
+
+  connector.mainnet:
+    << : *defaults
+    container_name: connector.mainnet
+    image: connector.mainnet
+    build:
+      context: ./connector/
+      args:
+        - CONNECTOR_REVISION
+    environment:
+      - EXCHANGE_DISABLED
+      - BITCOIN_RPC_USER
+      - BITCOIN_RPC_PASSWORD
+      - BITCOIN_CASH_RPC_USER
+      - BITCOIN_CASH_RPC_PASSWORD
+      - DASH_RPC_USER
+      - DASH_RPC_PASSWORD
+      - LITECOIN_RPC_USER
+      - LITECOIN_RPC_PASSWORD
+    networks:
+      connector.mainnet:
+        ipv4_address: 172.100.2.100
+    volumes:
+      - /connector/connector.mainnet:/root/.connector
+      - /connector/bitcoin-lightning.mainnet:/root/.lnd/:ro
+    ports:
+      # RPC port
+      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9002:9002"
+      # Prometheus monitoring
+      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9999:9999"
+    depends_on:
+      - bitcoin.mainnet
+      - bitcoin-lightning.mainnet
+      - bitcoin-cash.mainnet
+      - dash.mainnet
+      - ethereum.mainnet
+      - litecoin.mainnet
+
+  bitcoin.mainnet:
+    << : *defaults
+    container_name: bitcoin.mainnet
+    image: bitcoin.mainnet
+    build:
+      context: ./bitcoin
+      args:
+        - BITCOIN_VERSION
+    environment:
+      - EXTERNAL_IP
+      - BITCOIN_RPC_AUTH
+      - BITCOIN_RPC_USER
+      - BITCOIN_RPC_PASSWORD
+    volumes:
+      - /connector/bitcoin.mainnet:/root/.bitcoin
+    ports:
+      # P2P port
+      - "8333:8333"
+
+  bitcoin-lightning.mainnet:
+    << : *defaults
+    container_name: bitcoin-lightning.mainnet
+    image: bitcoin-lightning.mainnet
+    build:
+      context: ./bitcoin-lightning
+      args:
+        - BITCOIN_LIGHTNING_REVISION
+    environment:
+      - EXTERNAL_IP
+      - BITCOIN_RPC_USER
+      - BITCOIN_RPC_PASSWORD
+    networks:
+      connector.mainnet:
+        ipv4_address: 172.100.2.101
+    volumes:
+      - /connector/bitcoin.mainnet:/root/.bitcoin:ro
+      - /connector/bitcoin-lightning.mainnet:/root/.lnd
+    ports:
+      # P2P port
+      - "9735:9735"
+    depends_on:
+      - bitcoin.mainnet
+
+  bitcoin-neutrino.mainnet:
+    << : *defaults
+    container_name: bitcoin-neutrino.mainnet
+    image: bitcoin-neutrino.mainnet
+    build:
+      context: ./bitcoin-neutrino
+      args:
+        - BITCOIN_NEUTRINO_REVISION
+    environment:
+      - EXTERNAL_IP
+      - BITCOIN_NEUTRINO_RPC_USER
+      - BITCOIN_NEUTRINO_RPC_PASSWORD
+    volumes:
+      - /connector/bitcoin-neutrino.mainnet:/root/.btcd
+    ports:
+      # P2P port
+      - "18333:18333"
+
+  bitcoin-cash.mainnet:
+    << : *defaults
+    container_name: bitcoin-cash.mainnet
+    image: bitcoin-cash.mainnet
+    build:
+      context: ./bitcoin-cash
+      args:
+        - BITCOIN_CASH_VERSION
+    environment:
+      - EXTERNAL_IP
+      - BITCOIN_CASH_RPC_AUTH
+      - BITCOIN_CASH_RPC_USER
+      - BITCOIN_CASH_RPC_PASSWORD
+    volumes:
+      - /connector/bitcoin-cash.mainnet:/root/.bitcoin
+    ports:
+      # P2P port
+      - "9333:9333"
+  
+  dash.mainnet:
+    << : *defaults
+    container_name: dash.mainnet
+    image: dash.mainnet
+    build:
+      context: ./dash
+      args:
+        - DASH_VERSION
+    environment:
+      - EXTERNAL_IP
+      - DASH_RPC_AUTH
+      - DASH_RPC_USER
+      - DASH_RPC_PASSWORD
+    volumes:
+      - /connector/dash.mainnet:/root/.dashcore
+    ports:
+      # P2P port
+      - "10333:10333"
+
+  ethereum.mainnet:
+    << : *defaults
+    container_name: ethereum.mainnet
+    image: ethereum.mainnet
+    build:
+      context: ./ethereum
+      args:
+        - ETHEREUM_REVISION
+    environment:
+      - EXTERNAL_IP
+    volumes:
+      - /connector/ethereum.mainnet:/root/.ethereum
+    ports:
+      # P2P port
+      - "11333:11333"
+
+  litecoin.mainnet:
+    << : *defaults
+    container_name: litecoin.mainnet
+    image: litecoin.mainnet
+    build:
+      context: ./litecoin
+      args:
+        - LITECOIN_VERSION
+    environment:
+      - EXTERNAL_IP
+      - LITECOIN_RPC_AUTH
+      - LITECOIN_RPC_USER
+      - LITECOIN_RPC_PASSWORD
+    volumes:
+      - /connector/litecoin.mainnet:/root/.litecoin
+    ports:
+      # P2P port
+      - "12333:12333"
