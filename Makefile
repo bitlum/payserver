@@ -1,20 +1,30 @@
 help:
 	@echo -e "Usage: make [command]\n\
 Commands:\n\
+\n\
+    (Simnet related commands)\n\
     simnet-deploy    deploy to remote simnet droplet\n\
     simnet-init      init simnet docker containers\n\
-    simnet-logs      watch remote simnet droplet's logs\n\
     simnet-ps        watch remote simnet droplet currently working containers\n\
+    simnet-logs      watch remote simnet droplet's logs\n\
     simnet-purge     stops and remove siment dockers, purge all data\n\
+\n\
+    (Testnet related commands)\n\
     testnet-deploy   deploy to remote testnet droplet\n\
-    testnet-logs     watch remote testnet droplet's logs\n\
-    tesnet-ps        watch remote testnet droplet currently working containers\n\
+    testnet-ps       watch remote testnet droplet currently working containers\n\
+\n\
+    (Mainnet related commands)\n\
+    mainnet-deploy   deploy to remote mainnet droplet\n\
+    mainnet-ps       watch remote mainnet droplet currently working containers\n\
+    mainnet-logs     watch remote mainnet droplet's logs\n\
 \n\
     (Commands bellow are for rare use and required only when configs are changed or during first deploy)\n\
     simnet-rsyslog-deploy      deploy rsyslog confg to simnet host\n\
     simnet-logrotate-deploy    deploy logrotate config to simnet host\n\
     testnet-rsyslog-deploy     deploy rsyslog confg to testnet host\n\
-    testnet-logrotate-deploy   deploy logrotate config to testnet host"
+    testnet-logrotate-deploy   deploy logrotate config to testnet host\n\
+    mainnet-rsyslog-deploy     deploy rsyslog confg to mainnet host\n\
+    mainnet-logrotate-deploy   deploy logrotate config to mainnet host"
 
 
 
@@ -81,6 +91,18 @@ testnet-end-notification:
 		--data '{"text":"`testnet.connector` deploy ended","username":"$(USERNAME)"}' \
 		$(SLACK_HOOK)
 
+mainnet-start-notification:
+	@$(call print,"Notify about start...")
+		curl -X POST -H 'Content-type: application/json' -w "\n" \
+		--data '{"text":"`mainnet.connector` deploy started...","username":"$(USERNAME)"}' \
+		$(SLACK_HOOK)
+
+mainnet-end-notification:
+	@$(call print,"Notify about end...")
+	curl -X POST -H 'Content-type: application/json' -w "\n" \
+		--data '{"text":"`mainnet.connector` deploy ended","username":"$(USERNAME)"}' \
+		$(SLACK_HOOK)
+
 
 
 # # # # # # # # # #
@@ -145,6 +167,22 @@ testnet-ps:
 	eval `docker-machine env testnet.connector.bitlum.io-for-exchange` && \
 		docker ps
 
+mainnet-build-compose:
+	@$(call print,"Activating mainnet.connector.bitlum.io machine && building...")
+
+	eval `docker-machine env mainnet.connector.bitlum.io` && \
+		cd ./docker/mainnet && \
+		docker-compose up --build -d
+
+mainnet-ps:
+	@$(call print,"Activating mainnet.connector.bitlum.io machine && getting ps")
+
+	eval `docker-machine env mainnet.connector.bitlum.io` && \
+		docker ps
+
+mainnet-logs:
+	@$(call print,"Connecting to mainnet.connector.bitlum.io machine && fetching logs")
+	docker-machine ssh mainnet.connector.bitlum.io tail -f /var/log/connector/*
 
 
 # # # # # # # # #
@@ -174,6 +212,11 @@ testnet-deploy: \
 	testnet-build-compose \
 	testnet-end-notification
 
+mainnet-deploy: \
+	check-bitlum-user-set \
+	mainnet-start-notification \
+	mainnet-build-compose \
+	mainnet-end-notification
 
 
 # # # # # # # #
@@ -235,16 +278,37 @@ testnet-logrotate-deploy:
 		./docker/testnet/logrotate.conf \
 		testnet.connector.bitlum.io-for-exchange:/etc/logrotate.d/connector
 
+mainnet-rsyslog-deploy:
+	@$(call print,"Deploying mainnet rsyslog...")
+
+	docker-machine scp ./docker/mainnet/rsyslog.conf \
+		mainnet.connector.bitlum.io:/etc/rsyslog.d/10-connector.conf
+
+	docker-machine ssh mainnet.connector.bitlum.io \
+		systemctl restart syslog.service
+
+mainnet-logrotate-deploy:
+	@$(call print,"Deploying mainnet logrotate...")
+
+	docker-machine scp \
+		./docker/mainnet/logrotate.conf \
+		mainnet.connector.bitlum.io:/etc/logrotate.d/connector
+
 
 
 .PHONY: simnet-deploy \
 	simnet-init \
-	simnet-logs \
 	simnet-ps \
+	simnet-logs \
 	simnet-purge \
 	simnet-rsyslog-deploy \
 	simnet-logrotate-deploy \
 	testnet-deploy \
 	testnet-ps \
 	testnet-rsyslog-deploy \
-	testnet-logrotate-deploy
+	testnet-logrotate-deploy \
+	mainnet-deploy \
+	mainnet-ps \
+	mainnet-logs \
+	mainnet-rsyslog-deploy \
+	mainnet-logrotate-deploy
