@@ -153,6 +153,8 @@ services:
     ports:
       # P2P port
       - "18333:18333"
+    depends_on:
+      - bitcoin.mainnet
 
   bitcoin-cash.mainnet:
     << : *defaults
