@@ -310,7 +310,7 @@ enum Market {
 }
 
 enum Net {
-    Simnet = 0;
-    Testnet = 1;
-    Mainnet = 2;
+    simnet = 0;
+    testnet = 1;
+    mainnet = 2;
 }

@@ -278,11 +278,11 @@ func (s *Server) Info(_ context.Context,
 	var net Net
 	switch s.net {
 	case "simnet":
-		net = Net_Simnet
+		net = Net_simnet
 	case "testnet":
-		net = Net_Testnet
+		net = Net_testnet
 	case "mainnet":
-		net = Net_Mainnet
+		net = Net_mainnet
 	}
 
 	resp := &InfoResponse{
