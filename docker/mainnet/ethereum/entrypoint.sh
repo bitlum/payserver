@@ -37,7 +37,7 @@ fi
 
 # We are using `exec` to enable gracefull shutdown of running daemon.
 # Check http://veithen.github.io/2014/11/16/sigterm-propagation.html.
-exec geth --rinkeby \
+exec geth \
 --datadir $DATA_DIR \
 --config $CONFIG \
 $EXTERNAL_IP_OPT
