@@ -27,7 +27,7 @@ func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 
 func printAmount(a btcutil.Amount) string {
 	u := btcutil.AmountBTC
-	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u + 8), 64)
+	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u+8), 64)
 }
 
 func isProperNet(desiredNet, actualNet string) bool {
@@ -38,6 +38,11 @@ func isProperNet(desiredNet, actualNet string) bool {
 
 	// Handle the case of different testnet networks names
 	if desiredNet == "testnet" && actualNet == "test" {
+		return true
+	}
+
+	// Handle the case of different mainnet networks names
+	if desiredNet == "mainnet" && actualNet == "main" {
 		return true
 	}
 
