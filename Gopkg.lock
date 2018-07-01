@@ -173,11 +173,14 @@
 
 [[projects]]
   name = "github.com/lightningnetwork/lnd"
+  # Use bitlum source for lnd as a temporary fork till pull requests will be
+  # merged
+  source = "github.com/bitlum/lnd"
   packages = [
     "lnrpc",
     "macaroons"
   ]
-  revision = "991c9fb7dd534a7cbc7ce9505e7eca8fa2a63bc8"
+  revision = "9a9fb976edd2c664e51ab6498124c1e987f98e7e"
 
 [[projects]]
   name = "github.com/ltcsuite/ltcd"

@@ -2,11 +2,15 @@ FROM golang:1.10.3 AS builder
 
 ARG BITCOIN_LIGHTNING_REVISION
 
+# Install dep for installing lightning network daemon dependencies
 RUN go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
-RUN git clone https://github.com/lightningnetwork/lnd.git .
+# Instead of cloning lightningnetwork/lnd temproray use ourw version of lnd
+# daemon, but put in lightningnetwork/lnd directory so that all installation
+# scripts could work without being changed.
+RUN git clone https://github.com/bitlum/lnd.git .
 
 # Ensure that we running proper revision
 RUN git checkout $BITCOIN_LIGHTNING_REVISION

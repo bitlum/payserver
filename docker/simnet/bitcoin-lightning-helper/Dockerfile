@@ -4,9 +4,9 @@ ARG BITCOIN_LIGHTNING_REVISION
 
 RUN go get -u github.com/golang/dep/cmd/dep
 
-WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
+WORKDIR $GOPATH/src/github.com/bitlum/lnd
 
-RUN git clone https://github.com/lightningnetwork/lnd.git .
+RUN git clone https://github.com/bitlum/lnd.git .
 
 RUN git checkout $BITCOIN_LIGHTNING_REVISION
 

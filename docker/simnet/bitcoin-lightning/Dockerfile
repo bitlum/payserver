@@ -6,7 +6,10 @@ RUN go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
-RUN git clone https://github.com/lightningnetwork/lnd.git .
+# Instead of cloning lightningnetwork/lnd temproray use ourw version of lnd
+# daemon, but put in lightningnetwork/lnd directory so that all installation
+# scripts could work without being changed.
+RUN git clone https://github.com/bitlum/lnd.git .
 
 RUN git checkout $BITCOIN_LIGHTNING_REVISION
 
