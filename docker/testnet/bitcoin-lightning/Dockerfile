@@ -8,12 +8,18 @@ WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
 RUN git clone https://github.com/lightningnetwork/lnd.git .
 
+# Ensure that we running proper revision
 RUN git checkout $BITCOIN_LIGHTNING_REVISION
 
+# Install dependencies
 RUN dep ensure -v
 
+# Build lightning network daemon
 RUN make install
 
+# Install delve - debugger for the Go programming language, in order to be
+# able to attach to the lnd process and understand why it stuck.
+RUN go get -u github.com/derekparker/delve/cmd/dlv
 
 
 FROM ubuntu:18.04
@@ -25,7 +31,7 @@ EXPOSE 10009
 EXPOSE 9735
 
 # Copying required binaries from builder stage.
-COPY --from=builder /go/bin/lnd /go/bin/lncli /usr/local/bin/
+COPY --from=builder /go/bin/lnd /go/bin/lncli /go/bin/dlv /usr/local/bin/
 
 # Default config used to initalize datadir volume at first or
 # cleaned deploy. It will be restored and used after each restart.
