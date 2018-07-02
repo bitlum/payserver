@@ -82,8 +82,9 @@ type config struct {
 }
 
 type LndConfig struct {
-	Host string `long:"host" description:"The host of the lnd daemon"`
-	Port int    `long:"port" description:"The port of the lnd daemon"`
+	Disabled bool   `long:"disable" description:"Disable work with this daemon"`
+	Host     string `long:"host" description:"The host of the lnd daemon"`
+	Port     int    `long:"port" description:"The port of the lnd daemon"`
 
 	TlsCertPath  string `long:"tlscertpath" description:"Path to the TLS certificate of the lnd daemon"`
 	MacaroonPath string `long:"macaroonpath" description:"Path to the RPC authorization macaroon"`
@@ -96,6 +97,7 @@ type LndConfig struct {
 }
 
 type GethConfig struct {
+	Disabled         bool   `long:"disable" description:"Disable work with this daemon"`
 	MinConfirmations int    `long:"minconfirmations" description:"Minimum number of block on top of the one where transaction appeared, before we consider transaction as confirmed."`
 	SyncDelay        int    `long:"syncdelay" description:"For how long processing loop should sleep before start syncing pending, confirmed and mempool transactions."`
 	Host             string `long:"host" description:"The host of the lnd daemon"`
@@ -105,6 +107,7 @@ type GethConfig struct {
 }
 
 type BitcoindConfig struct {
+	Disabled         bool   `long:"disable" description:"Disable work with this daemon"`
 	MinConfirmations int    `long:"minconfirmations" description:"Minimum number of block on top of the one where transaction appeared, before we consider transaction as confirmed."`
 	SyncDelay        int    `long:"syncdelay" description:"For how long processing loop should sleep before start syncing pending, confirmed and mempool transactions."`
 	FeePerUnit       int    `long:"feeperunit" description:"Fee for every unit of information needed to put it in the blockchain"`

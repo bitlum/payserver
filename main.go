@@ -72,142 +72,162 @@ func backendMain() error {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
 
+	blockchainConnectors := make(map[core.AssetType]common.BlockchainConnector)
+	lightningConnectors := make(map[core.AssetType]common.LightningConnector)
+
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
 	// pending transaction user have and also to withdraw money from exchange.
-	bitcoinCashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
-		Net:              loadedConfig.Network,
-		MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
-		SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
-		DataDir:          loadedConfig.DataDir,
-		Asset:            core.AssetBCH,
-		Logger:           mainLog,
-		Metrics:          cryptoMetricsBackend,
-		// TODO(andrew.shvv) Create subsystem to return current fee per unit
-		FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
-		DaemonCfg: &bitcoind.DaemonConfig{
-			Name:       "bitcoinabc",
-			ServerHost: loadedConfig.BitcoinCash.Host,
-			ServerPort: loadedConfig.BitcoinCash.Port,
-			User:       loadedConfig.BitcoinCash.User,
-			Password:   loadedConfig.BitcoinCash.Password,
-		},
-	})
-	if err != nil {
-		return errors.Errorf("unable to create bitcoin cash connector: %v", err)
+	if !loadedConfig.BitcoinCash.Disabled {
+		bitcoinCashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+			Net:              loadedConfig.Network,
+			MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
+			SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
+			DataDir:          loadedConfig.DataDir,
+			Asset:            core.AssetBCH,
+			Logger:           mainLog,
+			Metrics:          cryptoMetricsBackend,
+			// TODO(andrew.shvv) Create subsystem to return current fee per unit
+			FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
+			DaemonCfg: &bitcoind.DaemonConfig{
+				Name:       "bitcoinabc",
+				ServerHost: loadedConfig.BitcoinCash.Host,
+				ServerPort: loadedConfig.BitcoinCash.Port,
+				User:       loadedConfig.BitcoinCash.User,
+				Password:   loadedConfig.BitcoinCash.Password,
+			},
+		})
+		if err != nil {
+			return errors.Errorf("unable to create bitcoin cash connector: %v", err)
+		}
+
+		blockchainConnectors[core.AssetBCH] = bitcoinCashConnector
 	}
 
-	bitcoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
-		Net:              loadedConfig.Network,
-		MinConfirmations: loadedConfig.Bitcoin.MinConfirmations,
-		SyncLoopDelay:    loadedConfig.Bitcoin.SyncDelay,
-		DataDir:          loadedConfig.DataDir,
-		Asset:            core.AssetBTC,
-		Logger:           mainLog,
-		Metrics:          cryptoMetricsBackend,
-		// TODO(andrew.shvv) Create subsystem to return current fee per unit
-		FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
-		DaemonCfg: &bitcoind.DaemonConfig{
-			Name:       "bitcoind",
-			ServerHost: loadedConfig.Bitcoin.Host,
-			ServerPort: loadedConfig.Bitcoin.Port,
-			User:       loadedConfig.Bitcoin.User,
-			Password:   loadedConfig.Bitcoin.Password,
-		},
-	})
-	if err != nil {
-		return errors.Errorf("unable to create bitcoin connector: %v", err)
+	if !loadedConfig.Bitcoin.Disabled {
+		bitcoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+			Net:              loadedConfig.Network,
+			MinConfirmations: loadedConfig.Bitcoin.MinConfirmations,
+			SyncLoopDelay:    loadedConfig.Bitcoin.SyncDelay,
+			DataDir:          loadedConfig.DataDir,
+			Asset:            core.AssetBTC,
+			Logger:           mainLog,
+			Metrics:          cryptoMetricsBackend,
+			// TODO(andrew.shvv) Create subsystem to return current fee per unit
+			FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
+			DaemonCfg: &bitcoind.DaemonConfig{
+				Name:       "bitcoind",
+				ServerHost: loadedConfig.Bitcoin.Host,
+				ServerPort: loadedConfig.Bitcoin.Port,
+				User:       loadedConfig.Bitcoin.User,
+				Password:   loadedConfig.Bitcoin.Password,
+			},
+		})
+		if err != nil {
+			return errors.Errorf("unable to create bitcoin connector: %v", err)
+		}
+
+		blockchainConnectors[core.AssetBTC] = bitcoinConnector
 	}
 
-	dashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
-		Net:              loadedConfig.Network,
-		MinConfirmations: loadedConfig.Dash.MinConfirmations,
-		SyncLoopDelay:    loadedConfig.Dash.SyncDelay,
-		DataDir:          loadedConfig.DataDir,
-		Asset:            core.AssetDASH,
-		Logger:           mainLog,
-		Metrics:          cryptoMetricsBackend,
-		// TODO(andrew.shvv) Create subsystem to return current fee per unit
-		FeePerUnit: loadedConfig.Dash.FeePerUnit,
-		DaemonCfg: &bitcoind.DaemonConfig{
-			Name:       "dashd",
-			ServerHost: loadedConfig.Dash.Host,
-			ServerPort: loadedConfig.Dash.Port,
-			User:       loadedConfig.Dash.User,
-			Password:   loadedConfig.Dash.Password,
-		},
-	})
-	if err != nil {
-		return errors.Errorf("unable to create dash connector: %v", err)
+	if !loadedConfig.Dash.Disabled {
+		dashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+			Net:              loadedConfig.Network,
+			MinConfirmations: loadedConfig.Dash.MinConfirmations,
+			SyncLoopDelay:    loadedConfig.Dash.SyncDelay,
+			DataDir:          loadedConfig.DataDir,
+			Asset:            core.AssetDASH,
+			Logger:           mainLog,
+			Metrics:          cryptoMetricsBackend,
+			// TODO(andrew.shvv) Create subsystem to return current fee per unit
+			FeePerUnit: loadedConfig.Dash.FeePerUnit,
+			DaemonCfg: &bitcoind.DaemonConfig{
+				Name:       "dashd",
+				ServerHost: loadedConfig.Dash.Host,
+				ServerPort: loadedConfig.Dash.Port,
+				User:       loadedConfig.Dash.User,
+				Password:   loadedConfig.Dash.Password,
+			},
+		})
+		if err != nil {
+			return errors.Errorf("unable to create dash connector: %v", err)
+		}
+
+		blockchainConnectors[core.AssetDASH] = dashConnector
 	}
 
-	litecoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
-		Net:              loadedConfig.Network,
-		MinConfirmations: loadedConfig.Litecoin.MinConfirmations,
-		SyncLoopDelay:    loadedConfig.Litecoin.SyncDelay,
-		DataDir:          loadedConfig.DataDir,
-		Asset:            core.AssetLTC,
-		Logger:           mainLog,
-		Metrics:          cryptoMetricsBackend,
-		// TODO(andrew.shvv) Create subsystem to return current fee per unit
-		FeePerUnit: loadedConfig.Litecoin.FeePerUnit,
-		DaemonCfg: &bitcoind.DaemonConfig{
-			Name:       "litecoind",
-			ServerHost: loadedConfig.Litecoin.Host,
-			ServerPort: loadedConfig.Litecoin.Port,
-			User:       loadedConfig.Litecoin.User,
-			Password:   loadedConfig.Litecoin.Password,
-		},
-	})
-	if err != nil {
-		return errors.Errorf("unable to create litecoin connector: %v", err)
+	if !loadedConfig.Litecoin.Disabled {
+		litecoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+			Net:              loadedConfig.Network,
+			MinConfirmations: loadedConfig.Litecoin.MinConfirmations,
+			SyncLoopDelay:    loadedConfig.Litecoin.SyncDelay,
+			DataDir:          loadedConfig.DataDir,
+			Asset:            core.AssetLTC,
+			Logger:           mainLog,
+			Metrics:          cryptoMetricsBackend,
+			// TODO(andrew.shvv) Create subsystem to return current fee per unit
+			FeePerUnit: loadedConfig.Litecoin.FeePerUnit,
+			DaemonCfg: &bitcoind.DaemonConfig{
+				Name:       "litecoind",
+				ServerHost: loadedConfig.Litecoin.Host,
+				ServerPort: loadedConfig.Litecoin.Port,
+				User:       loadedConfig.Litecoin.User,
+				Password:   loadedConfig.Litecoin.Password,
+			},
+		})
+		if err != nil {
+			return errors.Errorf("unable to create litecoin connector: %v", err)
+		}
+
+		blockchainConnectors[core.AssetLTC] = litecoinConnector
 	}
 
-	ethConnector, err := geth.NewConnector(&geth.Config{
-		Net:              loadedConfig.Network,
-		MinConfirmations: loadedConfig.Ethereum.MinConfirmations,
-		SyncTickDelay:    loadedConfig.Ethereum.SyncDelay,
-		DataDir:          loadedConfig.DataDir,
-		Asset:            core.AssetETH,
-		Logger:           mainLog,
-		Metrics:          cryptoMetricsBackend,
-		DaemonCfg: &geth.DaemonConfig{
-			Name:       "geth",
-			ServerHost: loadedConfig.Ethereum.Host,
-			ServerPort: loadedConfig.Ethereum.Port,
-			Password:   loadedConfig.Ethereum.Password,
-		},
-	})
-	if err != nil {
-		return errors.Errorf("unable to create ethereum connector: %v", err)
+	if !loadedConfig.Ethereum.Disabled {
+		ethConnector, err := geth.NewConnector(&geth.Config{
+			Net:              loadedConfig.Network,
+			MinConfirmations: loadedConfig.Ethereum.MinConfirmations,
+			SyncTickDelay:    loadedConfig.Ethereum.SyncDelay,
+			DataDir:          loadedConfig.DataDir,
+			Asset:            core.AssetETH,
+			Logger:           mainLog,
+			Metrics:          cryptoMetricsBackend,
+			DaemonCfg: &geth.DaemonConfig{
+				Name:       "geth",
+				ServerHost: loadedConfig.Ethereum.Host,
+				ServerPort: loadedConfig.Ethereum.Port,
+				Password:   loadedConfig.Ethereum.Password,
+			},
+		})
+		if err != nil {
+			return errors.Errorf("unable to create ethereum connector: %v", err)
+		}
+
+		blockchainConnectors[core.AssetETH] = ethConnector
 	}
 
-	lightningConnector, err := lnd.NewConnector(&lnd.Config{
-		PeerHost:     loadedConfig.BitcoinLightning.PeerHost,
-		PeerPort:     loadedConfig.BitcoinLightning.PeerPort,
-		Net:          loadedConfig.Network,
-		Name:         "lnd",
-		Host:         loadedConfig.BitcoinLightning.Host,
-		Port:         loadedConfig.BitcoinLightning.Port,
-		TlsCertPath:  loadedConfig.BitcoinLightning.TlsCertPath,
-		MacaroonPath: loadedConfig.BitcoinLightning.MacaroonPath,
-		Metrics:      cryptoMetricsBackend,
-	})
-	if err != nil {
-		return errors.Errorf("unable to create lightning bitcoin connector"+
-			": %v", err)
-	}
+	if !loadedConfig.BitcoinLightning.Disabled {
+		lightningConnector, err := lnd.NewConnector(&lnd.Config{
+			PeerHost:     loadedConfig.BitcoinLightning.PeerHost,
+			PeerPort:     loadedConfig.BitcoinLightning.PeerPort,
+			Net:          loadedConfig.Network,
+			Name:         "lnd",
+			Host:         loadedConfig.BitcoinLightning.Host,
+			Port:         loadedConfig.BitcoinLightning.Port,
+			TlsCertPath:  loadedConfig.BitcoinLightning.TlsCertPath,
+			MacaroonPath: loadedConfig.BitcoinLightning.MacaroonPath,
+			Metrics:      cryptoMetricsBackend,
+		})
+		if err != nil {
+			return errors.Errorf("unable to create lightning bitcoin connector"+
+				": %v", err)
+		}
 
-	blockchainConnectors := map[core.AssetType]common.BlockchainConnector{
-		core.AssetBTC:  bitcoinConnector,
-		core.AssetBCH:  bitcoinCashConnector,
-		core.AssetDASH: dashConnector,
-		core.AssetLTC:  litecoinConnector,
-		core.AssetETH:  ethConnector,
-	}
+		if err := lightningConnector.Start(); err != nil {
+			return errors.Errorf("unable to create lightning bitcoin client: %v",
+				err)
+		}
 
-	lightningConnectors := map[core.AssetType]common.LightningConnector{
-		core.AssetBTC: lightningConnector,
+		lightningConnectors[core.AssetBTC] = lightningConnector
 	}
 
 	for asset, connector := range blockchainConnectors {
@@ -223,11 +243,6 @@ func backendMain() error {
 					asset, err)
 			}
 		}
-	}
-
-	if err := lightningConnector.Start(); err != nil {
-		return errors.Errorf("unable to create lightning bitcoin client: %v",
-			err)
 	}
 
 	estmtr := estimator.NewCoinmarketcapEstimator()
