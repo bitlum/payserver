@@ -510,7 +510,7 @@ func (c *Connector) ConfirmedBalance(account string) (string, error) {
 
 	balance := "0"
 
-	err := c.db.View(func(tx *bolt.Tx) error {
+	err := c.db.Update(func(tx *bolt.Tx) error {
 		accountsBucket, err := tx.CreateBucketIfNotExists(accountsToAddressesBucket)
 		if err != nil {
 			m.AddError(errToSeverity(ErrDatabase))
