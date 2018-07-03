@@ -49,13 +49,13 @@
   branch = "master"
   name = "github.com/bitlum/viabtc_rpc_client"
   packages = ["."]
-  revision = "30868181d57220bfc5ab9a8e75aeb99e51932489"
+  revision = "9eb67795b782e2c6007e3daa08c2235da0428380"
 
 [[projects]]
   branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = ["btcec"]
-  revision = "2be2f12b358dc57d70b8f501b00be450192efbc3"
+  revision = "86fed781132ac890ee03e906e4ecd5d6fa180c64"
 
 [[projects]]
   name = "github.com/btcsuite/btclog"
@@ -142,14 +142,13 @@
     "ptypes/any",
     "ptypes/struct"
   ]
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
 
 [[projects]]
   branch = "master"
   name = "github.com/golang/snappy"
   packages = ["."]
-  revision = "553a641470496b2327abcac10b36396bd98e45c9"
+  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/grpc-gateway"
@@ -181,30 +180,31 @@
   source = "github.com/bitlum/lnd"
 
 [[projects]]
+  branch = "master"
   name = "github.com/ltcsuite/ltcd"
   packages = [
     "chaincfg/chainhash",
     "wire"
   ]
-  revision = "5f654d5faab99ee2b3488fabba98e5f7a5257ee3"
+  revision = "cdab10132e8c6e4a3ffd112dba54791946d28906"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
-  revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
-  version = "v1.0.0"
+  revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
   name = "github.com/mr-tron/base58"
   packages = ["base58"]
-  revision = "c1bdf7c52f59d6685ca597b9955a443ff95eeee6"
+  revision = "4df4dc6e86a912614d09719d10cad427b087cbfb"
 
 [[projects]]
   branch = "master"
   name = "github.com/onrik/ethrpc"
   packages = ["."]
-  revision = "1692116ee521d811a2e6f5ab690af6f799134e37"
+  revision = "a38990194dea417644f4f383279ab737aa8abb4a"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -235,7 +235,7 @@
     "internal/bitbucket.org/ww/goautoneg",
     "model"
   ]
-  revision = "38c53a9f4bfcd932d1b00bfc65e256a7fba6b37a"
+  revision = "7600349dcfe1abd18d72d3a1770870d9800a7801"
 
 [[projects]]
   branch = "master"
@@ -246,7 +246,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "780932d4fbbe0e69b84c34c20f5c8d0981e109ea"
+  revision = "40f013a808ec4fa79def444a1a56de4d1727efcb"
 
 [[projects]]
   name = "github.com/roasbeef/btcwallet"
@@ -296,19 +296,20 @@
     "leveldb/table",
     "leveldb/util"
   ]
-  revision = "714f901b98fdb3aa954b4193d8cbd64a28d80cad"
+  revision = "0d5a0ceb10cf9ab89fdd744cc8c50a83134f6697"
 
 [[projects]]
   branch = "master"
   name = "go4.org"
   packages = ["reflectutil"]
-  revision = "e6a7f04a962e05f288f348eec6de20fe93b6b292"
+  revision = "9599cf28b011184741f249bd9f9330756b506cbc"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
+    "internal/subtle",
     "nacl/box",
     "nacl/secretbox",
     "pbkdf2",
@@ -317,7 +318,7 @@
     "salsa20/salsa",
     "scrypt"
   ]
-  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
+  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [[projects]]
   name = "golang.org/x/net"
@@ -336,7 +337,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "f67933eaf9e2f750f58a234209a11ebc1107be38"
+  revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -417,6 +418,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0e51674f078cb0459b63d9ba6506c5f8bd17cc546a595e8bfbf335c7e0f2f84a"
+  inputs-digest = "d6406e800a90b640158d09f4c03b3d9ba790d473aca2f505ea207c2bb1cc4e71"
   solver-name = "gps-cdcl"
   solver-version = 1
