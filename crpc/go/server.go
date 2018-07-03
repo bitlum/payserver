@@ -296,8 +296,6 @@ func (s *Server) Info(_ context.Context,
 			BlockHeight:        info.BlockHeight,
 			BlockHash:          info.BlockHash,
 		}
-	} else {
-		return nil, newErrAssetNotSupported("BTC", "network info")
 	}
 
 	resp := &InfoResponse{
