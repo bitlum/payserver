@@ -45,20 +45,23 @@ func backendMain() error {
 	closeRotator := initLogRotator(logFile)
 	defer closeRotator()
 
-	// Create engine client in order to be able to communicate with exchange
-	// engine itself.
-	mainLog.Infof("Initialize engine client %v:%v", loadedConfig.EngineHost,
-		loadedConfig.EnginePort)
-	if err := core.CreateEngine(&core.EngineConfig{
-		IP:       loadedConfig.EngineHost,
-		HTTPPort: loadedConfig.EnginePort,
-	}); err != nil {
-		return errors.Errorf("unable to create engine client: %v", err)
-	}
-
 	var engine *core.Engine
+
 	if !loadedConfig.EngineDisabled {
+
+		// Create engine client in order to be able to communicate with exchange
+		// engine itself.
+		mainLog.Infof("Initialize engine client %v:%v", loadedConfig.EngineHost,
+			loadedConfig.EnginePort)
+		if err := core.CreateEngine(&core.EngineConfig{
+			IP:       loadedConfig.EngineHost,
+			HTTPPort: loadedConfig.EnginePort,
+		}); err != nil {
+			return errors.Errorf("unable to create engine client: %v", err)
+		}
+
 		var err error
+
 		engine, err = core.GetEngine()
 		if err != nil {
 			return errors.Errorf("unable to get engine: %s", err)

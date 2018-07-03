@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/btcsuite/btclog"
-	"github.com/jrick/logrotate/rotator"
-	"github.com/bitlum/connector/metrics"
-	"github.com/bitlum/connector/lnd"
 	"github.com/bitlum/connector/crpc/go"
 	"github.com/bitlum/connector/estimator"
+	"github.com/bitlum/connector/lnd"
+	"github.com/bitlum/connector/metrics"
+	"github.com/btcsuite/btclog"
+	"github.com/jrick/logrotate/rotator"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -69,7 +69,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"MAIN":    mainLog,
 	"METRICS": metricsLog,
 	"LND":     lndLog,
-	"RCP":     rpcLog,
+	"RPC":     rpcLog,
 	"EST":     estimatorLog,
 }
 
