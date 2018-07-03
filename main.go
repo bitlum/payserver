@@ -20,7 +20,7 @@ import (
 	"github.com/bitlum/connector/metrics"
 	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
-	core "github.com/bitlum/viabtc_rpc_client"
+	"github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/go-flags"
 	"github.com/go-errors/errors"
 	"google.golang.org/grpc"
@@ -45,27 +45,17 @@ func backendMain() error {
 	closeRotator := initLogRotator(logFile)
 	defer closeRotator()
 
-	var engine *core.Engine
-
+	var client *viabtc.Client
 	if !loadedConfig.EngineDisabled {
 
-		// Create engine client in order to be able to communicate with exchange
-		// engine itself.
-		mainLog.Infof("Initialize engine client %v:%v", loadedConfig.EngineHost,
+		// Create client client in order to be able to communicate with exchange
+		// client itself.
+		mainLog.Infof("Initialize client client %v:%v", loadedConfig.EngineHost,
 			loadedConfig.EnginePort)
-		if err := core.CreateEngine(&core.EngineConfig{
-			IP:       loadedConfig.EngineHost,
-			HTTPPort: loadedConfig.EnginePort,
-		}); err != nil {
-			return errors.Errorf("unable to create engine client: %v", err)
-		}
-
-		var err error
-
-		engine, err = core.GetEngine()
-		if err != nil {
-			return errors.Errorf("unable to get engine: %s", err)
-		}
+		client = viabtc.NewClient(&viabtc.Config{
+			Host: loadedConfig.EngineHost,
+			Port: loadedConfig.EnginePort,
+		})
 	}
 
 	// TODO(andrew.shvv) add net config and daemon checks
@@ -75,8 +65,8 @@ func backendMain() error {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
 
-	blockchainConnectors := make(map[core.AssetType]common.BlockchainConnector)
-	lightningConnectors := make(map[core.AssetType]common.LightningConnector)
+	blockchainConnectors := make(map[viabtc.AssetType]common.BlockchainConnector)
+	lightningConnectors := make(map[viabtc.AssetType]common.LightningConnector)
 
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
@@ -87,7 +77,7 @@ func backendMain() error {
 			MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
 			DataDir:          loadedConfig.DataDir,
-			Asset:            core.AssetBCH,
+			Asset:            viabtc.AssetBCH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
@@ -104,7 +94,7 @@ func backendMain() error {
 			return errors.Errorf("unable to create bitcoin cash connector: %v", err)
 		}
 
-		blockchainConnectors[core.AssetBCH] = bitcoinCashConnector
+		blockchainConnectors[viabtc.AssetBCH] = bitcoinCashConnector
 	}
 
 	if !loadedConfig.Bitcoin.Disabled {
@@ -113,7 +103,7 @@ func backendMain() error {
 			MinConfirmations: loadedConfig.Bitcoin.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.Bitcoin.SyncDelay,
 			DataDir:          loadedConfig.DataDir,
-			Asset:            core.AssetBTC,
+			Asset:            viabtc.AssetBTC,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
@@ -130,7 +120,7 @@ func backendMain() error {
 			return errors.Errorf("unable to create bitcoin connector: %v", err)
 		}
 
-		blockchainConnectors[core.AssetBTC] = bitcoinConnector
+		blockchainConnectors[viabtc.AssetBTC] = bitcoinConnector
 	}
 
 	if !loadedConfig.Dash.Disabled {
@@ -139,7 +129,7 @@ func backendMain() error {
 			MinConfirmations: loadedConfig.Dash.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.Dash.SyncDelay,
 			DataDir:          loadedConfig.DataDir,
-			Asset:            core.AssetDASH,
+			Asset:            viabtc.AssetDASH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
@@ -156,7 +146,7 @@ func backendMain() error {
 			return errors.Errorf("unable to create dash connector: %v", err)
 		}
 
-		blockchainConnectors[core.AssetDASH] = dashConnector
+		blockchainConnectors[viabtc.AssetDASH] = dashConnector
 	}
 
 	if !loadedConfig.Litecoin.Disabled {
@@ -165,7 +155,7 @@ func backendMain() error {
 			MinConfirmations: loadedConfig.Litecoin.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.Litecoin.SyncDelay,
 			DataDir:          loadedConfig.DataDir,
-			Asset:            core.AssetLTC,
+			Asset:            viabtc.AssetLTC,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
@@ -182,7 +172,7 @@ func backendMain() error {
 			return errors.Errorf("unable to create litecoin connector: %v", err)
 		}
 
-		blockchainConnectors[core.AssetLTC] = litecoinConnector
+		blockchainConnectors[viabtc.AssetLTC] = litecoinConnector
 	}
 
 	if !loadedConfig.Ethereum.Disabled {
@@ -191,7 +181,7 @@ func backendMain() error {
 			MinConfirmations: loadedConfig.Ethereum.MinConfirmations,
 			SyncTickDelay:    loadedConfig.Ethereum.SyncDelay,
 			DataDir:          loadedConfig.DataDir,
-			Asset:            core.AssetETH,
+			Asset:            viabtc.AssetETH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			DaemonCfg: &geth.DaemonConfig{
@@ -205,7 +195,7 @@ func backendMain() error {
 			return errors.Errorf("unable to create ethereum connector: %v", err)
 		}
 
-		blockchainConnectors[core.AssetETH] = ethConnector
+		blockchainConnectors[viabtc.AssetETH] = ethConnector
 	}
 
 	if !loadedConfig.BitcoinLightning.Disabled {
@@ -236,7 +226,7 @@ func backendMain() error {
 			}
 		}()
 
-		lightningConnectors[core.AssetBTC] = lightningConnector
+		lightningConnectors[viabtc.AssetBTC] = lightningConnector
 	}
 
 	for asset, connector := range blockchainConnectors {
@@ -323,28 +313,28 @@ func backendMain() error {
 	var wg sync.WaitGroup
 
 	if blockchainConnectors != nil {
-		for asset, client := range blockchainConnectors {
+		for asset, connector := range blockchainConnectors {
 			mainLog.Infof("Initialize blockchain connector for '%v' asset",
 				asset)
 
 			wg.Add(1)
-			go func(asset core.AssetType, client common.BlockchainConnector) {
+			go func(asset viabtc.AssetType, connector common.BlockchainConnector) {
 				defer wg.Done()
 
 				for {
 					select {
 					case <-quit:
 						return
-					case payments := <-client.ReceivedPayments():
+					case payments := <-connector.ReceivedPayments():
 						for _, payment := range payments {
 							if !loadedConfig.EngineDisabled {
-								doDeposit(engine, payment, asset)
+								doDeposit(client, payment, asset)
 							}
 							paymentsStore.AddPayment(payment)
 						}
 					}
 				}
-			}(asset, client)
+			}(asset, connector)
 		}
 	} else {
 		mainLog.Warnf("connector client haven't been initialized, " +
@@ -352,26 +342,26 @@ func backendMain() error {
 	}
 
 	if lightningConnectors != nil {
-		for asset, client := range lightningConnectors {
+		for asset, connector := range lightningConnectors {
 			mainLog.Infof("Initialize lightning connector for '%v' asset",
 				asset)
 
 			wg.Add(1)
-			go func(asset core.AssetType, client common.LightningConnector) {
+			go func(asset viabtc.AssetType, connector common.LightningConnector) {
 				defer wg.Done()
 
 				for {
 					select {
 					case <-quit:
 						return
-					case payment := <-client.ReceivedPayments():
+					case payment := <-connector.ReceivedPayments():
 						if !loadedConfig.EngineDisabled {
-							doDeposit(engine, payment, asset)
+							doDeposit(client, payment, asset)
 						}
 						paymentsStore.AddPayment(payment)
 					}
 				}
-			}(asset, client)
+			}(asset, connector)
 		}
 	} else {
 		mainLog.Warnf("connector client haven't been initialized, " +

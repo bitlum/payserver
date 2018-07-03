@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bitlum/connector/common"
-	core "github.com/bitlum/viabtc_rpc_client"
+	viabtc "github.com/bitlum/viabtc_rpc_client"
 )
 
 // fileExists reports whether the named file or directory exists.
@@ -24,8 +24,8 @@ func fileExists(name string) bool {
 	return true
 }
 
-func doDeposit(engine *core.Engine, payment *common.Payment,
-	asset core.AssetType) {
+func doDeposit(client *viabtc.Client, payment *common.Payment,
+	asset viabtc.AssetType) {
 	userID, err := getUserIDFromAccount(payment.Account)
 	if err != nil {
 		mainLog.Errorf("unable to convert account"+
@@ -45,10 +45,10 @@ func doDeposit(engine *core.Engine, payment *common.Payment,
 	// Infinite cycle in the case if service is unavailable.
 	// TODO(anddrew.shvv) make if better, probably persistent task queue?
 	for {
-		req := &core.BalanceUpdateRequest{
+		req := &viabtc.BalanceUpdateRequest{
 			UserID:     userID,
 			Asset:      asset,
-			ActionType: core.ActionDeposit,
+			ActionType: viabtc.ActionDeposit,
 			Change:     payment.Amount.String(),
 			ActionID:   actionID,
 			Detail: map[string]interface{}{
@@ -58,7 +58,7 @@ func doDeposit(engine *core.Engine, payment *common.Payment,
 			},
 		}
 
-		resp, err := engine.BalanceUpdate(req)
+		resp, err := client.BalanceUpdate(req)
 		if err != nil || resp.Status != "success" {
 			mainLog.Errorf("unable to update user balance, "+
 				"user(%v), amount(%v), payment(%v), type(%v): %v", payment.Account,
