@@ -46,7 +46,7 @@
 
 [[override]]
   name = "github.com/golang/protobuf"
-  version = "1.1.0"
+  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
 
 [[constraint]]
   name = "github.com/jrick/logrotate"
