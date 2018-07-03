@@ -226,6 +226,12 @@ func backendMain() error {
 			return errors.Errorf("unable to create lightning bitcoin client: %v",
 				err)
 		}
+		defer func() {
+			if err := lightningConnector.Stop("stopped by user"); err != nil {
+				mainLog.Warn("unable to shutdown lightning bitcoin"+
+					" connector: %v", err)
+			}
+		}()
 
 		lightningConnectors[core.AssetBTC] = lightningConnector
 	}
@@ -380,11 +386,6 @@ func backendMain() error {
 			case *geth.Connector:
 				c.Stop("stopped by user")
 			}
-		}
-
-		if err := lightningConnector.Stop("stopped by user"); err != nil {
-			mainLog.Warn("unable to shutdown lightning bitcoin"+
-				" connector: %v", err)
 		}
 
 		close(quit)
