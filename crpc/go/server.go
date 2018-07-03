@@ -265,16 +265,6 @@ func (s *Server) Info(_ context.Context,
 
 	log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
 
-	c, ok := s.lightningConnectors[core.AssetType("BTC")]
-	if !ok {
-		return nil, newErrAssetNotSupported("BTC", "network info")
-	}
-
-	info, err := c.Info()
-	if err != nil {
-		return nil, newErrInternal(err.Error())
-	}
-
 	var net Net
 	switch s.net {
 	case "simnet":
@@ -285,10 +275,15 @@ func (s *Server) Info(_ context.Context,
 		net = Net_mainnet
 	}
 
-	resp := &InfoResponse{
-		Time: time.Now().String(),
-		Net:  net,
-		LightingInfo: &LightningInfo{
+	var linfo *LightningInfo
+	c, ok := s.lightningConnectors[core.AssetType("BTC")]
+	if ok {
+		info, err := c.Info()
+		if err != nil {
+			return nil, newErrInternal(err.Error())
+		}
+
+		linfo = &LightningInfo{
 			Host:               info.Host,
 			Port:               info.Port,
 			MinAmount:          info.MinAmount,
@@ -300,7 +295,15 @@ func (s *Server) Info(_ context.Context,
 			NumPeers:           info.NumPeers,
 			BlockHeight:        info.BlockHeight,
 			BlockHash:          info.BlockHash,
-		},
+		}
+	} else {
+		return nil, newErrAssetNotSupported("BTC", "network info")
+	}
+
+	resp := &InfoResponse{
+		Time:         time.Now().String(),
+		Net:          net,
+		LightingInfo: linfo,
 	}
 
 	log.Tracef("command(%v), response(%v)", getFunctionName(),
