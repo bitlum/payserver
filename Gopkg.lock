@@ -318,7 +318,7 @@
     "salsa20/salsa",
     "scrypt"
   ]
-  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
+  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
 
 [[projects]]
   name = "golang.org/x/net"
