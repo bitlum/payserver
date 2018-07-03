@@ -57,7 +57,7 @@
   # Use bitlum source for lnd as a temporary fork till pull requests will be
   # merged
   source = "github.com/bitlum/lnd"
-  revision = "9a9fb976edd2c664e51ab6498124c1e987f98e7e"
+  revision = "e34a23f322aedff773caa252a005a3b5d00c0eea"
 
 [[constraint]]
   name = "github.com/pkg/errors"
