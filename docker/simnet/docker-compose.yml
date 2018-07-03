@@ -315,6 +315,25 @@ services:
       - bitcoin.simnet.secondary
       - blocks-generator.simnet
 
+  bitcoin-lightning.simnet.third:
+    << : *defaults
+    container_name: bitcoin-lightning.simnet.third
+    image: bitcoin-lightning.simnet.secondary
+    build:
+      context: ./bitcoin-lightning
+      args:
+        - BITCOIN_LIGHTNING_REVISION
+        - ROLE=secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.202
+    volumes:
+      - /connector/bitcoin.simnet.secondary:/root/.bitcoin:ro
+      - /connector/bitcoin-lightning.simnet.third:/root/.lnd
+    depends_on:
+      - bitcoin.simnet.secondary
+      - blocks-generator.simnet
+
   bitcoin-cash.simnet.secondary:
     << : *defaults
     container_name: bitcoin-cash.simnet.secondary
