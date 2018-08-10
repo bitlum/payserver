@@ -8,36 +8,24 @@ It is generated from these files:
 	rpc.proto
 
 It has these top-level messages:
-	AccountBalanceRequest
-	AccountBalanceResponse
-	PaymentReceivedRequest
-	PaymentReceivedResponse
-	EstimateRequest
-	EstimationResponse
-	CreateAddressRequest
-	AccountAddressRequest
-	PendingBalanceRequest
-	PendingTransactionsRequest
-	GenerateTransactionResponse
-	SubcribeOnPaymentsRequest
-	BlockchainPendingPayment
-	Payment
-	EmtpyResponse
-	Balance
-	Address
-	Invoice
-	CheckReachableRequest
-	PendingTransactionsResponse
-	GenerateTransactionRequest
-	SendTransactionRequest
-	InfoRequest
-	LightningInfo
-	InfoResponse
-	CreateInvoiceRequest
+	EmptyRequest
+	EmptyResponse
+	CreateReceiptRequest
+	CreateReceiptResponse
+	BalanceRequest
+	BalanceResponse
+	ValidateReceiptRequest
+	EstimateFeeRequest
+	EstimateFeeResponse
 	SendPaymentRequest
-	CheckReachableResponse
+	PaymentByIDRequest
+	PaymentsByReceiptRequest
+	PaymentsByReceiptResponse
+	ListPaymentsRequest
+	ListPaymentsResponse
+	Payment
 */
-package crpc
+package prpc
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
@@ -64,26 +52,38 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type Asset int32
 
 const (
-	Asset_BTC  Asset = 0
-	Asset_BCH  Asset = 1
-	Asset_ETH  Asset = 2
-	Asset_LTC  Asset = 3
-	Asset_DASH Asset = 4
+	Asset_ASSET_NONE Asset = 0
+	//
+	// Bitcoin
+	Asset_BTC Asset = 1
+	//
+	// Bitcoin Cash
+	Asset_BCH Asset = 2
+	//
+	// Ethereum
+	Asset_ETH Asset = 3
+	//
+	// Litecoin
+	Asset_LTC Asset = 4
+	// Dash
+	Asset_DASH Asset = 5
 )
 
 var Asset_name = map[int32]string{
-	0: "BTC",
-	1: "BCH",
-	2: "ETH",
-	3: "LTC",
-	4: "DASH",
+	0: "ASSET_NONE",
+	1: "BTC",
+	2: "BCH",
+	3: "ETH",
+	4: "LTC",
+	5: "DASH",
 }
 var Asset_value = map[string]int32{
-	"BTC":  0,
-	"BCH":  1,
-	"ETH":  2,
-	"LTC":  3,
-	"DASH": 4,
+	"ASSET_NONE": 0,
+	"BTC":        1,
+	"BCH":        2,
+	"ETH":        3,
+	"LTC":        4,
+	"DASH":       5,
 }
 
 func (x Asset) String() string {
@@ -91,833 +91,599 @@ func (x Asset) String() string {
 }
 func (Asset) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-// Market is the list of trading markets which are available on the
-// exchange platform.
-type Market int32
+// Media is a list of possible media types. Media is a type of technology which
+// is used to transport value of underlying asset.
+type Media int32
 
 const (
-	Market_BTCETH  Market = 0
-	Market_BTCBTH  Market = 1
-	Market_BTCLTC  Market = 2
-	Market_BTCDASH Market = 3
-	Market_ETHLTC  Market = 4
+	Media_MEDIA_NONE Media = 0
+	//
+	// BLOCKCHAIN means that blockchain direct used for making the payments.
+	Media_BLOCKCHAIN Media = 1
+	//
+	// LIGHTNING means that second layer on top of the blockchain is used for
+	// making the payments.
+	Media_LIGHTNING Media = 2
 )
 
-var Market_name = map[int32]string{
-	0: "BTCETH",
-	1: "BTCBTH",
-	2: "BTCLTC",
-	3: "BTCDASH",
-	4: "ETHLTC",
+var Media_name = map[int32]string{
+	0: "MEDIA_NONE",
+	1: "BLOCKCHAIN",
+	2: "LIGHTNING",
 }
-var Market_value = map[string]int32{
-	"BTCETH":  0,
-	"BTCBTH":  1,
-	"BTCLTC":  2,
-	"BTCDASH": 3,
-	"ETHLTC":  4,
+var Media_value = map[string]int32{
+	"MEDIA_NONE": 0,
+	"BLOCKCHAIN": 1,
+	"LIGHTNING":  2,
 }
 
-func (x Market) String() string {
-	return proto.EnumName(Market_name, int32(x))
+func (x Media) String() string {
+	return proto.EnumName(Media_name, int32(x))
 }
-func (Market) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (Media) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
-type Net int32
+// PaymentStatus denotes the stage of the processing the payment.
+type PaymentStatus int32
 
 const (
-	Net_simnet  Net = 0
-	Net_testnet Net = 1
-	Net_mainnet Net = 2
+	PaymentStatus_STATUS_NONE PaymentStatus = 0
+	//
+	// WAITING means that payment has been created and waiting to be approved
+	// for sending.
+	PaymentStatus_WAITING PaymentStatus = 1
+	//
+	// PENDING means that service is seeing the payment, but it not yet approved
+	// from the its POV.
+	PaymentStatus_PENDING PaymentStatus = 2
+	//
+	// COMPLETED in case of outgoing/incoming payment this means that we
+	// sent/received the transaction in/from the network and it was confirmed
+	// number of times service believe sufficient. In case of the forward
+	// transaction it means that we succesfully routed it through and
+	// earned fee for that.
+	PaymentStatus_COMPLETED PaymentStatus = 3
+	//
+	// FAILED means that services has tryied to send payment for couple of
+	// times, but without success, and now service gave up.
+	PaymentStatus_FAILED PaymentStatus = 4
 )
 
-var Net_name = map[int32]string{
-	0: "simnet",
-	1: "testnet",
-	2: "mainnet",
+var PaymentStatus_name = map[int32]string{
+	0: "STATUS_NONE",
+	1: "WAITING",
+	2: "PENDING",
+	3: "COMPLETED",
+	4: "FAILED",
 }
-var Net_value = map[string]int32{
-	"simnet":  0,
-	"testnet": 1,
-	"mainnet": 2,
-}
-
-func (x Net) String() string {
-	return proto.EnumName(Net_name, int32(x))
-}
-func (Net) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
-
-type AccountBalanceRequest struct {
-	Account string `protobuf:"bytes,2,opt,name=account" json:"account,omitempty"`
-	Asset   string `protobuf:"bytes,3,opt,name=asset" json:"asset,omitempty"`
+var PaymentStatus_value = map[string]int32{
+	"STATUS_NONE": 0,
+	"WAITING":     1,
+	"PENDING":     2,
+	"COMPLETED":   3,
+	"FAILED":      4,
 }
 
-func (m *AccountBalanceRequest) Reset()                    { *m = AccountBalanceRequest{} }
-func (m *AccountBalanceRequest) String() string            { return proto.CompactTextString(m) }
-func (*AccountBalanceRequest) ProtoMessage()               {}
-func (*AccountBalanceRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (x PaymentStatus) String() string {
+	return proto.EnumName(PaymentStatus_name, int32(x))
+}
+func (PaymentStatus) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
-func (m *AccountBalanceRequest) GetAccount() string {
-	if m != nil {
-		return m.Account
-	}
-	return ""
+// PaymentType denotes the direction of the payment.
+type PaymentType int32
+
+const (
+	PaymentType_TYPE_NONE PaymentType = 0
+	//
+	// INCOMING type of payment which service has received from someone else
+	// in the media.
+	PaymentType_INCOMING PaymentType = 1
+	//
+	// OUTGOING type of payment which service has sent to someone else in the
+	// media.
+	PaymentType_OUTGOING PaymentType = 2
+)
+
+var PaymentType_name = map[int32]string{
+	0: "TYPE_NONE",
+	1: "INCOMING",
+	2: "OUTGOING",
+}
+var PaymentType_value = map[string]int32{
+	"TYPE_NONE": 0,
+	"INCOMING":  1,
+	"OUTGOING":  2,
 }
 
-func (m *AccountBalanceRequest) GetAsset() string {
+func (x PaymentType) String() string {
+	return proto.EnumName(PaymentType_name, int32(x))
+}
+func (PaymentType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+type EmptyRequest struct {
+}
+
+func (m *EmptyRequest) Reset()                    { *m = EmptyRequest{} }
+func (m *EmptyRequest) String() string            { return proto.CompactTextString(m) }
+func (*EmptyRequest) ProtoMessage()               {}
+func (*EmptyRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
+type EmptyResponse struct {
+}
+
+func (m *EmptyResponse) Reset()                    { *m = EmptyResponse{} }
+func (m *EmptyResponse) String() string            { return proto.CompactTextString(m) }
+func (*EmptyResponse) ProtoMessage()               {}
+func (*EmptyResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+type CreateReceiptRequest struct {
+	//
+	// Asset is an acronim of the crypto currency.
+	Asset Asset `protobuf:"varint,1,opt,name=asset,enum=crpc.Asset" json:"asset,omitempty"`
+	//
+	// Media is a type of technology which is used to transport value of
+	// underlying asset.
+	Media Media `protobuf:"varint,2,opt,name=media,enum=crpc.Media" json:"media,omitempty"`
+	//
+	// (optional) Amount is the amount which should be received on this
+	// receipt.
+	Amount string `protobuf:"bytes,3,opt,name=amount" json:"amount,omitempty"`
+}
+
+func (m *CreateReceiptRequest) Reset()                    { *m = CreateReceiptRequest{} }
+func (m *CreateReceiptRequest) String() string            { return proto.CompactTextString(m) }
+func (*CreateReceiptRequest) ProtoMessage()               {}
+func (*CreateReceiptRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *CreateReceiptRequest) GetAsset() Asset {
 	if m != nil {
 		return m.Asset
 	}
+	return Asset_ASSET_NONE
+}
+
+func (m *CreateReceiptRequest) GetMedia() Media {
+	if m != nil {
+		return m.Media
+	}
+	return Media_MEDIA_NONE
+}
+
+func (m *CreateReceiptRequest) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
 	return ""
 }
 
-type AccountBalanceResponse struct {
-	Available string `protobuf:"bytes,1,opt,name=available" json:"available,omitempty"`
-	Pending   string `protobuf:"bytes,2,opt,name=pending" json:"pending,omitempty"`
+type CreateReceiptResponse struct {
+	//
+	// Receipt represent either blockchains address or lightning network invoice,
+	// depending on the type of the request.
+	Receipt string `protobuf:"bytes,2,opt,name=receipt" json:"receipt,omitempty"`
 }
 
-func (m *AccountBalanceResponse) Reset()                    { *m = AccountBalanceResponse{} }
-func (m *AccountBalanceResponse) String() string            { return proto.CompactTextString(m) }
-func (*AccountBalanceResponse) ProtoMessage()               {}
-func (*AccountBalanceResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *CreateReceiptResponse) Reset()                    { *m = CreateReceiptResponse{} }
+func (m *CreateReceiptResponse) String() string            { return proto.CompactTextString(m) }
+func (*CreateReceiptResponse) ProtoMessage()               {}
+func (*CreateReceiptResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *AccountBalanceResponse) GetAvailable() string {
+func (m *CreateReceiptResponse) GetReceipt() string {
+	if m != nil {
+		return m.Receipt
+	}
+	return ""
+}
+
+type BalanceRequest struct {
+	//
+	// Asset is an acronim of the crypto currency.
+	Asset Asset `protobuf:"varint,1,opt,name=asset,enum=crpc.Asset" json:"asset,omitempty"`
+	//
+	// Media is a type of technology which is used to transport value of
+	// underlying asset.
+	Media Media `protobuf:"varint,2,opt,name=media,enum=crpc.Media" json:"media,omitempty"`
+}
+
+func (m *BalanceRequest) Reset()                    { *m = BalanceRequest{} }
+func (m *BalanceRequest) String() string            { return proto.CompactTextString(m) }
+func (*BalanceRequest) ProtoMessage()               {}
+func (*BalanceRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *BalanceRequest) GetAsset() Asset {
+	if m != nil {
+		return m.Asset
+	}
+	return Asset_ASSET_NONE
+}
+
+func (m *BalanceRequest) GetMedia() Media {
+	if m != nil {
+		return m.Media
+	}
+	return Media_MEDIA_NONE
+}
+
+type BalanceResponse struct {
+	//
+	// Available is the number of funds which could be used by this account
+	// to send funds to someone else within the specified media.
+	Available string `protobuf:"bytes,1,opt,name=available" json:"available,omitempty"`
+	//
+	// Pending is the number of funds are in the state of confirmation. In
+	// case of blockchain media it is the transactions which are not
+	// confirmed. In case of lightning media it is funds in pending payment
+	// channels.
+	Pending string `protobuf:"bytes,2,opt,name=pending" json:"pending,omitempty"`
+}
+
+func (m *BalanceResponse) Reset()                    { *m = BalanceResponse{} }
+func (m *BalanceResponse) String() string            { return proto.CompactTextString(m) }
+func (*BalanceResponse) ProtoMessage()               {}
+func (*BalanceResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+
+func (m *BalanceResponse) GetAvailable() string {
 	if m != nil {
 		return m.Available
 	}
 	return ""
 }
 
-func (m *AccountBalanceResponse) GetPending() string {
+func (m *BalanceResponse) GetPending() string {
 	if m != nil {
 		return m.Pending
 	}
 	return ""
 }
 
-type PaymentReceivedRequest struct {
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+type ValidateReceiptRequest struct {
+	//
+	// Receipt is the blockchain address in case of blockchain media and
+	// lightning network invoice in case of lightning media.
+	Receipt string `protobuf:"bytes,1,opt,name=receipt" json:"receipt,omitempty"`
+	//
+	// Asset is an acronim of the crypto currency.
+	Asset Asset `protobuf:"varint,2,opt,name=asset,enum=crpc.Asset" json:"asset,omitempty"`
+	//
+	// Media is a type of technology which is used to transport value of
+	// underlying asset.
+	Media Media `protobuf:"varint,3,opt,name=media,enum=crpc.Media" json:"media,omitempty"`
 }
 
-func (m *PaymentReceivedRequest) Reset()                    { *m = PaymentReceivedRequest{} }
-func (m *PaymentReceivedRequest) String() string            { return proto.CompactTextString(m) }
-func (*PaymentReceivedRequest) ProtoMessage()               {}
-func (*PaymentReceivedRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (m *ValidateReceiptRequest) Reset()                    { *m = ValidateReceiptRequest{} }
+func (m *ValidateReceiptRequest) String() string            { return proto.CompactTextString(m) }
+func (*ValidateReceiptRequest) ProtoMessage()               {}
+func (*ValidateReceiptRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
-func (m *PaymentReceivedRequest) GetId() string {
+func (m *ValidateReceiptRequest) GetReceipt() string {
 	if m != nil {
-		return m.Id
+		return m.Receipt
 	}
 	return ""
 }
 
-type PaymentReceivedResponse struct {
-	Received bool `protobuf:"varint,1,opt,name=received" json:"received,omitempty"`
-}
-
-func (m *PaymentReceivedResponse) Reset()                    { *m = PaymentReceivedResponse{} }
-func (m *PaymentReceivedResponse) String() string            { return proto.CompactTextString(m) }
-func (*PaymentReceivedResponse) ProtoMessage()               {}
-func (*PaymentReceivedResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
-
-func (m *PaymentReceivedResponse) GetReceived() bool {
-	if m != nil {
-		return m.Received
-	}
-	return false
-}
-
-type EstimateRequest struct {
-	Asset  string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	Amount string `protobuf:"bytes,2,opt,name=amount" json:"amount,omitempty"`
-}
-
-func (m *EstimateRequest) Reset()                    { *m = EstimateRequest{} }
-func (m *EstimateRequest) String() string            { return proto.CompactTextString(m) }
-func (*EstimateRequest) ProtoMessage()               {}
-func (*EstimateRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
-
-func (m *EstimateRequest) GetAsset() string {
+func (m *ValidateReceiptRequest) GetAsset() Asset {
 	if m != nil {
 		return m.Asset
 	}
-	return ""
+	return Asset_ASSET_NONE
 }
 
-func (m *EstimateRequest) GetAmount() string {
+func (m *ValidateReceiptRequest) GetMedia() Media {
+	if m != nil {
+		return m.Media
+	}
+	return Media_MEDIA_NONE
+}
+
+type EstimateFeeRequest struct {
+	//
+	// Asset is an acronim of the crypto currency.
+	Asset Asset `protobuf:"varint,1,opt,name=asset,enum=crpc.Asset" json:"asset,omitempty"`
+	//
+	// Media is a type of technology which is used to transport value of
+	// underlying asset.
+	Media Media `protobuf:"varint,2,opt,name=media,enum=crpc.Media" json:"media,omitempty"`
+	//
+	// Amount is number of money which should be given to the another entity.
+	Amount int64 `protobuf:"varint,3,opt,name=amount" json:"amount,omitempty"`
+}
+
+func (m *EstimateFeeRequest) Reset()                    { *m = EstimateFeeRequest{} }
+func (m *EstimateFeeRequest) String() string            { return proto.CompactTextString(m) }
+func (*EstimateFeeRequest) ProtoMessage()               {}
+func (*EstimateFeeRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+
+func (m *EstimateFeeRequest) GetAsset() Asset {
+	if m != nil {
+		return m.Asset
+	}
+	return Asset_ASSET_NONE
+}
+
+func (m *EstimateFeeRequest) GetMedia() Media {
+	if m != nil {
+		return m.Media
+	}
+	return Media_MEDIA_NONE
+}
+
+func (m *EstimateFeeRequest) GetAmount() int64 {
 	if m != nil {
 		return m.Amount
-	}
-	return ""
-}
-
-type EstimationResponse struct {
-	Usd string `protobuf:"bytes,1,opt,name=usd" json:"usd,omitempty"`
-}
-
-func (m *EstimationResponse) Reset()                    { *m = EstimationResponse{} }
-func (m *EstimationResponse) String() string            { return proto.CompactTextString(m) }
-func (*EstimationResponse) ProtoMessage()               {}
-func (*EstimationResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
-
-func (m *EstimationResponse) GetUsd() string {
-	if m != nil {
-		return m.Usd
-	}
-	return ""
-}
-
-type CreateAddressRequest struct {
-	Account string `protobuf:"bytes,1,opt,name=account" json:"account,omitempty"`
-	Asset   string `protobuf:"bytes,2,opt,name=asset" json:"asset,omitempty"`
-}
-
-func (m *CreateAddressRequest) Reset()                    { *m = CreateAddressRequest{} }
-func (m *CreateAddressRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateAddressRequest) ProtoMessage()               {}
-func (*CreateAddressRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
-
-func (m *CreateAddressRequest) GetAccount() string {
-	if m != nil {
-		return m.Account
-	}
-	return ""
-}
-
-func (m *CreateAddressRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-type AccountAddressRequest struct {
-	Account string `protobuf:"bytes,1,opt,name=account" json:"account,omitempty"`
-	Asset   string `protobuf:"bytes,2,opt,name=asset" json:"asset,omitempty"`
-}
-
-func (m *AccountAddressRequest) Reset()                    { *m = AccountAddressRequest{} }
-func (m *AccountAddressRequest) String() string            { return proto.CompactTextString(m) }
-func (*AccountAddressRequest) ProtoMessage()               {}
-func (*AccountAddressRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
-
-func (m *AccountAddressRequest) GetAccount() string {
-	if m != nil {
-		return m.Account
-	}
-	return ""
-}
-
-func (m *AccountAddressRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-type PendingBalanceRequest struct {
-	Account string `protobuf:"bytes,1,opt,name=account" json:"account,omitempty"`
-	Asset   string `protobuf:"bytes,2,opt,name=asset" json:"asset,omitempty"`
-}
-
-func (m *PendingBalanceRequest) Reset()                    { *m = PendingBalanceRequest{} }
-func (m *PendingBalanceRequest) String() string            { return proto.CompactTextString(m) }
-func (*PendingBalanceRequest) ProtoMessage()               {}
-func (*PendingBalanceRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
-
-func (m *PendingBalanceRequest) GetAccount() string {
-	if m != nil {
-		return m.Account
-	}
-	return ""
-}
-
-func (m *PendingBalanceRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-type PendingTransactionsRequest struct {
-	Account string `protobuf:"bytes,1,opt,name=account" json:"account,omitempty"`
-	Asset   string `protobuf:"bytes,2,opt,name=asset" json:"asset,omitempty"`
-}
-
-func (m *PendingTransactionsRequest) Reset()                    { *m = PendingTransactionsRequest{} }
-func (m *PendingTransactionsRequest) String() string            { return proto.CompactTextString(m) }
-func (*PendingTransactionsRequest) ProtoMessage()               {}
-func (*PendingTransactionsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
-
-func (m *PendingTransactionsRequest) GetAccount() string {
-	if m != nil {
-		return m.Account
-	}
-	return ""
-}
-
-func (m *PendingTransactionsRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-type GenerateTransactionResponse struct {
-	RawTx []byte `protobuf:"bytes,1,opt,name=raw_tx,json=rawTx,proto3" json:"raw_tx,omitempty"`
-	TxId  string `protobuf:"bytes,2,opt,name=tx_id,json=txId" json:"tx_id,omitempty"`
-}
-
-func (m *GenerateTransactionResponse) Reset()                    { *m = GenerateTransactionResponse{} }
-func (m *GenerateTransactionResponse) String() string            { return proto.CompactTextString(m) }
-func (*GenerateTransactionResponse) ProtoMessage()               {}
-func (*GenerateTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
-
-func (m *GenerateTransactionResponse) GetRawTx() []byte {
-	if m != nil {
-		return m.RawTx
-	}
-	return nil
-}
-
-func (m *GenerateTransactionResponse) GetTxId() string {
-	if m != nil {
-		return m.TxId
-	}
-	return ""
-}
-
-type SubcribeOnPaymentsRequest struct {
-	// Asset is the acronim name of asset.
-	Asset string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	// Type is a type of network which is used to deliver the payment.
-	Type string `protobuf:"bytes,2,opt,name=type" json:"type,omitempty"`
-}
-
-func (m *SubcribeOnPaymentsRequest) Reset()                    { *m = SubcribeOnPaymentsRequest{} }
-func (m *SubcribeOnPaymentsRequest) String() string            { return proto.CompactTextString(m) }
-func (*SubcribeOnPaymentsRequest) ProtoMessage()               {}
-func (*SubcribeOnPaymentsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
-
-func (m *SubcribeOnPaymentsRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-func (m *SubcribeOnPaymentsRequest) GetType() string {
-	if m != nil {
-		return m.Type
-	}
-	return ""
-}
-
-// BlockchainPendingPayment is the transaction with confirmations number lower
-// than required by the payment system to be treated as confirmed.
-type BlockchainPendingPayment struct {
-	Payment *Payment `protobuf:"bytes,1,opt,name=payment" json:"payment,omitempty"`
-	// Confirmations is the number of confirmations.
-	Confirmations int64 `protobuf:"varint,2,opt,name=confirmations" json:"confirmations,omitempty"`
-	// ConfirmationsLeft is the number of confirmations left in order to
-	// interpret the transaction as confirmed.
-	ConfirmationsLeft int64 `protobuf:"varint,3,opt,name=confirmations_left,json=confirmationsLeft" json:"confirmations_left,omitempty"`
-}
-
-func (m *BlockchainPendingPayment) Reset()                    { *m = BlockchainPendingPayment{} }
-func (m *BlockchainPendingPayment) String() string            { return proto.CompactTextString(m) }
-func (*BlockchainPendingPayment) ProtoMessage()               {}
-func (*BlockchainPendingPayment) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
-
-func (m *BlockchainPendingPayment) GetPayment() *Payment {
-	if m != nil {
-		return m.Payment
-	}
-	return nil
-}
-
-func (m *BlockchainPendingPayment) GetConfirmations() int64 {
-	if m != nil {
-		return m.Confirmations
 	}
 	return 0
 }
 
-func (m *BlockchainPendingPayment) GetConfirmationsLeft() int64 {
+type EstimateFeeResponse struct {
+	//
+	// MediaFee is the fee which is taken by the blockchain or lightning
+	// network in order to propagate the payment.
+	MediaFee int64 `protobuf:"varint,1,opt,name=media_fee,json=mediaFee" json:"media_fee,omitempty"`
+}
+
+func (m *EstimateFeeResponse) Reset()                    { *m = EstimateFeeResponse{} }
+func (m *EstimateFeeResponse) String() string            { return proto.CompactTextString(m) }
+func (*EstimateFeeResponse) ProtoMessage()               {}
+func (*EstimateFeeResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+
+func (m *EstimateFeeResponse) GetMediaFee() int64 {
 	if m != nil {
-		return m.ConfirmationsLeft
+		return m.MediaFee
 	}
 	return 0
 }
 
-// Payment is the structure which describe the action of funds movement from
-// one user to another.
-type Payment struct {
-	// ID is an number which identifies the transaction inside the payment
-	// system.
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	// Amount is an number of money which is translated from one User to
-	// another in this transaction.
-	Amount string `protobuf:"bytes,2,opt,name=amount" json:"amount,omitempty"`
-	// Account is the receiver account.
-	Account string `protobuf:"bytes,3,opt,name=account" json:"account,omitempty"`
-	// Address is an address of receiver.
-	Address string `protobuf:"bytes,4,opt,name=address" json:"address,omitempty"`
-	// Type is a type of network which is used to deliver the payment.
-	Type string `protobuf:"bytes,5,opt,name=type" json:"type,omitempty"`
+type SendPaymentRequest struct {
+	//
+	// SystemPaymentID is the payment id which was created by service itself,
+	// for unified identification of the payment.
+	SystemPaymentId string `protobuf:"bytes,1,opt,name=system_payment_id,json=systemPaymentId" json:"system_payment_id,omitempty"`
 }
 
-func (m *Payment) Reset()                    { *m = Payment{} }
-func (m *Payment) String() string            { return proto.CompactTextString(m) }
-func (*Payment) ProtoMessage()               {}
-func (*Payment) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (m *SendPaymentRequest) Reset()                    { *m = SendPaymentRequest{} }
+func (m *SendPaymentRequest) String() string            { return proto.CompactTextString(m) }
+func (*SendPaymentRequest) ProtoMessage()               {}
+func (*SendPaymentRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
-func (m *Payment) GetId() string {
+func (m *SendPaymentRequest) GetSystemPaymentId() string {
 	if m != nil {
-		return m.Id
+		return m.SystemPaymentId
 	}
 	return ""
 }
 
-func (m *Payment) GetAmount() string {
+type PaymentByIDRequest struct {
+	//
+	// SystemPaymentID is the payment id which was created by service itself,
+	// for unified identification of the payment.
+	SystemPaymentId string `protobuf:"bytes,1,opt,name=system_payment_id,json=systemPaymentId" json:"system_payment_id,omitempty"`
+}
+
+func (m *PaymentByIDRequest) Reset()                    { *m = PaymentByIDRequest{} }
+func (m *PaymentByIDRequest) String() string            { return proto.CompactTextString(m) }
+func (*PaymentByIDRequest) ProtoMessage()               {}
+func (*PaymentByIDRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+
+func (m *PaymentByIDRequest) GetSystemPaymentId() string {
 	if m != nil {
-		return m.Amount
+		return m.SystemPaymentId
 	}
 	return ""
 }
 
-func (m *Payment) GetAccount() string {
+type PaymentsByReceiptRequest struct {
+	//
+	// Receipt represent either blockchains address or lightning
+	// network invoice, depending on the type of the request.
+	Receipt string `protobuf:"bytes,1,opt,name=receipt" json:"receipt,omitempty"`
+}
+
+func (m *PaymentsByReceiptRequest) Reset()                    { *m = PaymentsByReceiptRequest{} }
+func (m *PaymentsByReceiptRequest) String() string            { return proto.CompactTextString(m) }
+func (*PaymentsByReceiptRequest) ProtoMessage()               {}
+func (*PaymentsByReceiptRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+
+func (m *PaymentsByReceiptRequest) GetReceipt() string {
 	if m != nil {
-		return m.Account
+		return m.Receipt
 	}
 	return ""
 }
 
-func (m *Payment) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
+type PaymentsByReceiptResponse struct {
+	Payments []*Payment `protobuf:"bytes,1,rep,name=payments" json:"payments,omitempty"`
 }
 
-func (m *Payment) GetType() string {
-	if m != nil {
-		return m.Type
-	}
-	return ""
-}
+func (m *PaymentsByReceiptResponse) Reset()                    { *m = PaymentsByReceiptResponse{} }
+func (m *PaymentsByReceiptResponse) String() string            { return proto.CompactTextString(m) }
+func (*PaymentsByReceiptResponse) ProtoMessage()               {}
+func (*PaymentsByReceiptResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
-type EmtpyResponse struct {
-}
-
-func (m *EmtpyResponse) Reset()                    { *m = EmtpyResponse{} }
-func (m *EmtpyResponse) String() string            { return proto.CompactTextString(m) }
-func (*EmtpyResponse) ProtoMessage()               {}
-func (*EmtpyResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
-
-type Balance struct {
-	Data string `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
-}
-
-func (m *Balance) Reset()                    { *m = Balance{} }
-func (m *Balance) String() string            { return proto.CompactTextString(m) }
-func (*Balance) ProtoMessage()               {}
-func (*Balance) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
-
-func (m *Balance) GetData() string {
-	if m != nil {
-		return m.Data
-	}
-	return ""
-}
-
-type Address struct {
-	Data string `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
-}
-
-func (m *Address) Reset()                    { *m = Address{} }
-func (m *Address) String() string            { return proto.CompactTextString(m) }
-func (*Address) ProtoMessage()               {}
-func (*Address) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
-
-func (m *Address) GetData() string {
-	if m != nil {
-		return m.Data
-	}
-	return ""
-}
-
-type Invoice struct {
-	Data string `protobuf:"bytes,1,opt,name=data" json:"data,omitempty"`
-}
-
-func (m *Invoice) Reset()                    { *m = Invoice{} }
-func (m *Invoice) String() string            { return proto.CompactTextString(m) }
-func (*Invoice) ProtoMessage()               {}
-func (*Invoice) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
-
-func (m *Invoice) GetData() string {
-	if m != nil {
-		return m.Data
-	}
-	return ""
-}
-
-type CheckReachableRequest struct {
-	Asset       string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	IdentityKey string `protobuf:"bytes,2,opt,name=identity_key,json=identityKey" json:"identity_key,omitempty"`
-}
-
-func (m *CheckReachableRequest) Reset()                    { *m = CheckReachableRequest{} }
-func (m *CheckReachableRequest) String() string            { return proto.CompactTextString(m) }
-func (*CheckReachableRequest) ProtoMessage()               {}
-func (*CheckReachableRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
-
-func (m *CheckReachableRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-func (m *CheckReachableRequest) GetIdentityKey() string {
-	if m != nil {
-		return m.IdentityKey
-	}
-	return ""
-}
-
-type PendingTransactionsResponse struct {
-	Payments []*BlockchainPendingPayment `protobuf:"bytes,1,rep,name=payments" json:"payments,omitempty"`
-}
-
-func (m *PendingTransactionsResponse) Reset()                    { *m = PendingTransactionsResponse{} }
-func (m *PendingTransactionsResponse) String() string            { return proto.CompactTextString(m) }
-func (*PendingTransactionsResponse) ProtoMessage()               {}
-func (*PendingTransactionsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
-
-func (m *PendingTransactionsResponse) GetPayments() []*BlockchainPendingPayment {
+func (m *PaymentsByReceiptResponse) GetPayments() []*Payment {
 	if m != nil {
 		return m.Payments
 	}
 	return nil
 }
 
-type GenerateTransactionRequest struct {
-	Asset           string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	ReceiverAddress string `protobuf:"bytes,2,opt,name=receiver_address,json=receiverAddress" json:"receiver_address,omitempty"`
-	Amount          string `protobuf:"bytes,3,opt,name=amount" json:"amount,omitempty"`
+type ListPaymentsRequest struct {
+	//
+	// (optional) Status denotes the stage of the processing the payment.
+	Status PaymentStatus `protobuf:"varint,1,opt,name=status,enum=crpc.PaymentStatus" json:"status,omitempty"`
+	//
+	// (optional) Type denotes the direction of the payment.
+	Type PaymentType `protobuf:"varint,2,opt,name=type,enum=crpc.PaymentType" json:"type,omitempty"`
+	//
+	// (optional) Asset is an acronim of the crypto currency.
+	Asset Asset `protobuf:"varint,3,opt,name=asset,enum=crpc.Asset" json:"asset,omitempty"`
+	//
+	// (optional) Media is a type of technology which is used to transport
+	// value of underlying asset.
+	Media Media `protobuf:"varint,4,opt,name=media,enum=crpc.Media" json:"media,omitempty"`
 }
 
-func (m *GenerateTransactionRequest) Reset()                    { *m = GenerateTransactionRequest{} }
-func (m *GenerateTransactionRequest) String() string            { return proto.CompactTextString(m) }
-func (*GenerateTransactionRequest) ProtoMessage()               {}
-func (*GenerateTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
+func (m *ListPaymentsRequest) Reset()                    { *m = ListPaymentsRequest{} }
+func (m *ListPaymentsRequest) String() string            { return proto.CompactTextString(m) }
+func (*ListPaymentsRequest) ProtoMessage()               {}
+func (*ListPaymentsRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
-func (m *GenerateTransactionRequest) GetAsset() string {
+func (m *ListPaymentsRequest) GetStatus() PaymentStatus {
+	if m != nil {
+		return m.Status
+	}
+	return PaymentStatus_STATUS_NONE
+}
+
+func (m *ListPaymentsRequest) GetType() PaymentType {
+	if m != nil {
+		return m.Type
+	}
+	return PaymentType_TYPE_NONE
+}
+
+func (m *ListPaymentsRequest) GetAsset() Asset {
 	if m != nil {
 		return m.Asset
 	}
-	return ""
+	return Asset_ASSET_NONE
 }
 
-func (m *GenerateTransactionRequest) GetReceiverAddress() string {
+func (m *ListPaymentsRequest) GetMedia() Media {
 	if m != nil {
-		return m.ReceiverAddress
+		return m.Media
 	}
-	return ""
+	return Media_MEDIA_NONE
 }
 
-func (m *GenerateTransactionRequest) GetAmount() string {
+type ListPaymentsResponse struct {
+	Payments []*Payment `protobuf:"bytes,1,rep,name=payments" json:"payments,omitempty"`
+}
+
+func (m *ListPaymentsResponse) Reset()                    { *m = ListPaymentsResponse{} }
+func (m *ListPaymentsResponse) String() string            { return proto.CompactTextString(m) }
+func (*ListPaymentsResponse) ProtoMessage()               {}
+func (*ListPaymentsResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+
+func (m *ListPaymentsResponse) GetPayments() []*Payment {
 	if m != nil {
-		return m.Amount
-	}
-	return ""
-}
-
-type SendTransactionRequest struct {
-	Asset string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	RawTx []byte `protobuf:"bytes,2,opt,name=raw_tx,json=rawTx,proto3" json:"raw_tx,omitempty"`
-}
-
-func (m *SendTransactionRequest) Reset()                    { *m = SendTransactionRequest{} }
-func (m *SendTransactionRequest) String() string            { return proto.CompactTextString(m) }
-func (*SendTransactionRequest) ProtoMessage()               {}
-func (*SendTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
-
-func (m *SendTransactionRequest) GetAsset() string {
-	if m != nil {
-		return m.Asset
-	}
-	return ""
-}
-
-func (m *SendTransactionRequest) GetRawTx() []byte {
-	if m != nil {
-		return m.RawTx
+		return m.Payments
 	}
 	return nil
 }
 
-type InfoRequest struct {
+type Payment struct {
+	//
+	// SystemPaymentID is the payment id which was created by service itself,
+	// for unified identification of the payment.
+	SystemPaymentId string `protobuf:"bytes,1,opt,name=system_payment_id,json=systemPaymentId" json:"system_payment_id,omitempty"`
+	//
+	// MediaPaymentID in case of blockchain media payment id is the
+	// transaction id, in case of lightning media it is the payment hash.
+	MediaPaymentId string `protobuf:"bytes,2,opt,name=media_payment_id,json=mediaPaymentId" json:"media_payment_id,omitempty"`
+	//
+	// Status denotes the stage of the processing the payment.
+	Status PaymentStatus `protobuf:"varint,3,opt,name=status,enum=crpc.PaymentStatus" json:"status,omitempty"`
+	//
+	// Type denotes the direction of the payment.
+	Type PaymentType `protobuf:"varint,4,opt,name=type,enum=crpc.PaymentType" json:"type,omitempty"`
+	//
+	// Asset is an acronim of the crypto currency.
+	Asset Asset `protobuf:"varint,5,opt,name=asset,enum=crpc.Asset" json:"asset,omitempty"`
+	//
+	// Media is a type of technology which is used to transport value of
+	// underlying asset.
+	Media Media `protobuf:"varint,6,opt,name=media,enum=crpc.Media" json:"media,omitempty"`
+	//
+	// Amount is the number of funds which receiver gets at the end.
+	Amount int64 `protobuf:"varint,7,opt,name=amount" json:"amount,omitempty"`
+	//
+	// MediaFee is the fee which is taken by the blockchain or lightning
+	// network in order to propagate the payment.
+	MediaFee int64 `protobuf:"varint,8,opt,name=media_fee,json=mediaFee" json:"media_fee,omitempty"`
 }
 
-func (m *InfoRequest) Reset()                    { *m = InfoRequest{} }
-func (m *InfoRequest) String() string            { return proto.CompactTextString(m) }
-func (*InfoRequest) ProtoMessage()               {}
-func (*InfoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
+func (m *Payment) Reset()                    { *m = Payment{} }
+func (m *Payment) String() string            { return proto.CompactTextString(m) }
+func (*Payment) ProtoMessage()               {}
+func (*Payment) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
-type LightningInfo struct {
-	Host string `protobuf:"bytes,1,opt,name=host" json:"host,omitempty"`
-	// Port is the port over which other peers could connect to the lightning
-	// network daemon.
-	Port string `protobuf:"bytes,2,opt,name=port" json:"port,omitempty"`
-	// MinAmount is the minimal amount of funds which could be used for
-	// payment via the lightning network daemon.
-	MinAmount string `protobuf:"bytes,3,opt,name=min_amount,json=minAmount" json:"min_amount,omitempty"`
-	// MaxAmount is the maximum amount of funds which could be used for
-	// payment via lightning network deaemon.
-	MaxAmount string `protobuf:"bytes,4,opt,name=max_amount,json=maxAmount" json:"max_amount,omitempty"`
-	// IdentityPubKey of lightning network node.
-	IdentityPubkey string `protobuf:"bytes,5,opt,name=identity_pubkey,json=identityPubkey" json:"identity_pubkey,omitempty"`
-	// Alias is the string which represents the lightning network node in the
-	// network, this data could be seen in peer-to-peer discovery messages.
-	Alias string `protobuf:"bytes,6,opt,name=alias" json:"alias,omitempty"`
-	// NumPendingChannels is the number of channels which are in the state of
-	// awaitaning for blockchain confirmation.
-	NumPendingChannels uint32 `protobuf:"varint,7,opt,name=num_pending_channels,json=numPendingChannels" json:"num_pending_channels,omitempty"`
-	// NumPendingChannels is the number of channels which were confirmed and
-	// could be used for payments.
-	NumActiveChannels uint32 `protobuf:"varint,8,opt,name=num_active_channels,json=numActiveChannels" json:"num_active_channels,omitempty"`
-	// Number of peers
-	NumPeers uint32 `protobuf:"varint,9,opt,name=num_peers,json=numPeers" json:"num_peers,omitempty"`
-	// The node's current view of the height of the best block
-	BlockHeight uint32 `protobuf:"varint,10,opt,name=block_height,json=blockHeight" json:"block_height,omitempty"`
-	// The node's current view of the hash of the best block
-	BlockHash string `protobuf:"bytes,11,opt,name=block_hash,json=blockHash" json:"block_hash,omitempty"`
-}
-
-func (m *LightningInfo) Reset()                    { *m = LightningInfo{} }
-func (m *LightningInfo) String() string            { return proto.CompactTextString(m) }
-func (*LightningInfo) ProtoMessage()               {}
-func (*LightningInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
-
-func (m *LightningInfo) GetHost() string {
+func (m *Payment) GetSystemPaymentId() string {
 	if m != nil {
-		return m.Host
+		return m.SystemPaymentId
 	}
 	return ""
 }
 
-func (m *LightningInfo) GetPort() string {
+func (m *Payment) GetMediaPaymentId() string {
 	if m != nil {
-		return m.Port
+		return m.MediaPaymentId
 	}
 	return ""
 }
 
-func (m *LightningInfo) GetMinAmount() string {
+func (m *Payment) GetStatus() PaymentStatus {
 	if m != nil {
-		return m.MinAmount
+		return m.Status
 	}
-	return ""
+	return PaymentStatus_STATUS_NONE
 }
 
-func (m *LightningInfo) GetMaxAmount() string {
+func (m *Payment) GetType() PaymentType {
 	if m != nil {
-		return m.MaxAmount
+		return m.Type
 	}
-	return ""
+	return PaymentType_TYPE_NONE
 }
 
-func (m *LightningInfo) GetIdentityPubkey() string {
-	if m != nil {
-		return m.IdentityPubkey
-	}
-	return ""
-}
-
-func (m *LightningInfo) GetAlias() string {
-	if m != nil {
-		return m.Alias
-	}
-	return ""
-}
-
-func (m *LightningInfo) GetNumPendingChannels() uint32 {
-	if m != nil {
-		return m.NumPendingChannels
-	}
-	return 0
-}
-
-func (m *LightningInfo) GetNumActiveChannels() uint32 {
-	if m != nil {
-		return m.NumActiveChannels
-	}
-	return 0
-}
-
-func (m *LightningInfo) GetNumPeers() uint32 {
-	if m != nil {
-		return m.NumPeers
-	}
-	return 0
-}
-
-func (m *LightningInfo) GetBlockHeight() uint32 {
-	if m != nil {
-		return m.BlockHeight
-	}
-	return 0
-}
-
-func (m *LightningInfo) GetBlockHash() string {
-	if m != nil {
-		return m.BlockHash
-	}
-	return ""
-}
-
-type InfoResponse struct {
-	// Net represent currently configures blockchain network supported by
-	// service.
-	Net Net `protobuf:"varint,1,opt,name=net,enum=crpc.Net" json:"net,omitempty"`
-	// Time is the current connector local time.
-	Time         string         `protobuf:"bytes,2,opt,name=time" json:"time,omitempty"`
-	LightingInfo *LightningInfo `protobuf:"bytes,3,opt,name=lighting_info,json=lightingInfo" json:"lighting_info,omitempty"`
-}
-
-func (m *InfoResponse) Reset()                    { *m = InfoResponse{} }
-func (m *InfoResponse) String() string            { return proto.CompactTextString(m) }
-func (*InfoResponse) ProtoMessage()               {}
-func (*InfoResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
-
-func (m *InfoResponse) GetNet() Net {
-	if m != nil {
-		return m.Net
-	}
-	return Net_simnet
-}
-
-func (m *InfoResponse) GetTime() string {
-	if m != nil {
-		return m.Time
-	}
-	return ""
-}
-
-func (m *InfoResponse) GetLightingInfo() *LightningInfo {
-	if m != nil {
-		return m.LightingInfo
-	}
-	return nil
-}
-
-type CreateInvoiceRequest struct {
-	Asset   string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	Account string `protobuf:"bytes,2,opt,name=account" json:"account,omitempty"`
-	Amount  string `protobuf:"bytes,3,opt,name=amount" json:"amount,omitempty"`
-}
-
-func (m *CreateInvoiceRequest) Reset()                    { *m = CreateInvoiceRequest{} }
-func (m *CreateInvoiceRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateInvoiceRequest) ProtoMessage()               {}
-func (*CreateInvoiceRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
-
-func (m *CreateInvoiceRequest) GetAsset() string {
+func (m *Payment) GetAsset() Asset {
 	if m != nil {
 		return m.Asset
 	}
-	return ""
+	return Asset_ASSET_NONE
 }
 
-func (m *CreateInvoiceRequest) GetAccount() string {
+func (m *Payment) GetMedia() Media {
 	if m != nil {
-		return m.Account
+		return m.Media
 	}
-	return ""
+	return Media_MEDIA_NONE
 }
 
-func (m *CreateInvoiceRequest) GetAmount() string {
+func (m *Payment) GetAmount() int64 {
 	if m != nil {
 		return m.Amount
 	}
-	return ""
+	return 0
 }
 
-type SendPaymentRequest struct {
-	Asset   string `protobuf:"bytes,1,opt,name=asset" json:"asset,omitempty"`
-	Invoice string `protobuf:"bytes,2,opt,name=invoice" json:"invoice,omitempty"`
-}
-
-func (m *SendPaymentRequest) Reset()                    { *m = SendPaymentRequest{} }
-func (m *SendPaymentRequest) String() string            { return proto.CompactTextString(m) }
-func (*SendPaymentRequest) ProtoMessage()               {}
-func (*SendPaymentRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
-
-func (m *SendPaymentRequest) GetAsset() string {
+func (m *Payment) GetMediaFee() int64 {
 	if m != nil {
-		return m.Asset
+		return m.MediaFee
 	}
-	return ""
-}
-
-func (m *SendPaymentRequest) GetInvoice() string {
-	if m != nil {
-		return m.Invoice
-	}
-	return ""
-}
-
-type CheckReachableResponse struct {
-	IsReachable bool `protobuf:"varint,2,opt,name=isReachable" json:"isReachable,omitempty"`
-}
-
-func (m *CheckReachableResponse) Reset()                    { *m = CheckReachableResponse{} }
-func (m *CheckReachableResponse) String() string            { return proto.CompactTextString(m) }
-func (*CheckReachableResponse) ProtoMessage()               {}
-func (*CheckReachableResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
-
-func (m *CheckReachableResponse) GetIsReachable() bool {
-	if m != nil {
-		return m.IsReachable
-	}
-	return false
+	return 0
 }
 
 func init() {
-	proto.RegisterType((*AccountBalanceRequest)(nil), "crpc.AccountBalanceRequest")
-	proto.RegisterType((*AccountBalanceResponse)(nil), "crpc.AccountBalanceResponse")
-	proto.RegisterType((*PaymentReceivedRequest)(nil), "crpc.PaymentReceivedRequest")
-	proto.RegisterType((*PaymentReceivedResponse)(nil), "crpc.PaymentReceivedResponse")
-	proto.RegisterType((*EstimateRequest)(nil), "crpc.EstimateRequest")
-	proto.RegisterType((*EstimationResponse)(nil), "crpc.EstimationResponse")
-	proto.RegisterType((*CreateAddressRequest)(nil), "crpc.CreateAddressRequest")
-	proto.RegisterType((*AccountAddressRequest)(nil), "crpc.AccountAddressRequest")
-	proto.RegisterType((*PendingBalanceRequest)(nil), "crpc.PendingBalanceRequest")
-	proto.RegisterType((*PendingTransactionsRequest)(nil), "crpc.PendingTransactionsRequest")
-	proto.RegisterType((*GenerateTransactionResponse)(nil), "crpc.GenerateTransactionResponse")
-	proto.RegisterType((*SubcribeOnPaymentsRequest)(nil), "crpc.SubcribeOnPaymentsRequest")
-	proto.RegisterType((*BlockchainPendingPayment)(nil), "crpc.BlockchainPendingPayment")
-	proto.RegisterType((*Payment)(nil), "crpc.Payment")
-	proto.RegisterType((*EmtpyResponse)(nil), "crpc.EmtpyResponse")
-	proto.RegisterType((*Balance)(nil), "crpc.Balance")
-	proto.RegisterType((*Address)(nil), "crpc.Address")
-	proto.RegisterType((*Invoice)(nil), "crpc.Invoice")
-	proto.RegisterType((*CheckReachableRequest)(nil), "crpc.CheckReachableRequest")
-	proto.RegisterType((*PendingTransactionsResponse)(nil), "crpc.PendingTransactionsResponse")
-	proto.RegisterType((*GenerateTransactionRequest)(nil), "crpc.GenerateTransactionRequest")
-	proto.RegisterType((*SendTransactionRequest)(nil), "crpc.SendTransactionRequest")
-	proto.RegisterType((*InfoRequest)(nil), "crpc.InfoRequest")
-	proto.RegisterType((*LightningInfo)(nil), "crpc.LightningInfo")
-	proto.RegisterType((*InfoResponse)(nil), "crpc.InfoResponse")
-	proto.RegisterType((*CreateInvoiceRequest)(nil), "crpc.CreateInvoiceRequest")
+	proto.RegisterType((*EmptyRequest)(nil), "crpc.EmptyRequest")
+	proto.RegisterType((*EmptyResponse)(nil), "crpc.EmptyResponse")
+	proto.RegisterType((*CreateReceiptRequest)(nil), "crpc.CreateReceiptRequest")
+	proto.RegisterType((*CreateReceiptResponse)(nil), "crpc.CreateReceiptResponse")
+	proto.RegisterType((*BalanceRequest)(nil), "crpc.BalanceRequest")
+	proto.RegisterType((*BalanceResponse)(nil), "crpc.BalanceResponse")
+	proto.RegisterType((*ValidateReceiptRequest)(nil), "crpc.ValidateReceiptRequest")
+	proto.RegisterType((*EstimateFeeRequest)(nil), "crpc.EstimateFeeRequest")
+	proto.RegisterType((*EstimateFeeResponse)(nil), "crpc.EstimateFeeResponse")
 	proto.RegisterType((*SendPaymentRequest)(nil), "crpc.SendPaymentRequest")
-	proto.RegisterType((*CheckReachableResponse)(nil), "crpc.CheckReachableResponse")
+	proto.RegisterType((*PaymentByIDRequest)(nil), "crpc.PaymentByIDRequest")
+	proto.RegisterType((*PaymentsByReceiptRequest)(nil), "crpc.PaymentsByReceiptRequest")
+	proto.RegisterType((*PaymentsByReceiptResponse)(nil), "crpc.PaymentsByReceiptResponse")
+	proto.RegisterType((*ListPaymentsRequest)(nil), "crpc.ListPaymentsRequest")
+	proto.RegisterType((*ListPaymentsResponse)(nil), "crpc.ListPaymentsResponse")
+	proto.RegisterType((*Payment)(nil), "crpc.Payment")
 	proto.RegisterEnum("crpc.Asset", Asset_name, Asset_value)
-	proto.RegisterEnum("crpc.Market", Market_name, Market_value)
-	proto.RegisterEnum("crpc.Net", Net_name, Net_value)
+	proto.RegisterEnum("crpc.Media", Media_name, Media_value)
+	proto.RegisterEnum("crpc.PaymentStatus", PaymentStatus_name, PaymentStatus_value)
+	proto.RegisterEnum("crpc.PaymentType", PaymentType_name, PaymentType_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -928,560 +694,343 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for Connector service
+// Client API for PayServer service
 
-type ConnectorClient interface {
+type PayServerClient interface {
 	//
-	// CreateAddress is used to create deposit address in choosen blockchain
-	// network.
+	// CreateReceipt is used to create blockchain deposit address in
+	// case of blockchain media, and lightning network invoice in
+	// case of the lightning media, which will be used to receive money from
+	// external entity.
+	CreateReceipt(ctx context.Context, in *CreateReceiptRequest, opts ...grpc.CallOption) (*CreateReceiptResponse, error)
 	//
-	// NOTE: Works only for blockchain daemons.
-	CreateAddress(ctx context.Context, in *CreateAddressRequest, opts ...grpc.CallOption) (*Address, error)
+	// ValidateReceipt is used to validate receipt for given asset and media.
+	ValidateReceipt(ctx context.Context, in *ValidateReceiptRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
 	//
-	// AccountAddress return the deposit address of account.
+	// Balance is used to determine balance.
+	Balance(ctx context.Context, in *BalanceRequest, opts ...grpc.CallOption) (*BalanceResponse, error)
 	//
-	// NOTE: Works only for blockchain daemons.
-	AccountAddress(ctx context.Context, in *AccountAddressRequest, opts ...grpc.CallOption) (*Address, error)
+	// EstimateFee estimates the fee of the payment.
+	EstimateFee(ctx context.Context, in *EstimateFeeRequest, opts ...grpc.CallOption) (*EstimateFeeResponse, error)
 	//
-	// PendingBalance return the amount of funds waiting to be confirmed.
+	// SendPayment sends payment to the given recipient,
+	// ensures in the validity of the receipt as well as the
+	// account has enough money for doing that.
+	SendPayment(ctx context.Context, in *SendPaymentRequest, opts ...grpc.CallOption) (*Payment, error)
 	//
-	// NOTE: Works only for blockchain daemons.
-	PendingBalance(ctx context.Context, in *PendingBalanceRequest, opts ...grpc.CallOption) (*Balance, error)
+	// PaymentByID is used to fetch the information about payment, by the
+	// given system payment id.
+	PaymentByID(ctx context.Context, in *PaymentByIDRequest, opts ...grpc.CallOption) (*Payment, error)
 	//
-	// PendingTransactions return the transactions which has confirmation
-	// number lower the required by payment system.
+	// PaymentsByReceipt is used to fetch the information about payment, by the
+	// given receipt.
+	PaymentsByReceipt(ctx context.Context, in *PaymentsByReceiptRequest, opts ...grpc.CallOption) (*PaymentsByReceiptResponse, error)
 	//
-	// NOTE: Works only for blockchain daemons.
-	PendingTransactions(ctx context.Context, in *PendingTransactionsRequest, opts ...grpc.CallOption) (*PendingTransactionsResponse, error)
-	//
-	// GenerateTransaction generates raw blockchain transaction.
-	//
-	// NOTE: Blockchain endpoint.
-	GenerateTransaction(ctx context.Context, in *GenerateTransactionRequest, opts ...grpc.CallOption) (*GenerateTransactionResponse, error)
-	//
-	// SendTransaction send the given transaction to the blockchain network.
-	//
-	// NOTE: Works only for blockchain daemons.
-	SendTransaction(ctx context.Context, in *SendTransactionRequest, opts ...grpc.CallOption) (*EmtpyResponse, error)
-	//
-	// Info returns the information about the connector, it configaration and
-	// network information of daemon with which it is working.
-	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
-	//
-	// CreateInvoice creates recept for sender lightning node which contains
-	// the information about receiver node and
-	//
-	// NOTE: Works only for lightning network daemons.
-	CreateInvoice(ctx context.Context, in *CreateInvoiceRequest, opts ...grpc.CallOption) (*Invoice, error)
-	//
-	// SendPayment is used to send specific amount of money inside lightning
-	// network.
-	//
-	// NOTE: Works only for lightning network daemons.
-	SendPayment(ctx context.Context, in *SendPaymentRequest, opts ...grpc.CallOption) (*EmtpyResponse, error)
-	//
-	// CheckReachable checks that given node can be reached from our
-	// lightning node.
-	//
-	// NOTE: Works only for lightning network daemons.
-	CheckReachable(ctx context.Context, in *CheckReachableRequest, opts ...grpc.CallOption) (*CheckReachableResponse, error)
-	//
-	// Estimate estimates the dollar price of the choosen asset.
-	Estimate(ctx context.Context, in *EstimateRequest, opts ...grpc.CallOption) (*EstimationResponse, error)
-	//
-	// PaymentReceived is used to determine if payment with given ID is received
-	PaymentReceived(ctx context.Context, in *PaymentReceivedRequest, opts ...grpc.CallOption) (*PaymentReceivedResponse, error)
-	// AccountBalance is used to determine account balance state for
-	// requested asset. This state includes available and pending balance.
-	AccountBalance(ctx context.Context, in *AccountBalanceRequest, opts ...grpc.CallOption) (*AccountBalanceResponse, error)
+	// ListPayments returnes list of payment which were registered by the
+	// system.
+	ListPayments(ctx context.Context, in *ListPaymentsRequest, opts ...grpc.CallOption) (*ListPaymentsResponse, error)
 }
 
-type connectorClient struct {
+type payServerClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewConnectorClient(cc *grpc.ClientConn) ConnectorClient {
-	return &connectorClient{cc}
+func NewPayServerClient(cc *grpc.ClientConn) PayServerClient {
+	return &payServerClient{cc}
 }
 
-func (c *connectorClient) CreateAddress(ctx context.Context, in *CreateAddressRequest, opts ...grpc.CallOption) (*Address, error) {
-	out := new(Address)
-	err := grpc.Invoke(ctx, "/crpc.Connector/CreateAddress", in, out, c.cc, opts...)
+func (c *payServerClient) CreateReceipt(ctx context.Context, in *CreateReceiptRequest, opts ...grpc.CallOption) (*CreateReceiptResponse, error) {
+	out := new(CreateReceiptResponse)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/CreateReceipt", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) AccountAddress(ctx context.Context, in *AccountAddressRequest, opts ...grpc.CallOption) (*Address, error) {
-	out := new(Address)
-	err := grpc.Invoke(ctx, "/crpc.Connector/AccountAddress", in, out, c.cc, opts...)
+func (c *payServerClient) ValidateReceipt(ctx context.Context, in *ValidateReceiptRequest, opts ...grpc.CallOption) (*EmptyResponse, error) {
+	out := new(EmptyResponse)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/ValidateReceipt", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) PendingBalance(ctx context.Context, in *PendingBalanceRequest, opts ...grpc.CallOption) (*Balance, error) {
-	out := new(Balance)
-	err := grpc.Invoke(ctx, "/crpc.Connector/PendingBalance", in, out, c.cc, opts...)
+func (c *payServerClient) Balance(ctx context.Context, in *BalanceRequest, opts ...grpc.CallOption) (*BalanceResponse, error) {
+	out := new(BalanceResponse)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/Balance", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) PendingTransactions(ctx context.Context, in *PendingTransactionsRequest, opts ...grpc.CallOption) (*PendingTransactionsResponse, error) {
-	out := new(PendingTransactionsResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/PendingTransactions", in, out, c.cc, opts...)
+func (c *payServerClient) EstimateFee(ctx context.Context, in *EstimateFeeRequest, opts ...grpc.CallOption) (*EstimateFeeResponse, error) {
+	out := new(EstimateFeeResponse)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/EstimateFee", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) GenerateTransaction(ctx context.Context, in *GenerateTransactionRequest, opts ...grpc.CallOption) (*GenerateTransactionResponse, error) {
-	out := new(GenerateTransactionResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/GenerateTransaction", in, out, c.cc, opts...)
+func (c *payServerClient) SendPayment(ctx context.Context, in *SendPaymentRequest, opts ...grpc.CallOption) (*Payment, error) {
+	out := new(Payment)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/SendPayment", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) SendTransaction(ctx context.Context, in *SendTransactionRequest, opts ...grpc.CallOption) (*EmtpyResponse, error) {
-	out := new(EmtpyResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/SendTransaction", in, out, c.cc, opts...)
+func (c *payServerClient) PaymentByID(ctx context.Context, in *PaymentByIDRequest, opts ...grpc.CallOption) (*Payment, error) {
+	out := new(Payment)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/PaymentByID", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
-	out := new(InfoResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/Info", in, out, c.cc, opts...)
+func (c *payServerClient) PaymentsByReceipt(ctx context.Context, in *PaymentsByReceiptRequest, opts ...grpc.CallOption) (*PaymentsByReceiptResponse, error) {
+	out := new(PaymentsByReceiptResponse)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/PaymentsByReceipt", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) CreateInvoice(ctx context.Context, in *CreateInvoiceRequest, opts ...grpc.CallOption) (*Invoice, error) {
-	out := new(Invoice)
-	err := grpc.Invoke(ctx, "/crpc.Connector/CreateInvoice", in, out, c.cc, opts...)
+func (c *payServerClient) ListPayments(ctx context.Context, in *ListPaymentsRequest, opts ...grpc.CallOption) (*ListPaymentsResponse, error) {
+	out := new(ListPaymentsResponse)
+	err := grpc.Invoke(ctx, "/crpc.PayServer/ListPayments", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *connectorClient) SendPayment(ctx context.Context, in *SendPaymentRequest, opts ...grpc.CallOption) (*EmtpyResponse, error) {
-	out := new(EmtpyResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/SendPayment", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+// Server API for PayServer service
+
+type PayServerServer interface {
+	//
+	// CreateReceipt is used to create blockchain deposit address in
+	// case of blockchain media, and lightning network invoice in
+	// case of the lightning media, which will be used to receive money from
+	// external entity.
+	CreateReceipt(context.Context, *CreateReceiptRequest) (*CreateReceiptResponse, error)
+	//
+	// ValidateReceipt is used to validate receipt for given asset and media.
+	ValidateReceipt(context.Context, *ValidateReceiptRequest) (*EmptyResponse, error)
+	//
+	// Balance is used to determine balance.
+	Balance(context.Context, *BalanceRequest) (*BalanceResponse, error)
+	//
+	// EstimateFee estimates the fee of the payment.
+	EstimateFee(context.Context, *EstimateFeeRequest) (*EstimateFeeResponse, error)
+	//
+	// SendPayment sends payment to the given recipient,
+	// ensures in the validity of the receipt as well as the
+	// account has enough money for doing that.
+	SendPayment(context.Context, *SendPaymentRequest) (*Payment, error)
+	//
+	// PaymentByID is used to fetch the information about payment, by the
+	// given system payment id.
+	PaymentByID(context.Context, *PaymentByIDRequest) (*Payment, error)
+	//
+	// PaymentsByReceipt is used to fetch the information about payment, by the
+	// given receipt.
+	PaymentsByReceipt(context.Context, *PaymentsByReceiptRequest) (*PaymentsByReceiptResponse, error)
+	//
+	// ListPayments returnes list of payment which were registered by the
+	// system.
+	ListPayments(context.Context, *ListPaymentsRequest) (*ListPaymentsResponse, error)
 }
 
-func (c *connectorClient) CheckReachable(ctx context.Context, in *CheckReachableRequest, opts ...grpc.CallOption) (*CheckReachableResponse, error) {
-	out := new(CheckReachableResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/CheckReachable", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+func RegisterPayServerServer(s *grpc.Server, srv PayServerServer) {
+	s.RegisterService(&_PayServer_serviceDesc, srv)
 }
 
-func (c *connectorClient) Estimate(ctx context.Context, in *EstimateRequest, opts ...grpc.CallOption) (*EstimationResponse, error) {
-	out := new(EstimationResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/Estimate", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *connectorClient) PaymentReceived(ctx context.Context, in *PaymentReceivedRequest, opts ...grpc.CallOption) (*PaymentReceivedResponse, error) {
-	out := new(PaymentReceivedResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/PaymentReceived", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *connectorClient) AccountBalance(ctx context.Context, in *AccountBalanceRequest, opts ...grpc.CallOption) (*AccountBalanceResponse, error) {
-	out := new(AccountBalanceResponse)
-	err := grpc.Invoke(ctx, "/crpc.Connector/AccountBalance", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Server API for Connector service
-
-type ConnectorServer interface {
-	//
-	// CreateAddress is used to create deposit address in choosen blockchain
-	// network.
-	//
-	// NOTE: Works only for blockchain daemons.
-	CreateAddress(context.Context, *CreateAddressRequest) (*Address, error)
-	//
-	// AccountAddress return the deposit address of account.
-	//
-	// NOTE: Works only for blockchain daemons.
-	AccountAddress(context.Context, *AccountAddressRequest) (*Address, error)
-	//
-	// PendingBalance return the amount of funds waiting to be confirmed.
-	//
-	// NOTE: Works only for blockchain daemons.
-	PendingBalance(context.Context, *PendingBalanceRequest) (*Balance, error)
-	//
-	// PendingTransactions return the transactions which has confirmation
-	// number lower the required by payment system.
-	//
-	// NOTE: Works only for blockchain daemons.
-	PendingTransactions(context.Context, *PendingTransactionsRequest) (*PendingTransactionsResponse, error)
-	//
-	// GenerateTransaction generates raw blockchain transaction.
-	//
-	// NOTE: Blockchain endpoint.
-	GenerateTransaction(context.Context, *GenerateTransactionRequest) (*GenerateTransactionResponse, error)
-	//
-	// SendTransaction send the given transaction to the blockchain network.
-	//
-	// NOTE: Works only for blockchain daemons.
-	SendTransaction(context.Context, *SendTransactionRequest) (*EmtpyResponse, error)
-	//
-	// Info returns the information about the connector, it configaration and
-	// network information of daemon with which it is working.
-	Info(context.Context, *InfoRequest) (*InfoResponse, error)
-	//
-	// CreateInvoice creates recept for sender lightning node which contains
-	// the information about receiver node and
-	//
-	// NOTE: Works only for lightning network daemons.
-	CreateInvoice(context.Context, *CreateInvoiceRequest) (*Invoice, error)
-	//
-	// SendPayment is used to send specific amount of money inside lightning
-	// network.
-	//
-	// NOTE: Works only for lightning network daemons.
-	SendPayment(context.Context, *SendPaymentRequest) (*EmtpyResponse, error)
-	//
-	// CheckReachable checks that given node can be reached from our
-	// lightning node.
-	//
-	// NOTE: Works only for lightning network daemons.
-	CheckReachable(context.Context, *CheckReachableRequest) (*CheckReachableResponse, error)
-	//
-	// Estimate estimates the dollar price of the choosen asset.
-	Estimate(context.Context, *EstimateRequest) (*EstimationResponse, error)
-	//
-	// PaymentReceived is used to determine if payment with given ID is received
-	PaymentReceived(context.Context, *PaymentReceivedRequest) (*PaymentReceivedResponse, error)
-	// AccountBalance is used to determine account balance state for
-	// requested asset. This state includes available and pending balance.
-	AccountBalance(context.Context, *AccountBalanceRequest) (*AccountBalanceResponse, error)
-}
-
-func RegisterConnectorServer(s *grpc.Server, srv ConnectorServer) {
-	s.RegisterService(&_Connector_serviceDesc, srv)
-}
-
-func _Connector_CreateAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateAddressRequest)
+func _PayServer_CreateReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateReceiptRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).CreateAddress(ctx, in)
+		return srv.(PayServerServer).CreateReceipt(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/CreateAddress",
+		FullMethod: "/crpc.PayServer/CreateReceipt",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).CreateAddress(ctx, req.(*CreateAddressRequest))
+		return srv.(PayServerServer).CreateReceipt(ctx, req.(*CreateReceiptRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_AccountAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AccountAddressRequest)
+func _PayServer_ValidateReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateReceiptRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).AccountAddress(ctx, in)
+		return srv.(PayServerServer).ValidateReceipt(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/AccountAddress",
+		FullMethod: "/crpc.PayServer/ValidateReceipt",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).AccountAddress(ctx, req.(*AccountAddressRequest))
+		return srv.(PayServerServer).ValidateReceipt(ctx, req.(*ValidateReceiptRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_PendingBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PendingBalanceRequest)
+func _PayServer_Balance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BalanceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).PendingBalance(ctx, in)
+		return srv.(PayServerServer).Balance(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/PendingBalance",
+		FullMethod: "/crpc.PayServer/Balance",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).PendingBalance(ctx, req.(*PendingBalanceRequest))
+		return srv.(PayServerServer).Balance(ctx, req.(*BalanceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_PendingTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PendingTransactionsRequest)
+func _PayServer_EstimateFee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EstimateFeeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).PendingTransactions(ctx, in)
+		return srv.(PayServerServer).EstimateFee(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/PendingTransactions",
+		FullMethod: "/crpc.PayServer/EstimateFee",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).PendingTransactions(ctx, req.(*PendingTransactionsRequest))
+		return srv.(PayServerServer).EstimateFee(ctx, req.(*EstimateFeeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_GenerateTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GenerateTransactionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ConnectorServer).GenerateTransaction(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/crpc.Connector/GenerateTransaction",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).GenerateTransaction(ctx, req.(*GenerateTransactionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Connector_SendTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SendTransactionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ConnectorServer).SendTransaction(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/crpc.Connector/SendTransaction",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).SendTransaction(ctx, req.(*SendTransactionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Connector_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InfoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ConnectorServer).Info(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/crpc.Connector/Info",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).Info(ctx, req.(*InfoRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Connector_CreateInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateInvoiceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ConnectorServer).CreateInvoice(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/crpc.Connector/CreateInvoice",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).CreateInvoice(ctx, req.(*CreateInvoiceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Connector_SendPayment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _PayServer_SendPayment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SendPaymentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).SendPayment(ctx, in)
+		return srv.(PayServerServer).SendPayment(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/SendPayment",
+		FullMethod: "/crpc.PayServer/SendPayment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).SendPayment(ctx, req.(*SendPaymentRequest))
+		return srv.(PayServerServer).SendPayment(ctx, req.(*SendPaymentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_CheckReachable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CheckReachableRequest)
+func _PayServer_PaymentByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentByIDRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).CheckReachable(ctx, in)
+		return srv.(PayServerServer).PaymentByID(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/CheckReachable",
+		FullMethod: "/crpc.PayServer/PaymentByID",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).CheckReachable(ctx, req.(*CheckReachableRequest))
+		return srv.(PayServerServer).PaymentByID(ctx, req.(*PaymentByIDRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_Estimate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EstimateRequest)
+func _PayServer_PaymentsByReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentsByReceiptRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).Estimate(ctx, in)
+		return srv.(PayServerServer).PaymentsByReceipt(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/Estimate",
+		FullMethod: "/crpc.PayServer/PaymentsByReceipt",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).Estimate(ctx, req.(*EstimateRequest))
+		return srv.(PayServerServer).PaymentsByReceipt(ctx, req.(*PaymentsByReceiptRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_PaymentReceived_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PaymentReceivedRequest)
+func _PayServer_ListPayments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPaymentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ConnectorServer).PaymentReceived(ctx, in)
+		return srv.(PayServerServer).ListPayments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/crpc.Connector/PaymentReceived",
+		FullMethod: "/crpc.PayServer/ListPayments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).PaymentReceived(ctx, req.(*PaymentReceivedRequest))
+		return srv.(PayServerServer).ListPayments(ctx, req.(*ListPaymentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Connector_AccountBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AccountBalanceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ConnectorServer).AccountBalance(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/crpc.Connector/AccountBalance",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ConnectorServer).AccountBalance(ctx, req.(*AccountBalanceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-var _Connector_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "crpc.Connector",
-	HandlerType: (*ConnectorServer)(nil),
+var _PayServer_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "crpc.PayServer",
+	HandlerType: (*PayServerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateAddress",
-			Handler:    _Connector_CreateAddress_Handler,
+			MethodName: "CreateReceipt",
+			Handler:    _PayServer_CreateReceipt_Handler,
 		},
 		{
-			MethodName: "AccountAddress",
-			Handler:    _Connector_AccountAddress_Handler,
+			MethodName: "ValidateReceipt",
+			Handler:    _PayServer_ValidateReceipt_Handler,
 		},
 		{
-			MethodName: "PendingBalance",
-			Handler:    _Connector_PendingBalance_Handler,
+			MethodName: "Balance",
+			Handler:    _PayServer_Balance_Handler,
 		},
 		{
-			MethodName: "PendingTransactions",
-			Handler:    _Connector_PendingTransactions_Handler,
-		},
-		{
-			MethodName: "GenerateTransaction",
-			Handler:    _Connector_GenerateTransaction_Handler,
-		},
-		{
-			MethodName: "SendTransaction",
-			Handler:    _Connector_SendTransaction_Handler,
-		},
-		{
-			MethodName: "Info",
-			Handler:    _Connector_Info_Handler,
-		},
-		{
-			MethodName: "CreateInvoice",
-			Handler:    _Connector_CreateInvoice_Handler,
+			MethodName: "EstimateFee",
+			Handler:    _PayServer_EstimateFee_Handler,
 		},
 		{
 			MethodName: "SendPayment",
-			Handler:    _Connector_SendPayment_Handler,
+			Handler:    _PayServer_SendPayment_Handler,
 		},
 		{
-			MethodName: "CheckReachable",
-			Handler:    _Connector_CheckReachable_Handler,
+			MethodName: "PaymentByID",
+			Handler:    _PayServer_PaymentByID_Handler,
 		},
 		{
-			MethodName: "Estimate",
-			Handler:    _Connector_Estimate_Handler,
+			MethodName: "PaymentsByReceipt",
+			Handler:    _PayServer_PaymentsByReceipt_Handler,
 		},
 		{
-			MethodName: "PaymentReceived",
-			Handler:    _Connector_PaymentReceived_Handler,
-		},
-		{
-			MethodName: "AccountBalance",
-			Handler:    _Connector_AccountBalance_Handler,
+			MethodName: "ListPayments",
+			Handler:    _PayServer_ListPayments_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1491,81 +1040,55 @@ var _Connector_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("rpc.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 1208 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x57, 0x5b, 0x6f, 0xe2, 0x46,
-	0x14, 0x5e, 0x30, 0xe1, 0x72, 0x08, 0x81, 0x4c, 0x2e, 0x75, 0x49, 0x52, 0x65, 0xad, 0xaa, 0x9b,
-	0xa6, 0xda, 0xa8, 0x4a, 0xb5, 0x52, 0x95, 0xae, 0x54, 0x01, 0xa1, 0x9b, 0x68, 0xd3, 0x34, 0x72,
-	0x78, 0xe9, 0x3e, 0x14, 0x0d, 0x66, 0x12, 0x46, 0xc1, 0x63, 0x6a, 0x0f, 0x59, 0xf8, 0x19, 0x7d,
-	0xeb, 0x1f, 0xed, 0x7b, 0x35, 0x37, 0x63, 0x53, 0x43, 0x57, 0xed, 0xdb, 0xcc, 0xb9, 0x7c, 0x33,
-	0x73, 0xbe, 0x73, 0x8e, 0x8f, 0xa1, 0x12, 0x4e, 0xbc, 0xb3, 0x49, 0x18, 0xf0, 0x00, 0x15, 0xbc,
-	0x70, 0xe2, 0x39, 0xef, 0x60, 0xaf, 0xe5, 0x79, 0xc1, 0x94, 0xf1, 0x36, 0x1e, 0x63, 0xe6, 0x11,
-	0x97, 0xfc, 0x3e, 0x25, 0x11, 0x47, 0x36, 0x94, 0xb0, 0x52, 0xd8, 0xf9, 0xe3, 0xdc, 0x49, 0xc5,
-	0x35, 0x5b, 0xb4, 0x0b, 0x1b, 0x38, 0x8a, 0x08, 0xb7, 0x2d, 0x29, 0x57, 0x1b, 0xe7, 0x0e, 0xf6,
-	0x97, 0x81, 0xa2, 0x49, 0xc0, 0x22, 0x82, 0x0e, 0xa1, 0x82, 0x9f, 0x31, 0x1d, 0xe3, 0xc1, 0x98,
-	0xd8, 0x39, 0xe9, 0xb3, 0x10, 0x88, 0x73, 0x26, 0x84, 0x0d, 0x29, 0x7b, 0x34, 0xe7, 0xe8, 0xad,
-	0x73, 0x02, 0xfb, 0x77, 0x78, 0xee, 0x13, 0xc6, 0x5d, 0xe2, 0x11, 0xfa, 0x4c, 0x86, 0xe6, 0x6e,
-	0x5b, 0x90, 0xa7, 0x43, 0x0d, 0x95, 0xa7, 0x43, 0xe7, 0x0d, 0x7c, 0xf6, 0x0f, 0x4b, 0x7d, 0x78,
-	0x13, 0xca, 0xa1, 0x96, 0x49, 0x87, 0xb2, 0x1b, 0xef, 0x9d, 0x1f, 0xa1, 0xde, 0x8d, 0x38, 0xf5,
-	0x31, 0x8f, 0x5f, 0x1d, 0xbf, 0x2d, 0x97, 0x78, 0x1b, 0xda, 0x87, 0x22, 0xf6, 0x13, 0xa1, 0xd0,
-	0x3b, 0xe7, 0x2b, 0x40, 0x1a, 0x80, 0x06, 0x2c, 0x3e, 0xb2, 0x01, 0xd6, 0x34, 0x32, 0xd7, 0x13,
-	0x4b, 0xe7, 0x27, 0xd8, 0xed, 0x84, 0x04, 0x73, 0xd2, 0x1a, 0x0e, 0x43, 0x12, 0x45, 0x19, 0x31,
-	0xce, 0xad, 0x88, 0x71, 0x3e, 0x19, 0xe3, 0x05, 0x59, 0xff, 0x1f, 0xe8, 0x4e, 0x45, 0x79, 0x35,
-	0xeb, 0x9f, 0x04, 0x74, 0x03, 0x4d, 0x0d, 0xd4, 0x0b, 0x31, 0x8b, 0xb0, 0x27, 0x22, 0xf1, 0x9f,
-	0xaf, 0x75, 0x0d, 0x07, 0xef, 0x08, 0x23, 0x21, 0xe6, 0x24, 0x01, 0x17, 0x07, 0x76, 0x0f, 0x8a,
-	0x21, 0xfe, 0xd8, 0xe7, 0x33, 0x89, 0xb6, 0xe9, 0x6e, 0x84, 0xf8, 0x63, 0x6f, 0x86, 0x76, 0x60,
-	0x83, 0xcf, 0xfa, 0x74, 0xa8, 0xb1, 0x0a, 0x7c, 0x76, 0x3d, 0x74, 0xba, 0xf0, 0xf9, 0xfd, 0x74,
-	0xe0, 0x85, 0x74, 0x40, 0x7e, 0x61, 0x3a, 0x39, 0xa2, 0xf5, 0x2c, 0x23, 0x28, 0xf0, 0xf9, 0x84,
-	0xc4, 0x30, 0xf3, 0x09, 0x71, 0xfe, 0xcc, 0x81, 0xdd, 0x1e, 0x07, 0xde, 0x93, 0x37, 0xc2, 0x94,
-	0xe9, 0xa7, 0x6a, 0x38, 0xf4, 0x0a, 0x4a, 0x13, 0xb5, 0x94, 0x40, 0xd5, 0xf3, 0xda, 0x99, 0xa8,
-	0xa9, 0x33, 0x93, 0x8b, 0x46, 0x8b, 0xbe, 0x84, 0x9a, 0x17, 0xb0, 0x07, 0x1a, 0xaa, 0x4c, 0x89,
-	0xe4, 0x11, 0x96, 0x9b, 0x16, 0xa2, 0xd7, 0x80, 0x52, 0x82, 0xfe, 0x98, 0x3c, 0xa8, 0x22, 0xb3,
-	0xdc, 0xed, 0x94, 0xe6, 0x86, 0x3c, 0x70, 0x67, 0x0e, 0x25, 0x73, 0x91, 0xa5, 0x7a, 0x58, 0x95,
-	0xaf, 0x49, 0x3e, 0xac, 0x34, 0x1f, 0x42, 0xa3, 0x52, 0xca, 0x2e, 0x68, 0x8d, 0xda, 0xc6, 0x51,
-	0xd9, 0x48, 0x44, 0xa5, 0x0e, 0xb5, 0xae, 0xcf, 0x27, 0x73, 0xc3, 0x8c, 0x73, 0x04, 0x25, 0x9d,
-	0x48, 0xc2, 0x7e, 0x88, 0x39, 0xd6, 0xb7, 0x91, 0x6b, 0xa1, 0x6e, 0x2d, 0xe0, 0xb2, 0xd4, 0xd7,
-	0xec, 0x39, 0xa0, 0x2b, 0xbc, 0xef, 0x60, 0xaf, 0x33, 0x22, 0xde, 0x93, 0x4b, 0xb0, 0x37, 0x12,
-	0x3d, 0x63, 0x3d, 0x8d, 0x2f, 0x61, 0x93, 0x0e, 0x09, 0xe3, 0x94, 0xcf, 0xfb, 0x4f, 0x64, 0xae,
-	0x43, 0x50, 0x35, 0xb2, 0xf7, 0x64, 0xee, 0xfc, 0x0a, 0x07, 0x99, 0x59, 0xab, 0xf3, 0xec, 0x02,
-	0xca, 0x9a, 0xb9, 0xc8, 0xce, 0x1d, 0x5b, 0x27, 0xd5, 0xf3, 0x2f, 0x14, 0xb1, 0xab, 0x32, 0xc1,
-	0x8d, 0xed, 0x9d, 0x29, 0x34, 0x33, 0x53, 0x78, 0xdd, 0x8d, 0xbf, 0x86, 0x86, 0xee, 0x49, 0x61,
-	0xdf, 0xb0, 0xa0, 0x6e, 0x5d, 0x37, 0x72, 0x13, 0xbe, 0x05, 0xb3, 0x56, 0xaa, 0x13, 0x75, 0x61,
-	0xff, 0x9e, 0xb0, 0xe1, 0x27, 0x1f, 0xb9, 0x28, 0xa5, 0x7c, 0xa2, 0x94, 0x9c, 0x1a, 0x54, 0xaf,
-	0xd9, 0x43, 0xa0, 0x7d, 0x9d, 0xbf, 0xf2, 0x50, 0xbb, 0xa1, 0x8f, 0x23, 0xce, 0x28, 0x7b, 0x14,
-	0x0a, 0xc1, 0xcf, 0x28, 0x88, 0x0c, 0x98, 0x5c, 0x0b, 0xd9, 0x24, 0x08, 0x4d, 0xae, 0xc9, 0x35,
-	0x3a, 0x02, 0xf0, 0x29, 0xeb, 0xa7, 0xee, 0x5a, 0xf1, 0x29, 0x6b, 0xa9, 0x44, 0x14, 0x6a, 0x3c,
-	0x33, 0xea, 0x82, 0x56, 0xe3, 0x99, 0x56, 0xbf, 0x82, 0x7a, 0x4c, 0xe1, 0x64, 0x3a, 0x10, 0x2c,
-	0xaa, 0xf4, 0xdb, 0x32, 0xe2, 0x3b, 0x29, 0x95, 0x8f, 0x1b, 0x53, 0x1c, 0xd9, 0x45, 0xfd, 0x38,
-	0xb1, 0x41, 0xdf, 0xc2, 0x2e, 0x9b, 0xfa, 0x7d, 0xfd, 0x1d, 0xe9, 0x7b, 0x23, 0xcc, 0x18, 0x19,
-	0x47, 0x76, 0xe9, 0x38, 0x77, 0x52, 0x73, 0x11, 0x9b, 0xfa, 0x9a, 0xbe, 0x8e, 0xd6, 0xa0, 0x33,
-	0xd8, 0x11, 0x1e, 0x22, 0x72, 0xcf, 0x64, 0xe1, 0x50, 0x96, 0x0e, 0xdb, 0x6c, 0xea, 0xb7, 0xa4,
-	0x26, 0xb6, 0x3f, 0x80, 0x8a, 0x3a, 0x81, 0x84, 0x91, 0x5d, 0x91, 0x56, 0x65, 0x09, 0x4b, 0xc2,
-	0x48, 0x24, 0xe0, 0x40, 0x24, 0x4a, 0x7f, 0x44, 0x44, 0xec, 0x6c, 0x90, 0xfa, 0xaa, 0x94, 0x5d,
-	0x49, 0x91, 0x78, 0xbf, 0x36, 0xc1, 0xd1, 0xc8, 0xae, 0xaa, 0xf7, 0x2b, 0x03, 0x1c, 0x8d, 0x9c,
-	0x39, 0x6c, 0x2a, 0x1a, 0x74, 0x42, 0x1e, 0x80, 0xc5, 0x34, 0x83, 0x5b, 0xe7, 0x15, 0x95, 0x8b,
-	0xb7, 0x84, 0xbb, 0x42, 0x2a, 0x0b, 0x94, 0xfa, 0x8b, 0xb6, 0x45, 0x7d, 0x82, 0xbe, 0x87, 0xda,
-	0x58, 0x1c, 0x24, 0x9e, 0x4f, 0xd9, 0x43, 0x20, 0x19, 0xa8, 0x9e, 0xef, 0x28, 0xd7, 0x14, 0xa5,
-	0xee, 0xa6, 0xb1, 0x14, 0x3b, 0xe7, 0x37, 0xf3, 0xa9, 0xd2, 0x15, 0xb9, 0x3e, 0x8d, 0x56, 0x0f,
-	0x09, 0xab, 0x12, 0xf5, 0x12, 0x90, 0x48, 0xd4, 0xf8, 0x73, 0xfd, 0x2f, 0xe8, 0x54, 0xdd, 0xc2,
-	0xa0, 0xeb, 0xad, 0x73, 0x01, 0xfb, 0xcb, 0x2d, 0x41, 0x87, 0xea, 0x18, 0xaa, 0x34, 0x8a, 0xc5,
-	0xd2, 0xaf, 0xec, 0x26, 0x45, 0xa7, 0x6f, 0x60, 0xa3, 0x25, 0xe1, 0x4b, 0x60, 0xb5, 0x7b, 0x9d,
-	0xc6, 0x0b, 0xb9, 0xe8, 0x5c, 0x35, 0x72, 0x62, 0xd1, 0xed, 0x5d, 0x35, 0xf2, 0x62, 0x71, 0xd3,
-	0xeb, 0x34, 0x2c, 0x54, 0x86, 0xc2, 0x65, 0xeb, 0xfe, 0xaa, 0x51, 0x38, 0xed, 0x42, 0xf1, 0x67,
-	0x1c, 0x3e, 0x11, 0x8e, 0x00, 0x8a, 0xed, 0x5e, 0x47, 0x18, 0xbe, 0xd0, 0xeb, 0x76, 0x4f, 0x78,
-	0xab, 0xb5, 0xf0, 0xcb, 0xa3, 0x2a, 0x94, 0xda, 0xbd, 0x8e, 0x74, 0xb5, 0x84, 0xa2, 0xdb, 0xbb,
-	0x12, 0x8a, 0xc2, 0xe9, 0x37, 0x60, 0xdd, 0x2a, 0x8c, 0x88, 0xfa, 0x8c, 0xf0, 0xc6, 0x0b, 0x61,
-	0xcb, 0x49, 0xc4, 0xc5, 0x26, 0x27, 0x36, 0x3e, 0xa6, 0x4c, 0x6c, 0xf2, 0xe7, 0x7f, 0x94, 0xa0,
-	0xd2, 0x09, 0x18, 0x23, 0x1e, 0x0f, 0x42, 0x74, 0x01, 0xb5, 0xd4, 0x14, 0x81, 0x9a, 0x8a, 0xce,
-	0xac, 0xd1, 0xa2, 0xa9, 0x3f, 0x45, 0xc6, 0xf4, 0x2d, 0x6c, 0xa5, 0x27, 0x07, 0x74, 0xa0, 0x0d,
-	0xb2, 0xe6, 0x89, 0x0c, 0xef, 0xf4, 0xb8, 0x60, 0xbc, 0x33, 0x87, 0x08, 0xe3, 0x6d, 0x6c, 0x3f,
-	0xc0, 0x4e, 0x46, 0xb7, 0x45, 0xc7, 0x29, 0x88, 0x8c, 0xf1, 0xa1, 0xf9, 0x72, 0x8d, 0x85, 0xa6,
-	0xfb, 0x03, 0xec, 0x64, 0xb4, 0x5b, 0x83, 0xbd, 0xba, 0x13, 0x1b, 0xec, 0x75, 0xe3, 0xc6, 0x25,
-	0xd4, 0x97, 0x7a, 0x2a, 0x3a, 0x54, 0x5e, 0xd9, 0xad, 0xb6, 0xa9, 0xcb, 0x2b, 0xf5, 0x69, 0x44,
-	0xaf, 0xa1, 0x20, 0x3b, 0xe7, 0xb6, 0x52, 0x26, 0xda, 0x6b, 0x13, 0x25, 0x45, 0xf1, 0xb7, 0xa7,
-	0x96, 0xaa, 0xbf, 0x34, 0xc9, 0xe9, 0xa2, 0x34, 0x81, 0x36, 0xa6, 0x6f, 0xa1, 0x9a, 0xa8, 0x2d,
-	0x64, 0x2f, 0x2e, 0x9b, 0x2e, 0xb7, 0xec, 0x8b, 0xbe, 0x87, 0xad, 0x74, 0x4d, 0x19, 0x92, 0x33,
-	0x3f, 0xbe, 0xcd, 0xc3, 0x6c, 0xa5, 0x06, 0xfb, 0x01, 0xca, 0x66, 0xb4, 0x46, 0x7b, 0xfa, 0xb4,
-	0xf4, 0xa8, 0xdd, 0xb4, 0x53, 0xe2, 0x64, 0xe0, 0x6f, 0xa1, 0xbe, 0x34, 0xce, 0x9b, 0xc0, 0x67,
-	0xff, 0x0f, 0x34, 0x8f, 0x56, 0x68, 0x17, 0x2f, 0x4b, 0xff, 0x9a, 0x2c, 0x25, 0xff, 0x52, 0xfa,
-	0x1e, 0x66, 0x2b, 0x15, 0xd8, 0xa0, 0x28, 0xff, 0x9e, 0xbe, 0xfb, 0x3b, 0x00, 0x00, 0xff, 0xff,
-	0x0f, 0x40, 0x31, 0x62, 0x4a, 0x0d, 0x00, 0x00,
+	// 797 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x5b, 0x6f, 0x9b, 0x4a,
+	0x10, 0x3e, 0x18, 0x7c, 0x61, 0x7c, 0x23, 0x9b, 0x8b, 0x1c, 0x12, 0x9d, 0x93, 0x83, 0x54, 0xc9,
+	0x75, 0xa5, 0x48, 0x75, 0xab, 0xa8, 0x8f, 0xc5, 0x18, 0xc7, 0xa8, 0xbe, 0x09, 0x48, 0xaa, 0x3e,
+	0x59, 0xc4, 0xde, 0x56, 0x48, 0xbe, 0x50, 0x20, 0x51, 0xf9, 0x3f, 0x7d, 0x6e, 0xff, 0x62, 0x05,
+	0xbb, 0xd8, 0x60, 0x3b, 0x8a, 0x53, 0xb5, 0x6f, 0xcc, 0xed, 0xdb, 0x99, 0x6f, 0x76, 0x66, 0x01,
+	0xde, 0x75, 0x26, 0x97, 0x8e, 0xbb, 0xf4, 0x97, 0x88, 0x9b, 0xb8, 0xce, 0x44, 0xaa, 0x40, 0x49,
+	0x9d, 0x3b, 0x7e, 0xa0, 0xe3, 0xaf, 0xf7, 0xd8, 0xf3, 0xa5, 0x2a, 0x94, 0xa9, 0xec, 0x39, 0xcb,
+	0x85, 0x87, 0x25, 0x1f, 0x8e, 0x14, 0x17, 0x5b, 0x3e, 0xd6, 0xf1, 0x04, 0xdb, 0x8e, 0x4f, 0x1d,
+	0xd1, 0xff, 0x90, 0xb5, 0x3c, 0x0f, 0xfb, 0x35, 0xe6, 0x82, 0xa9, 0x57, 0x9a, 0xc5, 0xcb, 0x10,
+	0xee, 0x52, 0x0e, 0x55, 0x3a, 0xb1, 0x84, 0x2e, 0x73, 0x3c, 0xb5, 0xad, 0x5a, 0x26, 0xe9, 0xd2,
+	0x0f, 0x55, 0x3a, 0xb1, 0xa0, 0x13, 0xc8, 0x59, 0xf3, 0xe5, 0xfd, 0xc2, 0xaf, 0xb1, 0x17, 0x4c,
+	0x9d, 0xd7, 0xa9, 0x24, 0xbd, 0x86, 0xe3, 0x8d, 0x53, 0x49, 0x3a, 0xa8, 0x06, 0x79, 0x97, 0xa8,
+	0x22, 0x54, 0x5e, 0x8f, 0x45, 0xe9, 0x16, 0x2a, 0x2d, 0x6b, 0x66, 0x2d, 0x26, 0xf8, 0x8f, 0xa6,
+	0x28, 0x69, 0x50, 0x5d, 0xe1, 0xd2, 0x24, 0xce, 0x81, 0xb7, 0x1e, 0x2c, 0x7b, 0x66, 0xdd, 0xcd,
+	0x70, 0x04, 0xce, 0xeb, 0x6b, 0x45, 0x98, 0xa2, 0x83, 0x17, 0x53, 0x7b, 0xf1, 0x25, 0x4e, 0x91,
+	0x8a, 0xd2, 0x37, 0x38, 0xb9, 0xb5, 0x66, 0xf6, 0x74, 0x9b, 0xcd, 0x44, 0x59, 0x4c, 0xaa, 0xac,
+	0x75, 0x11, 0x99, 0xa7, 0x8b, 0x60, 0x1f, 0x2d, 0xc2, 0x05, 0xa4, 0x7a, 0xbe, 0x3d, 0xb7, 0x7c,
+	0xdc, 0xc1, 0xf8, 0x6f, 0xf6, 0x90, 0x5d, 0xf5, 0xb0, 0x09, 0x87, 0xa9, 0x33, 0x29, 0x79, 0x67,
+	0xc0, 0x47, 0x71, 0xe3, 0xcf, 0x98, 0x90, 0xc7, 0xea, 0x85, 0x48, 0xd1, 0xc1, 0x58, 0x7a, 0x0f,
+	0xc8, 0xc0, 0x8b, 0xe9, 0xc8, 0x0a, 0xe6, 0x78, 0xb1, 0x62, 0xa7, 0x01, 0x07, 0x5e, 0xe0, 0xf9,
+	0x78, 0x3e, 0x76, 0x88, 0x61, 0x6c, 0x4f, 0x29, 0x4f, 0x55, 0x62, 0xa0, 0x01, 0xda, 0x34, 0x44,
+	0xa0, 0x42, 0x2b, 0xd0, 0xda, 0xbf, 0x83, 0xf0, 0x16, 0x6a, 0x54, 0xf0, 0x5a, 0xc1, 0xbe, 0x7d,
+	0x92, 0x3a, 0x70, 0xba, 0x23, 0x8a, 0xd6, 0xfc, 0x12, 0x0a, 0xf4, 0x5c, 0xaf, 0xc6, 0x5c, 0xb0,
+	0xf5, 0x62, 0xb3, 0x4c, 0x88, 0x8c, 0x0b, 0x5d, 0x99, 0xa5, 0x9f, 0x0c, 0x1c, 0xf6, 0x6c, 0xcf,
+	0x8f, 0xc1, 0xe2, 0x93, 0x5f, 0x41, 0xce, 0xf3, 0x2d, 0xff, 0xde, 0xa3, 0xcd, 0x3a, 0x4c, 0x01,
+	0x18, 0x91, 0x49, 0xa7, 0x2e, 0xe8, 0x05, 0x70, 0x7e, 0xe0, 0x60, 0xda, 0xb4, 0x83, 0x94, 0xab,
+	0x19, 0x38, 0x58, 0x8f, 0xcc, 0xeb, 0xfe, 0xb3, 0x4f, 0xf7, 0x9f, 0x7b, 0xf4, 0x6e, 0xc9, 0x70,
+	0x94, 0x4e, 0xf8, 0xf9, 0x45, 0xff, 0xc8, 0x40, 0x9e, 0x6a, 0x9f, 0xd3, 0x2a, 0x54, 0x07, 0x81,
+	0xdc, 0xa5, 0x84, 0x2b, 0x99, 0xb9, 0x4a, 0xa4, 0x5f, 0x7b, 0xae, 0xe9, 0x63, 0xf7, 0xa7, 0x8f,
+	0xdb, 0x93, 0xbe, 0xec, 0xd3, 0xf4, 0xe5, 0xf6, 0x18, 0x9f, 0x7c, 0x72, 0x7c, 0xd2, 0x73, 0x52,
+	0x48, 0xcf, 0x49, 0x43, 0x85, 0x6c, 0x74, 0x0e, 0xaa, 0x00, 0xc8, 0x86, 0xa1, 0x9a, 0xe3, 0xc1,
+	0x70, 0xa0, 0x0a, 0xff, 0xa0, 0x3c, 0xb0, 0x2d, 0x53, 0x11, 0x98, 0xe8, 0x43, 0xe9, 0x0a, 0x99,
+	0xf0, 0x43, 0x35, 0xbb, 0x02, 0x1b, 0x7e, 0xf4, 0x4c, 0x45, 0xe0, 0x50, 0x01, 0xb8, 0xb6, 0x6c,
+	0x74, 0x85, 0x6c, 0xe3, 0x0a, 0xb2, 0x51, 0x2e, 0x21, 0x4c, 0x5f, 0x6d, 0x6b, 0x72, 0x0c, 0x53,
+	0x01, 0x68, 0xf5, 0x86, 0xca, 0x07, 0xa5, 0x2b, 0x6b, 0x03, 0x81, 0x41, 0x65, 0xe0, 0x7b, 0xda,
+	0x75, 0xd7, 0x1c, 0x68, 0x83, 0x6b, 0x21, 0xd3, 0xb8, 0x81, 0x72, 0x8a, 0x39, 0x54, 0x85, 0xa2,
+	0x61, 0xca, 0xe6, 0x8d, 0x11, 0x03, 0x14, 0x21, 0xff, 0x51, 0xd6, 0xcc, 0xd0, 0x9d, 0x09, 0x85,
+	0x91, 0x3a, 0x68, 0x47, 0xb1, 0x21, 0x94, 0x32, 0xec, 0x8f, 0x7a, 0xaa, 0xa9, 0xb6, 0x05, 0x16,
+	0x01, 0xe4, 0x3a, 0xb2, 0xd6, 0x53, 0xdb, 0x02, 0xd7, 0x78, 0x07, 0xc5, 0x04, 0xcb, 0xa1, 0xa7,
+	0xf9, 0x69, 0xa4, 0xc6, 0x90, 0x25, 0x28, 0x68, 0x03, 0x65, 0xd8, 0x27, 0x98, 0x25, 0x28, 0x0c,
+	0x6f, 0xcc, 0xeb, 0x61, 0x04, 0xda, 0xfc, 0xce, 0x01, 0x3f, 0xb2, 0x02, 0x03, 0xbb, 0x0f, 0xd8,
+	0x45, 0x5d, 0x28, 0xa7, 0x5e, 0x0f, 0x24, 0x12, 0xde, 0x77, 0x3d, 0x64, 0xe2, 0xd9, 0x4e, 0x1b,
+	0xbd, 0xc3, 0x6d, 0xa8, 0x6e, 0x6c, 0x6c, 0x74, 0x4e, 0xfc, 0x77, 0x2f, 0x72, 0x91, 0xde, 0xab,
+	0xd4, 0x1b, 0x8a, 0xae, 0x20, 0x4f, 0x9f, 0x10, 0x74, 0x44, 0xec, 0xe9, 0x97, 0x4a, 0x3c, 0xde,
+	0xd0, 0xd2, 0xb8, 0x16, 0x14, 0x13, 0x1b, 0x14, 0xd5, 0x28, 0xf6, 0xd6, 0x22, 0x17, 0x4f, 0x77,
+	0x58, 0x56, 0x67, 0x17, 0x13, 0x1b, 0x35, 0xc6, 0xd8, 0x5e, 0xb2, 0x62, 0x7a, 0x38, 0xc3, 0xb8,
+	0xc4, 0x1e, 0x8d, 0xe3, 0xb6, 0x57, 0xeb, 0x66, 0x9c, 0x09, 0x07, 0x5b, 0x7b, 0x10, 0xfd, 0x9b,
+	0xf2, 0xd9, 0x5a, 0xab, 0xe2, 0x7f, 0x8f, 0xda, 0x69, 0x15, 0x2a, 0x94, 0x92, 0x3b, 0x06, 0xd1,
+	0x82, 0x77, 0x2c, 0x4a, 0x51, 0xdc, 0x65, 0x22, 0x30, 0x77, 0xb9, 0xe8, 0xd7, 0xe7, 0xcd, 0xaf,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0x4c, 0xc2, 0x83, 0x0b, 0x07, 0x09, 0x00, 0x00,
 }

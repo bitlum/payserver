@@ -1,316 +1,307 @@
 syntax = "proto3";
 
 package crpc;
-/**
- * Comments in this file will be directly parsed into the API
- * Documentation as descriptions of the associated method, message, or field.
- * These descriptions should go right above the definition of the object, and
- * can be in either block or /// comment format.
- *
- * One edge case exists where a // comment followed by a /// comment in the
- * next line will cause the description not to show up in the documentation. In
- * that instance, simply separate the two comments with a blank line.
- */
 
-service Connector {
+service PayServer {
     //
-    // CreateAddress is used to create deposit address in choosen blockchain
-    // network.
-    //
-    // NOTE: Works only for blockchain daemons.
-    rpc CreateAddress (CreateAddressRequest) returns (Address);
+    // CreateReceipt is used to create blockchain deposit address in
+    // case of blockchain media, and lightning network invoice in
+    // case of the lightning media, which will be used to receive money from
+    // external entity.
+    rpc CreateReceipt (CreateReceiptRequest) returns (CreateReceiptResponse);
 
     //
-    // AccountAddress return the deposit address of account.
-    //
-    // NOTE: Works only for blockchain daemons.
-    rpc AccountAddress (AccountAddressRequest) returns (Address);
+    // ValidateReceipt is used to validate receipt for given asset and media.
+    rpc ValidateReceipt (ValidateReceiptRequest) returns (EmptyResponse);
 
     //
-    // PendingBalance return the amount of funds waiting to be confirmed.
-    //
-    // NOTE: Works only for blockchain daemons.
-    rpc PendingBalance (PendingBalanceRequest) returns (Balance);
+    // Balance is used to determine balance.
+    rpc Balance (BalanceRequest) returns (BalanceResponse);
 
     //
-    // PendingTransactions return the transactions which has confirmation
-    // number lower the required by payment system.
-    //
-    // NOTE: Works only for blockchain daemons.
-    rpc PendingTransactions (PendingTransactionsRequest) returns (PendingTransactionsResponse);
+    // EstimateFee estimates the fee of the payment.
+    rpc EstimateFee (EstimateFeeRequest) returns (EstimateFeeResponse);
 
     //
-    // GenerateTransaction generates raw blockchain transaction.
-    //
-    // NOTE: Blockchain endpoint.
-    rpc GenerateTransaction (GenerateTransactionRequest) returns (GenerateTransactionResponse);
+    // SendPayment sends payment to the given recipient,
+    // ensures in the validity of the receipt as well as the
+    // account has enough money for doing that.
+    rpc SendPayment (SendPaymentRequest) returns (Payment);
 
     //
-    // SendTransaction send the given transaction to the blockchain network.
-    //
-    // NOTE: Works only for blockchain daemons.
-    rpc SendTransaction (SendTransactionRequest) returns (EmtpyResponse);
+    // PaymentByID is used to fetch the information about payment, by the
+    // given system payment id.
+    rpc PaymentByID (PaymentByIDRequest) returns (Payment);
 
     //
-    // Info returns the information about the connector, it configaration and
-    // network information of daemon with which it is working.
-    rpc Info (InfoRequest) returns (InfoResponse);
+    // PaymentsByReceipt is used to fetch the information about payment, by the
+    // given receipt.
+    rpc PaymentsByReceipt (PaymentsByReceiptRequest) returns (PaymentsByReceiptResponse);
 
     //
-    // CreateInvoice creates recept for sender lightning node which contains
-    // the information about receiver node and
-    //
-    // NOTE: Works only for lightning network daemons.
-    rpc CreateInvoice (CreateInvoiceRequest) returns (Invoice);
-
-    //
-    // SendPayment is used to send specific amount of money inside lightning
-    // network.
-    //
-    // NOTE: Works only for lightning network daemons.
-    rpc SendPayment (SendPaymentRequest) returns (EmtpyResponse);
-
-    //
-    // CheckReachable checks that given node can be reached from our
-    // lightning node.
-    //
-    // NOTE: Works only for lightning network daemons.
-    rpc CheckReachable (CheckReachableRequest) returns (CheckReachableResponse);
-
-    //
-    // Estimate estimates the dollar price of the choosen asset.
-    rpc Estimate (EstimateRequest) returns (EstimationResponse);
-
-    //
-    // PaymentReceived is used to determine if payment with given ID is received
-    rpc PaymentReceived (PaymentReceivedRequest) returns (PaymentReceivedResponse);
-
-    // AccountBalance is used to determine account balance state for
-    // requested asset. This state includes available and pending balance.
-    rpc AccountBalance(AccountBalanceRequest) returns (AccountBalanceResponse);
+    // ListPayments returnes list of payment which were registered by the
+    // system.
+    rpc ListPayments (ListPaymentsRequest) returns (ListPaymentsResponse);
 }
 
-message AccountBalanceRequest {
-    string account = 2;
-    string asset = 3;
+message EmptyRequest {
 }
 
-message AccountBalanceResponse {
+message EmptyResponse {
+}
+
+message CreateReceiptRequest {
+    //
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 1;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 2;
+
+    //
+    // (optional) Amount is the amount which should be received on this
+    // receipt.
+    string amount = 3;
+}
+
+message CreateReceiptResponse {
+    //
+    // Receipt represent either blockchains address or lightning network invoice,
+    // depending on the type of the request.
+    string receipt = 2;
+}
+
+message BalanceRequest {
+    //
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 1;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 2;
+}
+
+message BalanceResponse {
+    //
+    // Available is the number of funds which could be used by this account
+    // to send funds to someone else within the specified media.
     string available = 1;
+
+    //
+    // Pending is the number of funds are in the state of confirmation. In
+    // case of blockchain media it is the transactions which are not
+    // confirmed. In case of lightning media it is funds in pending payment
+    // channels.
     string pending = 2;
 }
 
-message PaymentReceivedRequest {
-    string id = 1;
+message ValidateReceiptRequest {
+    //
+    // Receipt is the blockchain address in case of blockchain media and
+    // lightning network invoice in case of lightning media.
+    string receipt = 1;
+
+    //
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 2;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 3;
 }
 
-message PaymentReceivedResponse {
-    bool received = 1;
+message EstimateFeeRequest {
+    //
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 1;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 2;
+
+    //
+    // Amount is number of money which should be given to the another entity.
+    int64 amount = 3;
 }
 
-message EstimateRequest {
-    string asset = 1;
-    string amount = 2;
-}
-
-message EstimationResponse {
-    string usd = 1;
-}
-
-message CreateAddressRequest {
-    string account = 1;
-    string asset = 2;
-}
-
-message AccountAddressRequest {
-    string account = 1;
-    string asset = 2;
-}
-
-message PendingBalanceRequest {
-    string account = 1;
-    string asset = 2;
-}
-
-message PendingTransactionsRequest {
-    string account = 1;
-    string asset = 2;
-}
-
-message GenerateTransactionResponse {
-    bytes raw_tx = 1;
-    string tx_id = 2;
-}
-
-message SubcribeOnPaymentsRequest {
-    // Asset is the acronim name of asset.
-    string asset = 1;
-
-    // Type is a type of network which is used to deliver the payment.
-    string type = 2;
-}
-
-// BlockchainPendingPayment is the transaction with confirmations number lower
-// than required by the payment system to be treated as confirmed.
-message BlockchainPendingPayment {
-    Payment payment = 1;
-
-    // Confirmations is the number of confirmations.
-    int64 confirmations = 2;
-
-    // ConfirmationsLeft is the number of confirmations left in order to
-    // interpret the transaction as confirmed.
-    int64 confirmations_left = 3;
-}
-
-// Payment is the structure which describe the action of funds movement from
-// one user to another.
-message Payment {
-    // ID is an number which identifies the transaction inside the payment
-    // system.
-    string id = 1;
-
-    // Amount is an number of money which is translated from one User to
-    // another in this transaction.
-    string amount = 2;
-
-    // Account is the receiver account.
-    string account = 3;
-
-    // Address is an address of receiver.
-    string address = 4;
-
-    // Type is a type of network which is used to deliver the payment.
-    string type = 5;
-}
-
-message EmtpyResponse {
-}
-
-message Balance {
-    string data = 1;
-}
-
-message Address {
-    string data = 1;
-}
-
-message Invoice {
-    string data = 1;
-}
-
-message CheckReachableRequest {
-    string asset = 1;
-    string identity_key = 2;
-}
-
-message PendingTransactionsResponse {
-    repeated BlockchainPendingPayment payments = 1;
-}
-
-message GenerateTransactionRequest {
-    string asset = 1;
-    string receiver_address = 2;
-    string amount = 3;
-}
-
-message SendTransactionRequest {
-    string asset = 1;
-    bytes raw_tx = 2;
-}
-
-message InfoRequest {
-}
-
-message LightningInfo {
-    string host = 1;
-
-    // Port is the port over which other peers could connect to the lightning
-    // network daemon.
-    string port = 2;
-
-    // MinAmount is the minimal amount of funds which could be used for
-    // payment via the lightning network daemon.
-    string min_amount = 3;
-
-    // MaxAmount is the maximum amount of funds which could be used for
-    // payment via lightning network deaemon.
-    string max_amount = 4;
-
-    // IdentityPubKey of lightning network node.
-    string identity_pubkey = 5;
-
-    // Alias is the string which represents the lightning network node in the
-    // network, this data could be seen in peer-to-peer discovery messages.
-    string alias = 6;
-
-    // NumPendingChannels is the number of channels which are in the state of
-    // awaitaning for blockchain confirmation.
-    uint32 num_pending_channels = 7;
-
-    // NumPendingChannels is the number of channels which were confirmed and
-    // could be used for payments.
-    uint32 num_active_channels = 8;
-
-    // Number of peers
-    uint32 num_peers = 9;
-
-    // The node's current view of the height of the best block
-    uint32 block_height = 10;
-
-    // The node's current view of the hash of the best block
-    string block_hash = 11;
-}
-
-message InfoResponse {
-    // Net represent currently configures blockchain network supported by
-    // service.
-    Net net = 1;
-
-    // Time is the current connector local time.
-    string time = 2;
-
-    LightningInfo lighting_info = 3;
-}
-
-message CreateInvoiceRequest {
-    string asset = 1;
-    string account = 2;
-    string amount = 3;
-
+message EstimateFeeResponse {
+    //
+    // MediaFee is the fee which is taken by the blockchain or lightning
+    // network in order to propagate the payment.
+    int64 media_fee = 1;
 }
 
 message SendPaymentRequest {
-    string asset = 1;
-    string invoice = 2;
+    //
+    // SystemPaymentID is the payment id which was created by service itself,
+    // for unified identification of the payment.
+    string system_payment_id = 1;
 }
 
-message CheckReachableResponse {
-    bool isReachable = 2;
+message PaymentByIDRequest {
+    //
+    // SystemPaymentID is the payment id which was created by service itself,
+    // for unified identification of the payment.
+    string system_payment_id = 1;
+}
+
+message PaymentsByReceiptRequest {
+    //
+    // Receipt represent either blockchains address or lightning
+    // network invoice, depending on the type of the request.
+    string receipt = 1;
+}
+
+message PaymentsByReceiptResponse {
+    repeated Payment payments = 1;
+}
+
+
+message ListPaymentsRequest {
+    //
+    // (optional) Status denotes the stage of the processing the payment.
+    PaymentStatus status = 1;
+
+    //
+    // (optional) Type denotes the direction of the payment.
+    PaymentType type = 2;
+
+    //
+    // (optional) Asset is an acronim of the crypto currency.
+    Asset asset = 3;
+
+    //
+    // (optional) Media is a type of technology which is used to transport
+    // value of underlying asset.
+    Media media = 4;
+}
+
+message ListPaymentsResponse {
+    repeated Payment payments = 1;
+}
+
+message Payment {
+    //
+    // SystemPaymentID is the payment id which was created by service itself,
+    // for unified identification of the payment.
+    string system_payment_id = 1;
+
+    //
+    // MediaPaymentID in case of blockchain media payment id is the
+    // transaction id, in case of lightning media it is the payment hash.
+    string media_payment_id = 2;
+
+    //
+    // Status denotes the stage of the processing the payment.
+    PaymentStatus status = 3;
+
+    //
+    // Type denotes the direction of the payment.
+    PaymentType type = 4;
+
+    //
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 5;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 6;
+
+    //
+    // Amount is the number of funds which receiver gets at the end.
+    int64 amount = 7;
+
+    //
+    // MediaFee is the fee which is taken by the blockchain or lightning
+    // network in order to propagate the payment.
+    int64 media_fee = 8;
 }
 
 // Asset is the list of a trading assets which are available in the exchange
 // platform.
 enum Asset {
-    BTC = 0;
-    BCH = 1;
-    ETH = 2;
-    LTC = 3;
-    DASH = 4;
+    ASSET_NONE = 0;
+
+    //
+    // Bitcoin
+    BTC = 1;
+
+    //
+    // Bitcoin Cash
+    BCH = 2;
+
+    //
+    // Ethereum
+    ETH = 3;
+
+    //
+    // Litecoin
+    LTC = 4;
+
+    // Dash
+    DASH = 5;
 }
 
-// Market is the list of trading markets which are available on the
-// exchange platform.
-enum Market {
-    BTCETH = 0;
-    BTCBTH = 1;
-    BTCLTC = 2;
-    BTCDASH = 3;
-    ETHLTC = 4;
+// Media is a list of possible media types. Media is a type of technology which
+// is used to transport value of underlying asset.
+enum Media {
+    MEDIA_NONE = 0;
+
+    //
+    // BLOCKCHAIN means that blockchain direct used for making the payments.
+    BLOCKCHAIN = 1;
+
+    //
+    // LIGHTNING means that second layer on top of the blockchain is used for
+    // making the payments.
+    LIGHTNING = 2;
 }
 
-enum Net {
-    simnet = 0;
-    testnet = 1;
-    mainnet = 2;
+// PaymentStatus denotes the stage of the processing the payment.
+enum PaymentStatus {
+    STATUS_NONE = 0;
+
+    //
+    // WAITING means that payment has been created and waiting to be approved
+    // for sending.
+    WAITING = 1;
+
+    //
+    // PENDING means that service is seeing the payment, but it not yet approved
+    // from the its POV.
+    PENDING = 2;
+
+    //
+    // COMPLETED in case of outgoing/incoming payment this means that we
+    // sent/received the transaction in/from the network and it was confirmed
+    // number of times service believe sufficient. In case of the forward
+    // transaction it means that we succesfully routed it through and
+    // earned fee for that.
+    COMPLETED = 3;
+
+    //
+    // FAILED means that services has tryied to send payment for couple of
+    // times, but without success, and now service gave up.
+    FAILED = 4;
+}
+
+// PaymentType denotes the direction of the payment.
+enum PaymentType {
+    TYPE_NONE = 0;
+
+    //
+    // INCOMING type of payment which service has received from someone else
+    // in the media.
+    INCOMING = 1;
+
+    //
+    // OUTGOING type of payment which service has sent to someone else in the
+    // media.
+    OUTGOING = 2;
 }

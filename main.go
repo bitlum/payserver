@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/bitlum/connector/connectors/bitcoind"
-	rpc "github.com/bitlum/connector/crpc/go"
+	rpc "github.com/bitlum/connector/crpc"
 	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/connectors/geth"
 	"github.com/bitlum/connector/connectors/lnd"
@@ -289,7 +289,7 @@ func backendMain() error {
 	}
 
 	grpcServer := grpc.NewServer(opts...)
-	rpc.RegisterConnectorServer(grpcServer, rpcServer)
+	rpc.RegisterPayServerServer(grpcServer, rpcServer)
 
 	grpcAddr := net.JoinHostPort(loadedConfig.RPCHost, loadedConfig.RPCPort)
 	lis, err := net.Listen("tcp", grpcAddr)
