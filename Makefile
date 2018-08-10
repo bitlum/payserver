@@ -200,11 +200,11 @@ simnet-build:
 
 simnet-deploy: \
 	check-bitlum-user-set \
-	simnet-start-notification \
 	simnet-build \
 	simnet-build-compose \
-	simnet-clean \
-	simnet-end-notification
+	simnet-clean
+	# simnet-start-notification \
+	# simnet-end-notification
 
 testnet-deploy: \
 	check-bitlum-user-set \
