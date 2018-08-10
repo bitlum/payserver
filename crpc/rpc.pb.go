@@ -25,7 +25,7 @@ It has these top-level messages:
 	ListPaymentsResponse
 	Payment
 */
-package prpc
+package crpc
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
