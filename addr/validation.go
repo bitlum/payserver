@@ -3,7 +3,7 @@ package addr
 import (
 	"github.com/bitlum/btcd/chaincfg"
 	"github.com/bitlum/btcutil"
-	"github.com/bitlum/connector/chains/net"
+	"github.com/bitlum/connector/connectors/chains/net"
 	"github.com/go-errors/errors"
 )
 

@@ -11,12 +11,11 @@ import (
 	"net"
 	"sync"
 
-	"github.com/bitlum/connector/bitcoind"
-	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/connectors/bitcoind"
 	rpc "github.com/bitlum/connector/crpc/go"
 	"github.com/bitlum/connector/estimator"
-	"github.com/bitlum/connector/geth"
-	"github.com/bitlum/connector/lnd"
+	"github.com/bitlum/connector/connectors/geth"
+	"github.com/bitlum/connector/connectors/lnd"
 	"github.com/bitlum/connector/metrics"
 	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
@@ -25,6 +24,8 @@ import (
 	"github.com/go-errors/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/common"
 )
 
 var (
@@ -65,8 +66,8 @@ func backendMain() error {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
 
-	blockchainConnectors := make(map[viabtc.AssetType]common.BlockchainConnector)
-	lightningConnectors := make(map[viabtc.AssetType]common.LightningConnector)
+	blockchainConnectors := make(map[viabtc.AssetType]connectors.BlockchainConnector)
+	lightningConnectors := make(map[viabtc.AssetType]connectors.LightningConnector)
 
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
@@ -318,7 +319,7 @@ func backendMain() error {
 				asset)
 
 			wg.Add(1)
-			go func(asset viabtc.AssetType, connector common.BlockchainConnector) {
+			go func(asset viabtc.AssetType, connector connectors.BlockchainConnector) {
 				defer wg.Done()
 
 				for {
@@ -347,7 +348,7 @@ func backendMain() error {
 				asset)
 
 			wg.Add(1)
-			go func(asset viabtc.AssetType, connector common.LightningConnector) {
+			go func(asset viabtc.AssetType, connector connectors.LightningConnector) {
 				defer wg.Done()
 
 				for {

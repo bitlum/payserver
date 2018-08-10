@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bitlum/connector/common"
-	viabtc "github.com/bitlum/viabtc_rpc_client"
+	"github.com/bitlum/viabtc_rpc_client"
+	"github.com/bitlum/connector/connectors"
 )
 
 // fileExists reports whether the named file or directory exists.
@@ -24,7 +24,7 @@ func fileExists(name string) bool {
 	return true
 }
 
-func doDeposit(client *viabtc.Client, payment *common.Payment,
+func doDeposit(client *viabtc.Client, payment *connectors.Payment,
 	asset viabtc.AssetType) {
 	userID, err := getUserIDFromAccount(payment.Account)
 	if err != nil {

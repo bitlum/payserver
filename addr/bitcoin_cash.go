@@ -3,7 +3,7 @@ package addr
 import (
 	"github.com/bitlum/btcd/chaincfg"
 	"github.com/bitlum/btcutil"
-	"github.com/bitlum/connector/chains/bitcoincash"
+	"github.com/bitlum/connector/connectors/chains/bitcoincash"
 	"github.com/go-errors/errors"
 	cashAddr "github.com/schancel/cashaddr-converter/address"
 )

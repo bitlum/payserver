@@ -3,12 +3,13 @@ package crpc
 import (
 	"time"
 
-	"github.com/bitlum/connector/common"
 	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/metrics/rpc"
 	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/net/context"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/common"
 )
 
 const (
@@ -29,8 +30,8 @@ const (
 // Server...
 type Server struct {
 	net                  string
-	blockchainConnectors map[core.AssetType]common.BlockchainConnector
-	lightningConnectors  map[core.AssetType]common.LightningConnector
+	blockchainConnectors map[core.AssetType]connectors.BlockchainConnector
+	lightningConnectors  map[core.AssetType]connectors.LightningConnector
 	paymentsStore        common.PaymentsStore
 	estmtr               estimator.USDEstimator
 	metrics              rpc.MetricsBackend
@@ -42,8 +43,8 @@ var _ ConnectorServer = (*Server)(nil)
 
 // NewRPCServer creates and returns a new instance of the Server.
 func NewRPCServer(net string,
-	blockchainConnectors map[core.AssetType]common.BlockchainConnector,
-	lightningConnectors map[core.AssetType]common.LightningConnector,
+	blockchainConnectors map[core.AssetType]connectors.BlockchainConnector,
+	lightningConnectors map[core.AssetType]connectors.LightningConnector,
 	paymentsStore common.PaymentsStore,
 	estmtr estimator.USDEstimator,
 	metrics rpc.MetricsBackend) (*Server, error) {
