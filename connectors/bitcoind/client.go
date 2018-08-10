@@ -410,7 +410,7 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 		MethodCreateAddress, c.cfg.Metrics)
 	defer m.Finish()
 
-	address, err := c.client.GetAccountAddress(account)
+	address, err := c.client.GetNewAddress(account)
 	if err != nil {
 		m.AddError(errToSeverity(ErrCreateAddress))
 		return "", err
