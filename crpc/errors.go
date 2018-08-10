@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	ErrAssetNotSupported   = iota
+	ErrAssetNotSupported   = iota + 1
 	ErrNetworkNotSupported
 	ErrInvalidArgument
 
@@ -26,16 +26,16 @@ func (e Error) Error() string {
 func newErrNetworkNotSupported(network, operation string) Error {
 	return Error{
 		code: ErrNetworkNotSupported,
-		errMsg: fmt.Sprintf("%v: operation %v isn't supported for network %v",
+		errMsg: fmt.Sprintf("%v: operation \"%v\" isn't supported for network %v",
 			ErrNetworkNotSupported, operation, network),
 	}
 }
 
-func newErrAssetNotSupported(asset, operation string) Error {
+func newErrAssetNotSupported(asset string) Error {
 	return Error{
 		code: ErrAssetNotSupported,
-		errMsg: fmt.Sprintf("%v: operation %v isn't supported for asset %v",
-			ErrAssetNotSupported, operation, asset),
+		errMsg: fmt.Sprintf("%v: asset(%v) is not supported",
+			ErrAssetNotSupported, asset),
 	}
 }
 
