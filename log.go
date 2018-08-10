@@ -10,7 +10,7 @@ import (
 
 	"github.com/bitlum/connector/crpc/go"
 	"github.com/bitlum/connector/estimator"
-	"github.com/bitlum/connector/lnd"
+	"github.com/bitlum/connector/connectors/lnd"
 	"github.com/bitlum/connector/metrics"
 	"github.com/btcsuite/btclog"
 	"github.com/jrick/logrotate/rotator"
