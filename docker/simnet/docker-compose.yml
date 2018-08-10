@@ -2,24 +2,9 @@ version: "3.5"
 
 
 
-# Explicitly defined connector network to be able to set static IPs
-networks:
-  connector.simnet:
-    name: connector.simnet
-    driver: bridge
-    ipam:
-      config:
-      - subnet: 172.100.0.0/24
-
-
-
 # Default settings for all containers.
 x-defaults:
   &defaults
-
-  # Using automatically assigned ip address from connect.simnet network.
-  networks:
-    connector.simnet:
 
   # Using syslog driver and set tag to container_name.
   logging:
@@ -79,9 +64,6 @@ services:
         - BITCOIN_CASH_VERSION
         - DASH_VERSION
         - LITECOIN_VERSION
-    networks:
-      connector.simnet:
-        ipv4_address: 172.100.0.102
     depends_on:
       - bitcoin.simnet.primary
       - bitcoin-cash.simnet.primary
@@ -117,9 +99,6 @@ services:
       context: ./connector
       args:
         - ROLE=primary
-    networks:
-      connector.simnet:
-        ipv4_address: 172.100.0.100
     volumes:
       - /connector/connector.simnet.primary:/root/.connector
       - /connector/bitcoin-lightning.simnet.primary:/root/.lnd/:ro
@@ -161,9 +140,6 @@ services:
         - ROLE=primary
     environment:
       - EXTERNAL_IP
-    networks:
-      connector.simnet:
-        ipv4_address: 172.100.0.101
     volumes:
       - /connector/bitcoin.simnet.primary:/root/.bitcoin:ro
       - /connector/bitcoin-lightning.simnet.primary:/root/.lnd
@@ -263,17 +239,14 @@ services:
       context: ./connector
       args:
         - ROLE=secondary
-    networks:
-      connector.simnet:
-        ipv4_address: 172.100.0.200
     volumes:
       - /connector/connector.simnet.secondary:/root/.connector
       - /connector/bitcoin-lightning.simnet.secondary:/root/.lnd/:ro
     ports:
       # RPC port
-      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9003:9003"
+      - "10000:9003"
       # Prometheus monitoring
-      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9998:9998"
+      - "9998:9998"
     depends_on:
       - bitcoin.simnet.secondary
       - bitcoin-lightning.simnet.secondary
@@ -293,6 +266,8 @@ services:
         - ROLE=secondary
     volumes:
       - /connector/bitcoin.simnet.secondary:/root/.bitcoin
+    ports:
+      - "10001:8332"
     depends_on:
       - bitcoin.simnet.primary
 
@@ -305,9 +280,8 @@ services:
       args:
         - BITCOIN_LIGHTNING_REVISION
         - ROLE=secondary
-    networks:
-      connector.simnet:
-        ipv4_address: 172.100.0.201
+    ports:
+      - "10002:10009"
     volumes:
       - /connector/bitcoin.simnet.secondary:/root/.bitcoin:ro
       - /connector/bitcoin-lightning.simnet.secondary:/root/.lnd
@@ -324,9 +298,6 @@ services:
       args:
         - BITCOIN_LIGHTNING_REVISION
         - ROLE=secondary
-    networks:
-      connector.simnet:
-        ipv4_address: 172.100.0.202
     volumes:
       - /connector/bitcoin.simnet.secondary:/root/.bitcoin:ro
       - /connector/bitcoin-lightning.simnet.third:/root/.lnd
@@ -345,6 +316,8 @@ services:
         - ROLE=secondary
     volumes:
       - /connector/bitcoin-cash.simnet.secondary:/root/.bitcoin
+    ports:
+      - "10003:9332"
     depends_on:
       - bitcoin-cash.simnet.primary
 
@@ -359,6 +332,8 @@ services:
         - ROLE=secondary
     volumes:
       - /connector/dash.simnet.secondary:/root/.dashcore
+    ports:
+      - "10004:10332"
     depends_on:
       - dash.simnet.primary
 
@@ -376,6 +351,8 @@ services:
     volumes:
       - /connector/ethereum.simnet.secondary:/root/.ethereum
       - /connector/ethereum-bootnode.simnet:/bootnode
+    ports:
+      - "10005:11332"
     depends_on:
       - ethereum-bootnode.simnet
       - ethereum.simnet.primary
@@ -391,5 +368,7 @@ services:
         - ROLE=secondary
     volumes:
       - /connector/litecoin.simnet.secondary:/root/.litecoin
+    ports:
+      - "10006:12332"
     depends_on:
       - litecoin.simnet.primary
