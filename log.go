@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/bitlum/connector/crpc/go"
+	"github.com/bitlum/connector/crpc"
 	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/connectors/lnd"
 	"github.com/bitlum/connector/metrics"
