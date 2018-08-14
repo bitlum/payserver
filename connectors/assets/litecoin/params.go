@@ -1,24 +1,39 @@
 package litecoin
 
 import (
-	"github.com/bitlum/btcd/chaincfg"
-	bwire "github.com/bitlum/btcd/wire"
-	"github.com/bitlum/connector/connectors/chains"
+	"github.com/btcsuite/btcd/chaincfg"
+	bwire "github.com/btcsuite/btcd/wire"
 	lwire "github.com/ltcsuite/ltcd/wire"
+	"github.com/go-errors/errors"
+)
+
+var (
+	// chainIDPrefix is created to distinguish different chains during
+	// the process of registration with btcutil mustRegister function.
+	//
+	// NOTE: This is needed because of the fact how btcutil DecodeAddress works,
+	// it couldn't proper decode address if its networks wasn't previously
+	// registered.
+	chainIDPrefix bwire.BitcoinNet = 3
+
+	// legacyChainIDPrefix were created specifically because of the
+	// legacy P2PKH address in order to achieve proper address validation
+	// with DecodeAddress function.
+	legacyChainIDPrefix bwire.BitcoinNet = 4
 )
 
 var (
 	// Mainnet represents the main network.
-	Mainnet = bwire.MainNet + chains.LitecoinChainIDPrefix
+	Mainnet = bwire.MainNet + chainIDPrefix
 
 	// MainnetLegacy represents legacy main network with legacy P2SH address prefix
-	MainnetLegacy = bwire.MainNet + chains.LitecoinLegacyChainIDPrefix
+	MainnetLegacy = bwire.MainNet + legacyChainIDPrefix
 
 	// TestNet represents the regression network.
-	TestNet = bwire.TestNet + chains.LitecoinChainIDPrefix
+	TestNet = bwire.TestNet + chainIDPrefix
 
 	// TestNet4 represents the test network.
-	TestNet4 = bwire.BitcoinNet(lwire.TestNet4) + chains.LitecoinChainIDPrefix
+	TestNet4 = bwire.BitcoinNet(lwire.TestNet4) + chainIDPrefix
 )
 
 // With ScriptHashAddrID=SCRIPT_ADDRESS https://github.com/litecoin-project/litecoin/blob/master/src/chainparams.cpp#L237
@@ -121,4 +136,20 @@ func init() {
 	mustRegister(&MainNetParamsLegacy)
 	mustRegister(&TestNet4Params)
 	mustRegister(&RegressionNetParams)
+}
+
+func GetParams(netName string) (*chaincfg.Params, error) {
+	switch netName {
+	case "mainnet", "main":
+		return &MainNetParams, nil
+	case "mainnet-legacy":
+		return &MainNetParamsLegacy, nil
+	case "regtest", "simnet":
+		return &RegressionNetParams, nil
+	case "testnet4", "test", "testnet":
+		return &TestNet4Params, nil
+	}
+
+	return nil, errors.Errorf("network '%s' is "+
+		"invalid or unsupported", netName)
 }
