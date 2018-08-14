@@ -522,19 +522,26 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 // connector.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(account string) (string, error) {
+func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
+	if strings.ToLower(account) == "default" {
+		account = defaultAccount
+	}
+
+	if strings.ToLower(account) == "all" {
+		account = allAccounts
+	}
+
 	balance, err := c.client.GetBalanceMinConf(account, c.cfg.MinConfirmations)
 	if err != nil {
-		return "", err
+		return decimal.Zero, err
 	}
-	return decimal.NewFromFloat(
-		balance.ToBTC()).Round(8).String(), nil
+	return decimal.NewFromFloat(balance.ToBTC()).Round(8), nil
 }
 
 // PendingBalance return the amount of funds waiting ro be confirmed.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingBalance(account string) (string, error) {
+func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
 	defer m.Finish()
@@ -544,7 +551,7 @@ func (c *Connector) PendingBalance(account string) (string, error) {
 		amount = amount.Add(tx.Amount)
 	}
 
-	return amount.Round(8).String(), nil
+	return amount.Round(8), nil
 }
 
 // ReceivedPayments returns channel with transactions which
@@ -923,7 +930,7 @@ func (c *Connector) sync() error {
 		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
 	}
 
-	balance, err := c.FundsAvailable()
+	balance, err := c.ConfirmedBalance("all")
 	if err != nil {
 		m.AddError(errToSeverity(ErrSync))
 		return errors.Errorf("unable to get available funds: %v", err)
@@ -936,19 +943,6 @@ func (c *Connector) sync() error {
 	m.CurrentFunds(f)
 
 	return nil
-}
-
-// FundsAvailable returns number of funds available under control of
-// connector.
-//
-// NOTE: Part of the connectors.Connector interface.
-func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
-	balance, err := c.client.GetBalanceMinConf(allAccounts, c.cfg.MinConfirmations)
-	if err != nil {
-		return decimal.Zero, err
-	}
-
-	return decimal.New(int64(balance), 0), nil
 }
 
 // ValidateAddress takes the blockchain address and ensure its validity.

@@ -495,3 +495,27 @@ func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
 
 	return nil
 }
+
+// ConfirmedBalance return the amount of confirmed funds available for account.
+// TODO(andrew.shvv) Show funds locked in the channels
+func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
+	req := &lnrpc.WalletBalanceRequest{}
+	resp, err := c.client.WalletBalance(context.Background(), req)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return decimal.New(resp.ConfirmedBalance, 0), nil
+}
+
+// PendingBalance return the amount of funds waiting to be confirmed.
+// TODO(andrew.shvv) Show funds locked in the channels
+func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
+	req := &lnrpc.WalletBalanceRequest{}
+	resp, err := c.client.WalletBalance(context.Background(), req)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return decimal.New(resp.UnconfirmedBalance, 0), nil
+}

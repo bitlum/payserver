@@ -2,8 +2,6 @@ package geth
 
 import (
 	"fmt"
-	"strconv"
-
 	"time"
 
 	"sync"
@@ -504,12 +502,12 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 // connector.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(account string) (string, error) {
+func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodConfirmedBalance, c.cfg.Metrics)
 	defer m.Finish()
 
-	balance := "0"
+	balance := decimal.Zero
 
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		accountsBucket, err := tx.CreateBucketIfNotExists(accountsToAddressesBucket)
@@ -525,8 +523,8 @@ func (c *Connector) ConfirmedBalance(account string) (string, error) {
 		if err != nil {
 			return err
 		}
-		ethers := weis.Uint64() / uint64(weiInEth.IntPart())
-		balance = strconv.FormatUint(ethers, 10)
+
+		balance = decimal.NewFromBigInt(&weis, 0).Div(weiInEth)
 		return nil
 	})
 
@@ -534,7 +532,7 @@ func (c *Connector) ConfirmedBalance(account string) (string, error) {
 }
 
 // PendingBalance return the amount of funds waiting to be confirmed.
-func (c *Connector) PendingBalance(account string) (string, error) {
+func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
 	defer m.Finish()
@@ -551,7 +549,7 @@ func (c *Connector) PendingBalance(account string) (string, error) {
 		amount = amount.Add(tx.Amount)
 	}
 
-	return amount.Round(8).String(), nil
+	return amount.Round(8), nil
 }
 
 // ReceivedPayments returns channel with transactions which
