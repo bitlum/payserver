@@ -98,6 +98,9 @@ type BlockchainConnector interface {
 	// the minimum threshold required by the client to treat the
 	// transactions as confirmed.
 	ReceivedPayments() <-chan []*Payment
+
+	// ValidateAddress takes the blockchain address and ensure its valid.
+	ValidateAddress(address string) error
 }
 
 // LightningConnector is an interface which describes the service
@@ -126,4 +129,8 @@ type LightningConnector interface {
 	// FundsAvailable returns number of funds available under control of
 	// connector.
 	FundsAvailable() (decimal.Decimal, error)
+
+	// ValidateInvoice takes the encoded lightning network invoice and ensure
+	// its valid.
+	ValidateInvoice(invoice, amount string) error
 }

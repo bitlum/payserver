@@ -34,7 +34,7 @@ func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 
 func printAmount(a btcutil.Amount) string {
 	u := btcutil.AmountBTC
-	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u+8), 64)
+	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u + 8), 64)
 }
 
 func isProperNet(desiredNet, actualNet string) bool {
@@ -54,4 +54,34 @@ func isProperNet(desiredNet, actualNet string) bool {
 	}
 
 	return desiredNet == actualNet
+}
+
+func validateAddress(asset, address, network string) error {
+	switch strings.ToLower(asset) {
+	case "btc":
+		return bitcoin.ValidateAddress(address, network)
+	case "ltc":
+		return litecoin.ValidateAddress(address, network)
+	case "bch":
+		return bitcoincash.ValidateAddress(address, network)
+	case "dash":
+		return dash.ValidateAddress(address, network)
+	default:
+		return errors.Errorf("unsupported asset asset(%v)", asset)
+	}
+}
+
+func getParams(asset, network string) (*chaincfg.Params, error) {
+	switch strings.ToLower(asset) {
+	case "btc":
+		return bitcoin.GetParams(network)
+	case "ltc":
+		return litecoin.GetParams(network)
+	case "bch":
+		return bitcoincash.GetParams(network)
+	case "dash":
+		return dash.GetParams(network)
+	default:
+		return nil, errors.Errorf("unsupported asset asset(%v)", asset)
+	}
 }

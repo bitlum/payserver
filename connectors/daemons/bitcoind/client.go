@@ -64,6 +64,7 @@ const (
 	MethodSendTransaction     = "SendTransaction"
 	MethodPendingBalance      = "PendingBalance"
 	MethodSync                = "Sync"
+	MethodValidate            = "Validate"
 )
 
 type DaemonConfig struct {
@@ -262,7 +263,7 @@ func (c *Connector) Start() error {
 
 	c.log.Infof("Init connector working with '%v' net", c.cfg.Net)
 
-	c.netParams, err = net.GetParams(string(c.cfg.Asset), chain)
+	c.netParams, err = getParams(string(c.cfg.Asset), chain)
 	if err != nil {
 		m.AddError(errToSeverity(ErrGetNetParams))
 		return errors.Errorf("failed to get net params: %v", err)
@@ -444,7 +445,7 @@ func (c *Connector) GenerateTransaction(address string, amount string) (connecto
 		MethodGenerateTransaction, c.cfg.Metrics)
 	defer m.Finish()
 
-	err := addr.Validate(string(c.cfg.Asset), c.netParams.Name, address)
+	err := validateAddress(string(c.cfg.Asset), address, c.netParams.Name)
 	if err != nil {
 		m.AddError(errToSeverity(ErrValidateAddress))
 		return nil, errors.Errorf("invalid address: %v", err)
@@ -948,4 +949,19 @@ func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
 	}
 
 	return decimal.New(int64(balance), 0), nil
+}
+
+// ValidateAddress takes the blockchain address and ensure its validity.
+func (c *Connector) ValidateAddress(address string) error {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodValidate, c.cfg.Metrics)
+	defer m.Finish()
+
+	err := validateAddress(string(c.cfg.Asset), address, c.netParams.Name)
+	if err != nil {
+		m.AddError(errToSeverity(ErrValidateAddress))
+		return errors.Errorf("invalid address: %v", err)
+	}
+
+	return nil
 }

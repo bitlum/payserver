@@ -80,7 +80,7 @@ func TestSignTransaction(t *testing.T) {
 
 func TestTransactionDecode(t *testing.T) {
 
-	data := connectors.FromHex(
+	data := common.FromHex(
 		"0xf8658015825208948e643bc825bdb44dfecfdeebecbbe3f2a4d5d71b8203e88084687e1699a0224c8101372cb765e1e1c31607d149e6d06c73c97865e84de7ed37de931c5519a020ecd6fbb48368d36320967641d22703b0c649f0320fb78dce4218b6684667fb")
 
 	spew.Dump(data)
