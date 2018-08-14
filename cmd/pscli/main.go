@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"github.com/bitlum/connector/crpc"
-	"github.com/bitlum/btcutil"
+	"github.com/btcsuite/btcutil"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
 )
@@ -65,6 +65,7 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		createReceiptCommand,
+		validateReceiptCommand,
 	}
 
 	if err := app.Run(os.Args); err != nil {
