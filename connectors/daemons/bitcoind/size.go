@@ -1,8 +1,8 @@
 package bitcoind
 
 import (
-	"github.com/bitlum/btcd/blockchain"
-	"github.com/bitlum/btcd/wire"
+	"github.com/btcsuite/btcd/blockchain"
+	"github.com/btcsuite/btcd/wire"
 )
 
 const (

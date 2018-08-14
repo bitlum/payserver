@@ -15,8 +15,8 @@ import (
 
 	"encoding/hex"
 
-	"github.com/bitlum/btcd/btcec"
-	"github.com/bitlum/btcutil"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcutil"
 	"github.com/bitlum/connector/db"
 	"github.com/bitlum/connector/metrics"
 	"github.com/bitlum/connector/metrics/crypto"
