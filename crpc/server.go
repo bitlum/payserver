@@ -168,9 +168,74 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 
 //
 // Balance is used to determine balance.
-func (s *Server) Balance(ctx context.Context, in *BalanceRequest,
+func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 ) (*BalanceResponse, error) {
-	return &BalanceResponse{}, nil
+	log.Tracef("command(%v), request(%v)", getFunctionName(),
+		convertProtoMessage(req))
+
+	var resp *BalanceResponse
+
+	switch req.Media {
+	case Media_BLOCKCHAIN:
+		c, ok := s.blockchainConnectors[core.AssetType(req.Asset.String())]
+		if !ok {
+			severity := errMetricsInfo(ErrAssetNotSupported)
+			s.metrics.AddError(CreateReceipt, severity)
+			return nil, newErrAssetNotSupported(req.Asset.String())
+		}
+
+		available, err := c.ConfirmedBalance("all")
+		if err != nil {
+			return nil, newErrInternal(err.Error())
+		}
+
+		pending, err := c.PendingBalance("all")
+		if err != nil {
+			return nil, newErrInternal(err.Error())
+		}
+
+		// TODO(andrew.shvv) Combine btc balance with lightning btc
+		// wallet balance?
+
+		resp = &BalanceResponse{
+			Available: available.String(),
+			Pending:   pending.String(),
+		}
+
+	case Media_LIGHTNING:
+		c, ok := s.lightningConnectors[core.AssetType(req.Asset.String())]
+		if !ok {
+			severity := errMetricsInfo(ErrNetworkNotSupported)
+			s.metrics.AddError(CreateReceipt, severity)
+			return nil, newErrAssetNotSupported(req.Asset.String())
+		}
+
+		// TODO(andrew.shvv) Show channels balance, problems:
+		// * if we don't have distinction between off-chain and on-chain
+		// balance it will be unclear for end user how use this balance,
+		// otherwise we would ned to have two different rpc methods for that.
+
+		available, err := c.ConfirmedBalance(defaultAccount)
+		if err != nil {
+			return nil, newErrInternal(err.Error())
+		}
+
+		pending, err := c.PendingBalance(defaultAccount)
+		if err != nil {
+			return nil, newErrInternal(err.Error())
+		}
+
+		resp = &BalanceResponse{
+			Available: available.String(),
+			Pending:   pending.String(),
+		}
+
+	default:
+		return nil, errors.Errorf("media(%v) is not supported",
+			req.Media.String())
+	}
+
+	return resp, nil
 }
 
 //
