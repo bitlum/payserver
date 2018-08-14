@@ -27,6 +27,7 @@ import (
 	"github.com/onrik/ethrpc"
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/assets/ethereum"
 )
 
 var (
@@ -1033,4 +1034,9 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	m.CurrentFunds(f)
 
 	return lastSyncedBlockHash, nil
+}
+
+// ValidateAddress validates given blockchain address.
+func (c *Connector) ValidateAddress(address string) error {
+	return ethereum.ValidateAddress(address)
 }

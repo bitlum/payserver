@@ -28,6 +28,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/macaroon.v2"
 	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/assets/bitcoin"
+	"github.com/lightningnetwork/lnd/zpay32"
 )
 
 const (
@@ -467,4 +469,29 @@ func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
 	}
 
 	return decimal.New(resp.ConfirmedBalance, 0), nil
+}
+
+// ValidateInvoice takes the encoded lightning network invoice and ensure
+// its valid.
+func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
+	netParams, err := bitcoin.GetParams(c.cfg.Net)
+	if err != nil {
+		return err
+	}
+
+	amount, err := btcToSatoshi(amountStr)
+	if err != nil {
+
+	}
+
+	invoice, err := zpay32.Decode(invoiceStr, netParams)
+	if err != nil {
+		return err
+	}
+
+	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+		return errors.Errorf("wrong amount")
+	}
+
+	return nil
 }
