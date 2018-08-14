@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bitlum/connector/connectors/bitcoind/btcjson"
-	"github.com/bitlum/btcd/chaincfg/chainhash"
-	"github.com/bitlum/btcd/wire"
-	"github.com/bitlum/btcutil"
+	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcutil"
 )
 
 var (

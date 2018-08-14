@@ -10,9 +10,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/bitlum/connector/connectors/bitcoind/btcjson"
-	"github.com/bitlum/btcd/chaincfg/chainhash"
-	"github.com/bitlum/btcd/wire"
+	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/wire"
 )
 
 // FutureGetBestBlockHashResult is a future promise to deliver the result of a
