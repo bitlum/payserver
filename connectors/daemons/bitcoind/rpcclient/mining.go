@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/bitlum/connector/connectors/bitcoind/btcjson"
-	"github.com/bitlum/btcd/chaincfg/chainhash"
-	"github.com/bitlum/btcutil"
+	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcutil"
 )
 
 // FutureGenerateResult is a future promise to deliver the result of a
