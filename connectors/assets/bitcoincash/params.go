@@ -1,20 +1,28 @@
 package bitcoincash
 
 import (
-	"github.com/bitlum/btcd/chaincfg"
-	"github.com/bitlum/btcd/wire"
-	"github.com/bitlum/connector/connectors/chains"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/go-errors/errors"
 )
+
+// chainIDPrefix is created to distinguish different chains during
+// the process of registration with btcutil mustRegister function.
+//
+// NOTE: This is needed because of the fact how btcutil DecodeAddress works,
+// it couldn't proper decode address if its networks wasn't previously
+// registered.
+var chainIDPrefix wire.BitcoinNet = 1
 
 var (
 	// Mainnet represents the main test network.
-	Mainnet = wire.MainNet + chains.BitcoinCashChainIDPrefix
+	Mainnet = wire.MainNet + chainIDPrefix
 
 	// TestNet represents the regression test network.
-	TestNet = wire.TestNet + chains.BitcoinCashChainIDPrefix
+	TestNet = wire.TestNet + chainIDPrefix
 
 	// TestNet3 represents the test network.
-	TestNet3 = wire.TestNet3 + chains.BitcoinCashChainIDPrefix
+	TestNet3 = wire.TestNet3 + chainIDPrefix
 )
 
 // MainNetParams defines the network parameters for the main network.
@@ -73,4 +81,18 @@ func init() {
 	mustRegister(&MainNetParams)
 	mustRegister(&TestNet3Params)
 	mustRegister(&RegressionNetParams)
+}
+
+func GetParams(netName string) (*chaincfg.Params, error) {
+	switch netName {
+	case "mainnet", "main":
+		return &MainNetParams, nil
+	case "regtest", "simnet":
+		return &RegressionNetParams, nil
+	case "testnet3", "test", "testnet":
+		return &TestNet3Params, nil
+	}
+
+	return nil, errors.Errorf("network '%s' is invalid or unsupported",
+		netName)
 }
