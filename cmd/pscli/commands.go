@@ -117,7 +117,7 @@ func createReceipt(ctx *cli.Context) error {
 	}
 
 	ctxb := context.Background()
-	addr, err := client.CreateReceipt(ctxb, &crpc.CreateReceiptRequest{
+	resp, err := client.CreateReceipt(ctxb, &crpc.CreateReceiptRequest{
 		Asset:  asset,
 		Media:  media,
 		Amount: amount,
@@ -126,7 +126,7 @@ func createReceipt(ctx *cli.Context) error {
 		return err
 	}
 
-	printRespJSON(addr)
+	printRespJSON(resp)
 	return nil
 }
 
@@ -217,7 +217,7 @@ func validateReceipt(ctx *cli.Context) error {
 	}
 
 	ctxb := context.Background()
-	addr, err := client.ValidateReceipt(ctxb, &crpc.ValidateReceiptRequest{
+	resp, err := client.ValidateReceipt(ctxb, &crpc.ValidateReceiptRequest{
 		Asset:   asset,
 		Media:   media,
 		Amount:  amount,
@@ -227,7 +227,85 @@ func validateReceipt(ctx *cli.Context) error {
 		return err
 	}
 
-	printRespJSON(addr)
+	printRespJSON(resp)
+	return nil
+}
+
+var balanceCommand = cli.Command{
+	Name:     "balance",
+	Category: "Balance",
+	Usage:    "Return asset balance.",
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "asset",
+			Usage: "Asset is an acronym of the crypto currency",
+		},
+		cli.StringFlag{
+			Name: "media",
+			Usage: "Media is a type of technology which is used to transport" +
+				" value of underlying asset",
+		},
+	},
+	Action: balance,
+}
+
+func balance(ctx *cli.Context) error {
+	client, cleanUp := getClient(ctx)
+	defer cleanUp()
+
+	var (
+		media crpc.Media
+		asset crpc.Asset
+	)
+
+	switch {
+	case ctx.IsSet("media"):
+		stringMedia := ctx.String("media")
+		switch stringMedia {
+		case "blockchain":
+			media = crpc.Media_BLOCKCHAIN
+		case "lightning":
+			media = crpc.Media_LIGHTNING
+		default:
+			return errors.Errorf("invalid media type %v, support media type "+
+				"are: 'blockchain' and 'lightning'", stringMedia)
+		}
+	default:
+		return errors.New("media argument missing")
+	}
+
+	switch {
+	case ctx.IsSet("asset"):
+		stringAsset := strings.ToLower(ctx.String("asset"))
+		switch stringAsset {
+		case "btc", "bitcoin":
+			asset = crpc.Asset_BTC
+		case "bch", "bitcoincash":
+			asset = crpc.Asset_BCH
+		case "ltc", "litecoin":
+			asset = crpc.Asset_LTC
+		case "eth", "ethereum":
+			asset = crpc.Asset_ETH
+		case "dash":
+			asset = crpc.Asset_DASH
+		default:
+			return errors.Errorf("invalid asset %v, supported assets"+
+				"are: 'btc', 'bch', 'dash', 'eth', 'ltc'", stringAsset)
+		}
+	default:
+		return errors.Errorf("asset argument missing")
+	}
+
+	ctxb := context.Background()
+	resp, err := client.Balance(ctxb, &crpc.BalanceRequest{
+		Asset: asset,
+		Media: media,
+	})
+	if err != nil {
+		return err
+	}
+
+	printRespJSON(resp)
 	return nil
 }
 
