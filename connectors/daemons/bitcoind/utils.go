@@ -5,8 +5,15 @@ import (
 
 	"strconv"
 
-	"github.com/bitlum/btcutil"
+	"github.com/btcsuite/btcutil"
 	"github.com/shopspring/decimal"
+	"strings"
+	"github.com/bitlum/connector/connectors/assets/bitcoin"
+	"github.com/bitlum/connector/connectors/assets/litecoin"
+	"github.com/bitlum/connector/connectors/assets/bitcoincash"
+	"github.com/bitlum/connector/connectors/assets/dash"
+	"github.com/go-errors/errors"
+	"github.com/btcsuite/btcd/chaincfg"
 )
 
 var satoshiPerBitcoin = decimal.New(btcutil.SatoshiPerBitcoin, 0)

@@ -1,7 +1,7 @@
 package lnd
 
 import (
-	"github.com/bitlum/btcutil"
+	"github.com/btcsuite/btcutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 )

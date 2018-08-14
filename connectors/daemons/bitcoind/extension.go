@@ -3,8 +3,8 @@ package bitcoind
 import (
 	"encoding/json"
 
-	"github.com/bitlum/connector/connectors/bitcoind/btcjson"
-	"github.com/bitlum/connector/connectors/bitcoind/rpcclient"
+	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
+	"github.com/bitlum/connector/connectors/daemons/bitcoind/rpcclient"
 )
 
 type GetDashBlockChainInfoResult struct {

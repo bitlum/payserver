@@ -9,7 +9,7 @@ import (
 
 	"log"
 
-	"github.com/bitlum/btcutil"
+	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/go-flags"
 )
 
