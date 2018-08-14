@@ -66,6 +66,7 @@ func main() {
 	app.Commands = []cli.Command{
 		createReceiptCommand,
 		validateReceiptCommand,
+		balanceCommand,
 	}
 
 	if err := app.Run(os.Args); err != nil {
