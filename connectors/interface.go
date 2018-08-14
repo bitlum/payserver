@@ -75,10 +75,10 @@ type BlockchainConnector interface {
 	AccountAddress(account string) (string, error)
 
 	// ConfirmedBalance return the amount of confirmed funds available for account.
-	ConfirmedBalance(account string) (string, error)
+	ConfirmedBalance(account string) (decimal.Decimal, error)
 
 	// PendingBalance return the amount of funds waiting to be confirmed.
-	PendingBalance(account string) (string, error)
+	PendingBalance(account string) (decimal.Decimal, error)
 
 	// PendingTransactions return the transactions which has confirmation
 	// number lower the required by payment system.
@@ -89,10 +89,6 @@ type BlockchainConnector interface {
 
 	// SendTransaction sends the given transaction to the blockchain network.
 	SendTransaction(rawTx []byte) error
-
-	// FundsAvailable returns number of funds available under control of
-	// connector.
-	FundsAvailable() (decimal.Decimal, error)
 
 	// ReceivedPayments returns channel with transactions which are passed
 	// the minimum threshold required by the client to treat the
@@ -118,6 +114,14 @@ type LightningConnector interface {
 	// payment system.
 	SendTo(invoice string) error
 
+	// ConfirmedBalance return the amount of confirmed funds available for account.
+	// TODO(andrew.shvv) Implement lightning wallet balance
+	ConfirmedBalance(account string) (decimal.Decimal, error)
+
+	// PendingBalance return the amount of funds waiting to be confirmed.
+	// TODO(andrew.shvv) Implement lightning wallet balance
+	PendingBalance(account string) (decimal.Decimal, error)
+
 	// ReceivedPayments returns channel with transactions which are passed
 	// the minimum threshold required by the client to treat as confirmed.
 	ReceivedPayments() <-chan *Payment
@@ -125,10 +129,6 @@ type LightningConnector interface {
 	// QueryRoutes returns list of routes from to the given lnd node,
 	// and insures the the capacity of the channels is sufficient.
 	QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Route, error)
-
-	// FundsAvailable returns number of funds available under control of
-	// connector.
-	FundsAvailable() (decimal.Decimal, error)
 
 	// ValidateInvoice takes the encoded lightning network invoice and ensure
 	// its valid.
