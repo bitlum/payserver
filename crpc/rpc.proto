@@ -112,6 +112,11 @@ message ValidateReceiptRequest {
     // Media is a type of technology which is used to transport value of
     // underlying asset.
     Media media = 3;
+
+    //
+    // (optional) Amount is the amount which should be received on this
+    // receipt.
+    string amount = 4;
 }
 
 message EstimateFeeRequest {

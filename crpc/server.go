@@ -7,7 +7,6 @@ import (
 	"golang.org/x/net/context"
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/common"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-errors/errors"
 )
 
@@ -91,8 +90,6 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			Receipt: address,
 		}
 	case Media_LIGHTNING:
-		log.Tracef("command(%v), request(%v)", getFunctionName(), spew.Sdump(req))
-
 		c, ok := s.lightningConnectors[core.AssetType(req.Asset.String())]
 		if !ok {
 			severity := errMetricsInfo(ErrNetworkNotSupported)
@@ -100,6 +97,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			return nil, newErrAssetNotSupported(req.Asset.String())
 		}
 
+		// Ensure that even if amount is not specified we treat it as zero
+		// value.
 		if req.Amount == "" {
 			req.Amount = "0"
 		}
@@ -113,12 +112,12 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			Receipt: invoice,
 		}
 	default:
-		return nil, errors.Errorf("media not supported: %v",
+		return nil, errors.Errorf("media(%v) is not supported",
 			req.Media.String())
 	}
 
 	log.Tracef("command(%v), response(%v)", getFunctionName(),
-		spew.Sdump(resp))
+		convertProtoMessage(resp))
 
 	return resp, nil
 }
@@ -127,7 +126,44 @@ func (s *Server) CreateReceipt(ctx context.Context,
 // ValidateReceipt is used to validate receipt for given asset and media.
 func (s *Server) ValidateReceipt(ctx context.Context,
 	req *ValidateReceiptRequest) (*EmptyResponse, error) {
-	return &EmptyResponse{}, nil
+	log.Tracef("command(%v), request(%v)", getFunctionName(),
+		convertProtoMessage(req))
+
+	switch req.Media {
+	case Media_BLOCKCHAIN:
+		c, ok := s.blockchainConnectors[core.AssetType(req.Asset.String())]
+		if !ok {
+			severity := errMetricsInfo(ErrAssetNotSupported)
+			s.metrics.AddError(CreateReceipt, severity)
+			return nil, newErrAssetNotSupported(req.Asset.String())
+		}
+
+		if err := c.ValidateAddress(req.Receipt); err != nil {
+			return nil, err
+		}
+
+	case Media_LIGHTNING:
+		c, ok := s.lightningConnectors[core.AssetType(req.Asset.String())]
+		if !ok {
+			severity := errMetricsInfo(ErrNetworkNotSupported)
+			s.metrics.AddError(CreateReceipt, severity)
+			return nil, newErrAssetNotSupported(req.Asset.String())
+		}
+
+		if err := c.ValidateInvoice(req.Receipt, req.Amount); err != nil {
+			return nil, err
+		}
+
+	default:
+		return nil, errors.Errorf("media(%v) is not supported",
+			req.Media.String())
+	}
+
+	resp := &EmptyResponse{}
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
+		convertProtoMessage(resp))
+
+	return resp, nil
 }
 
 //
