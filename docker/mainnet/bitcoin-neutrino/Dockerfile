@@ -4,9 +4,9 @@ ARG BITCOIN_NEUTRINO_REVISION
 
 RUN go get -u github.com/Masterminds/glide
 
-WORKDIR $GOPATH/src/github.com/roasbeef/btcd
+WORKDIR $GOPATH/src/github.com/btcsuite/btcd
 
-RUN curl -L https://github.com/roasbeef/btcd/archive/$BITCOIN_NEUTRINO_REVISION.tar.gz \
+RUN curl -L https://github.com/btcsuite/btcd/archive/$BITCOIN_NEUTRINO_REVISION.tar.gz \
 | tar xz --strip 1
 
 RUN glide install

@@ -24,6 +24,22 @@
 #   go-tests = true
 #   unused-packages = true
 
+[[override]]
+  name = "golang.org/x/crypto"
+  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
+
+[[override]]
+  name = "google.golang.org/genproto"
+  revision = "df60624c1e9b9d2973e889c7a1cff73155da81c4"
+
+[[override]]
+  name = "github.com/golang/protobuf"
+  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
+
+[[override]]
+  name = "github.com/prometheus/client_model"
+  revision = "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c"
+
 [[constraint]]
   name = "github.com/coreos/bbolt"
   revision = "4f5275f4ebbf6fe7cb772de987fa96ee674460a7"
@@ -44,10 +60,6 @@
   name = "github.com/go-errors/errors"
   revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
 
-[[override]]
-  name = "github.com/golang/protobuf"
-  revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
-
 [[constraint]]
   name = "github.com/jrick/logrotate"
   revision = "a93b200c26cbae3bb09dd0dc2c7c7fe1468a034a"
@@ -57,7 +69,7 @@
   # Use bitlum source for lnd as a temporary fork till pull requests will be
   # merged
   source = "github.com/bitlum/lnd"
-  revision = "e34a23f322aedff773caa252a005a3b5d00c0eea"
+  revision = "fab1aa2d49380a3e8aef545c6b6a82e650e3b20f"
 
 [[constraint]]
   name = "github.com/pkg/errors"
