@@ -239,9 +239,44 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 }
 
 //
-// EstimateFee estimates the fee of the payment.
-func (s *Server) EstimateFee(ctx context.Context, in *EstimateFeeRequest) (*EstimateFeeResponse, error) {
-	return &EstimateFeeResponse{}, nil
+// EstimateFee estimates the fee of the outgoing payment.
+func (s *Server) EstimateFee(ctx context.Context,
+	req *EstimateFeeRequest) (*EstimateFeeResponse, error) {
+	log.Tracef("command(%v), request(%v)", getFunctionName(),
+		convertProtoMessage(req))
+
+	var resp *EstimateFeeResponse
+
+	switch req.Media {
+	case Media_BLOCKCHAIN:
+		c, ok := s.blockchainConnectors[core.AssetType(req.Asset.String())]
+		if !ok {
+			severity := errMetricsInfo(ErrAssetNotSupported)
+			s.metrics.AddError(CreateReceipt, severity)
+			return nil, newErrAssetNotSupported(req.Asset.String())
+		}
+
+		fee, err := c.EstimateFee(req.Amount)
+		if err != nil {
+			return nil, err
+		}
+
+		resp = &EstimateFeeResponse{
+			MediaFee: fee.String(),
+		}
+
+	case Media_LIGHTNING:
+		return nil, errors.New("fee estimation for lighting is not supported")
+
+	default:
+		return nil, errors.Errorf("media(%v) is not supported",
+			req.Media.String())
+	}
+
+	log.Tracef("command(%v), response(%v)", getFunctionName(),
+		convertProtoMessage(resp))
+
+	return resp, nil
 }
 
 //
