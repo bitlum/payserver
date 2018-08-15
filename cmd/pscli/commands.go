@@ -309,6 +309,95 @@ func balance(ctx *cli.Context) error {
 	return nil
 }
 
+var estimateFeeCommand = cli.Command{
+	Name:     "estimatefee",
+	Category: "Fee",
+	Usage:    "Estimates fee of the payment.",
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "asset",
+			Usage: "Asset is an acronym of the crypto currency",
+		},
+		cli.StringFlag{
+			Name: "media",
+			Usage: "Media is a type of technology which is used to transport" +
+				" value of underlying asset",
+		},
+		cli.StringFlag{
+			Name: "amount",
+			Usage: "(optional) Amount is the amount which will be sent by" +
+				" service.",
+		},
+	},
+	Action: estimateFee,
+}
+
+func estimateFee(ctx *cli.Context) error {
+	client, cleanUp := getClient(ctx)
+	defer cleanUp()
+
+	var (
+		media  crpc.Media
+		asset  crpc.Asset
+		amount string
+	)
+
+	switch {
+	case ctx.IsSet("media"):
+		stringMedia := ctx.String("media")
+		switch stringMedia {
+		case "bl", "blockchain":
+			media = crpc.Media_BLOCKCHAIN
+		case "li", "lightning":
+			media = crpc.Media_LIGHTNING
+		default:
+			return errors.Errorf("invalid media type %v, support media type "+
+				"are: 'blockchain' and 'lightning'", stringMedia)
+		}
+	default:
+		return errors.New("media argument missing")
+	}
+
+	switch {
+	case ctx.IsSet("asset"):
+		stringAsset := strings.ToLower(ctx.String("asset"))
+		switch stringAsset {
+		case "btc", "bitcoin":
+			asset = crpc.Asset_BTC
+		case "bch", "bitcoincash":
+			asset = crpc.Asset_BCH
+		case "ltc", "litecoin":
+			asset = crpc.Asset_LTC
+		case "eth", "ethereum":
+			asset = crpc.Asset_ETH
+		case "dash":
+			asset = crpc.Asset_DASH
+		default:
+			return errors.Errorf("invalid asset %v, supported assets"+
+				"are: 'btc', 'bch', 'dash', 'eth', 'ltc'", stringAsset)
+		}
+	default:
+		return errors.Errorf("asset argument missing")
+	}
+
+	if ctx.IsSet("amount") {
+		amount = ctx.String("amount")
+	}
+
+	ctxb := context.Background()
+	resp, err := client.EstimateFee(ctxb, &crpc.EstimateFeeRequest{
+		Asset:  asset,
+		Media:  media,
+		Amount: amount,
+	})
+	if err != nil {
+		return err
+	}
+
+	printRespJSON(resp)
+	return nil
+}
+
 //var sendCoinsCommand = cli.Command{
 //	Name:      "sendcoins",
 //	Category:  "On-chain",

@@ -67,6 +67,7 @@ func main() {
 		createReceiptCommand,
 		validateReceiptCommand,
 		balanceCommand,
+		estimateFeeCommand,
 	}
 
 	if err := app.Run(os.Args); err != nil {
