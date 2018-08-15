@@ -29,6 +29,23 @@ const (
 	ANOneTry AddNodeSubCmd = "onetry"
 )
 
+// EstimateMode encodes the possible estimation modes of estimatesmartfee
+type EstimateMode string
+
+const (
+	// UnsetEstimateMode identifies the UNSET estimation strategy used by
+	// estimatesmartfee
+	UnsetEstimateMode EstimateMode = "UNSET"
+
+	// ConservativeEstimateMode identifies the CONSERVATIVE estimation strategy
+	// used by estimatesmartfee
+	ConservativeEstimateMode EstimateMode = "CONSERVATIVE"
+
+	// EconomicalEstimateMode identifies the ECONOMICAL estimation strategy
+	// used by estimatesmartfee
+	EconomicalEstimateMode EstimateMode = "ECONOMICAL"
+)
+
 // AddNodeCmd defines the addnode JSON-RPC command.
 type AddNodeCmd struct {
 	Addr   string
@@ -95,6 +112,21 @@ type DecodeScriptCmd struct {
 func NewDecodeScriptCmd(hexScript string) *DecodeScriptCmd {
 	return &DecodeScriptCmd{
 		HexScript: hexScript,
+	}
+}
+
+// EstimateSmartFeeCmd defines the estimatesmartfee JSON-RPC command.
+type EstimateSmartFeeCmd struct {
+	ConfTarget   uint32       `json:"conf_target"`
+	EstimateMode EstimateMode `json:"estimate_mode,omitempty"`
+}
+
+// NewEstimateSmartFeeCmd returns a new instance which can be used to issue a
+// estimatesmartfee JSON-RPC command.
+func NewEstimateSmartFeeCmd(confTarget uint32, estimateMode EstimateMode) *EstimateSmartFeeCmd {
+	return &EstimateSmartFeeCmd{
+		ConfTarget:   confTarget,
+		EstimateMode: estimateMode,
 	}
 }
 
@@ -748,6 +780,7 @@ func init() {
 	MustRegisterCmd("createrawtransaction", (*CreateRawTransactionCmd)(nil), flags)
 	MustRegisterCmd("decoderawtransaction", (*DecodeRawTransactionCmd)(nil), flags)
 	MustRegisterCmd("decodescript", (*DecodeScriptCmd)(nil), flags)
+	MustRegisterCmd("estimatesmartfee", (*EstimateSmartFeeCmd)(nil), flags)
 	MustRegisterCmd("getaddednodeinfo", (*GetAddedNodeInfoCmd)(nil), flags)
 	MustRegisterCmd("getbestblockhash", (*GetBestBlockHashCmd)(nil), flags)
 	MustRegisterCmd("getblock", (*GetBlockCmd)(nil), flags)
