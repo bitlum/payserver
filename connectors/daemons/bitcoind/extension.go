@@ -3,7 +3,7 @@ package bitcoind
 import (
 	"encoding/json"
 
-	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
+	"github.com/btcsuite/btcd/btcjson"
 	"github.com/bitlum/connector/connectors/daemons/bitcoind/rpcclient"
 )
 

@@ -959,3 +959,52 @@ func (c *Connector) ValidateAddress(address string) error {
 
 	return nil
 }
+
+// EstimateFee estimate fee for the transaction with the given sending
+// amount.
+//
+// NOTE: Fee depends on amount because of the number amount of inputs
+// which has to be used to construct the transaction.
+func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodValidate, c.cfg.Metrics)
+	defer m.Finish()
+
+	var feeRate decimal.Decimal
+
+	switch strings.ToLower(string(c.cfg.Asset)) {
+	case "bch":
+		// Bitcoin Cash removed estimatesmartfee in 17.2 version of their client,
+		// for that reason we need to have different behaviour for Bitcoin Cash
+		// asset, and use original estimatefee method.
+		res, err := c.client.EstimateFee(1)
+		if err != nil {
+			return decimal.Zero, err
+		}
+
+		feeRate = decimal.NewFromFloat(**res)
+		if feeRate.LessThanOrEqual(decimal.Zero) {
+			return decimal.Zero, errors.New("not enough data to make an estimation")
+		}
+
+	default:
+		res, err := c.client.EstimateSmartFeeWithMode(1,
+			btcjson.ConservativeEstimateMode)
+		if err != nil {
+			return decimal.Zero, err
+		}
+
+		if res.Errors != nil {
+			return decimal.Zero, errors.New((*res.Errors)[0])
+		}
+
+		feeRate = decimal.NewFromFloat(*res.FeeRate)
+	}
+
+	// Estimate fee for the median transaction size of 225 bytes.
+	// TODO(andrew.shvv) Use amount to construct actual transaction and
+	// calculate its size.
+	size := decimal.New(225, 0)
+	satoshiFee := feeRate.Mul(size)
+	return satoshiFee.Div(satoshiPerBitcoin), nil
+}

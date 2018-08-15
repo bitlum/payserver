@@ -97,6 +97,10 @@ type BlockchainConnector interface {
 
 	// ValidateAddress takes the blockchain address and ensure its valid.
 	ValidateAddress(address string) error
+
+	// EstimateFee estimate fee for the transaction with the given sending
+	// amount.
+	EstimateFee(amount string) (decimal.Decimal, error)
 }
 
 // LightningConnector is an interface which describes the service
