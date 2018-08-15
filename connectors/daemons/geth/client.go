@@ -1035,6 +1035,28 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 }
 
 // ValidateAddress validates given blockchain address.
+//
+// NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateAddress(address string) error {
 	return ethereum.ValidateAddress(address)
+}
+
+// EstimateFee estimate fee for the transaction with the given sending
+// amount.
+//
+// NOTE: Part of the connectors.Connector interface.
+func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
+	// Fetch suggested by the daemon gas price.
+	gp, err := c.client.EthGasPrice()
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	gasPrice := big.NewInt(0)
+	gasPrice, _ = gasPrice.SetString(gp, 0)
+
+	gas := big.NewInt(21000)
+	txFee := new(big.Int).Mul(gas, gasPrice)
+
+	return decimal.NewFromBigInt(txFee, 0).Div(weiInEth), nil
 }
