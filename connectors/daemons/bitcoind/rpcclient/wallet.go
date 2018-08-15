@@ -442,6 +442,39 @@ func (c *Client) SetTxFee(fee btcutil.Amount) error {
 	return c.SetTxFeeAsync(fee).Receive()
 }
 
+// FutureEstimateFeeResult is a promise to deliver the result of a
+// EstimateFeeAsync RPC invocation (or an applicable error).
+type FutureEstimateFeeResult chan *Response
+
+// Receive waits for the response promised by the future and returns the fee
+// estimation info result provided by the server.
+func (r FutureEstimateFeeResult) Receive() (*btcjson.EstimateFeeResult, error) {
+	res, err := ReceiveFuture(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var estimateFee btcjson.EstimateFeeResult
+	if err := json.Unmarshal(res, &estimateFee); err != nil {
+		return nil, err
+	}
+	return &estimateFee, nil
+}
+
+// EstimateFeeAsync returns an instance of a type that can be used to get
+// the result of the RPC at some future time by invoking the Receive function on
+// the returned instance.
+func (c *Client) EstimateFeeAsync(confTarget int64) FutureEstimateFeeResult {
+	cmd := btcjson.NewEstimateFeeCmd(confTarget)
+	return c.sendCmd(cmd)
+}
+
+// EstimateFee estimates the approximate fee per kilobyte needed for a
+// transaction.
+func (c *Client) EstimateFee(confTarget int64) (*btcjson.EstimateFeeResult, error) {
+	return c.EstimateFeeAsync(confTarget).Receive()
+}
+
 // FutureSendToAddressResult is a future promise to deliver the result of a
 // SendToAddressAsync RPC invocation (or an applicable error).
 type FutureSendToAddressResult chan *Response

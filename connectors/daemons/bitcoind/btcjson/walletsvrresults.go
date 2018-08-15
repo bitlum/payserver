@@ -56,6 +56,9 @@ type InfoWalletResult struct {
 	Errors          string  `json:"errors"`
 }
 
+// EstimateFeeResult models the data returned from the fee command.
+type EstimateFeeResult *float64
+
 // ListTransactionsResult models the data from the listtransactions command.
 type ListTransactionsResult struct {
 	Abandoned         bool     `json:"abandoned"`
