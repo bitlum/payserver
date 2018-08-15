@@ -131,14 +131,14 @@ message EstimateFeeRequest {
 
     //
     // Amount is number of money which should be given to the another entity.
-    int64 amount = 3;
+    string amount = 3;
 }
 
 message EstimateFeeResponse {
     //
     // MediaFee is the fee which is taken by the blockchain or lightning
     // network in order to propagate the payment.
-    int64 media_fee = 1;
+    string media_fee = 1;
 }
 
 message SendPaymentRequest {
@@ -225,7 +225,7 @@ message Payment {
     //
     // MediaFee is the fee which is taken by the blockchain or lightning
     // network in order to propagate the payment.
-    int64 media_fee = 8;
+    string media_fee = 8;
 }
 
 // Asset is the list of a trading assets which are available in the exchange
