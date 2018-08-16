@@ -4,6 +4,7 @@ import (
 	"time"
 	"runtime/debug"
 	"strings"
+	"github.com/bitlum/connector/metrics"
 )
 
 // Metric is an enhancement of Metric backend, which is more suited for this
@@ -56,8 +57,8 @@ func NewMetric(daemon, asset, request string, backend MetricsBackend) Metric {
 // Note: we use not pointer type receiver so any changes within method
 // do not change original struct fields. Each call creates new `metricsBackend`
 // with copied fields.
-func (m Metric) AddError(severity string) {
-	m.backend.AddError(m.daemon, m.asset, m.requestName, severity)
+func (m Metric) AddError(severity metrics.Severity) {
+	m.backend.AddError(m.daemon, m.asset, m.requestName, string(severity))
 }
 
 // AddPanic adds panic metric
