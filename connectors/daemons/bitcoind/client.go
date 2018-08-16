@@ -232,7 +232,7 @@ func (c *Connector) Start() error {
 	c.log.Info("Creating RPC client...")
 	client, err := rpcclient.New(cfg, nil)
 	if err != nil {
-		m.AddError(errToSeverity(ErrCreateRPCClient))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to create RPC client: %v", err)
 	}
 	c.client = &ExtendedRPCClient{
@@ -243,14 +243,14 @@ func (c *Connector) Start() error {
 	if c.cfg.Asset == core.AssetDASH {
 		resp, err := c.client.GetDashBlockChainInfo()
 		if err != nil {
-			m.AddError(errToSeverity(ErrGetBlockchainInfo))
+			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to get type of network: %v", err)
 		}
 		chain = resp.Chain
 	} else {
 		resp, err := c.client.GetBlockChainInfo()
 		if err != nil {
-			m.AddError(errToSeverity(ErrGetBlockchainInfo))
+			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to get type of network: %v", err)
 		}
 		chain = resp.Chain
@@ -265,7 +265,7 @@ func (c *Connector) Start() error {
 
 	c.netParams, err = getParams(string(c.cfg.Asset), chain)
 	if err != nil {
-		m.AddError(errToSeverity(ErrGetNetParams))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("failed to get net params: %v", err)
 	}
 
@@ -274,7 +274,7 @@ func (c *Connector) Start() error {
 
 	database, err := db.Open(c.cfg.DataDir, strings.ToLower(string(c.cfg.Asset)))
 	if err != nil {
-		m.AddError(errToSeverity(ErrOpenDatabase))
+		m.AddError(metrics.HighSeverity)
 		return err
 	}
 	c.db = database
@@ -284,13 +284,13 @@ func (c *Connector) Start() error {
 	if c.cfg.LastSyncedBlockHash != "" {
 		c.lastSyncedBlockHash, err = chainhash.NewHashFromStr(c.cfg.LastSyncedBlockHash)
 		if err != nil {
-			m.AddError(errToSeverity(ErrInitLastSyncedBlock))
+			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to decode hash: %v", err)
 		}
 	} else {
 		c.lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
 		if err != nil {
-			m.AddError(errToSeverity(ErrInitLastSyncedBlock))
+			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to fetch last block synced "+
 				"hash: %v", err)
 		}
@@ -300,7 +300,7 @@ func (c *Connector) Start() error {
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
-		m.AddError(errToSeverity(ErrGetDefaultAddress))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to fetch default address: %v", err)
 	}
 	c.log.Infof("Default address %v", defaultAddress)
@@ -319,7 +319,7 @@ func (c *Connector) Start() error {
 			select {
 			case <-time.After(drainDelay):
 				if err := c.drainTransactions(); err != nil {
-					m.AddError(errToSeverity(ErrDrainTransactions))
+					m.AddError(metrics.MiddleSeverity)
 					c.log.Errorf("unable to drain old applied transactions"+
 						": %v", err)
 				}
@@ -345,7 +345,7 @@ func (c *Connector) Start() error {
 		for {
 
 			if err := c.syncUnspent(); err != nil {
-				m.AddError(errToSeverity(ErrSyncUnspent))
+				m.AddError(metrics.MiddleSeverity)
 				c.log.Errorf("unable to main sync unspent: %v", err)
 			}
 
@@ -389,7 +389,7 @@ func (c *Connector) AccountAddress(account string) (string, error) {
 
 	addresses, err := c.client.GetAddressesByAccount(account)
 	if err != nil {
-		m.AddError(errToSeverity(ErrGetAddress))
+		m.AddError(metrics.MiddleSeverity)
 		return "", err
 	}
 
@@ -411,7 +411,7 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 
 	address, err := c.client.GetNewAddress(account)
 	if err != nil {
-		m.AddError(errToSeverity(ErrCreateAddress))
+		m.AddError(metrics.HighSeverity)
 		return "", err
 	}
 
@@ -447,43 +447,43 @@ func (c *Connector) GenerateTransaction(address string, amount string) (connecto
 
 	err := validateAddress(string(c.cfg.Asset), address, c.netParams.Name)
 	if err != nil {
-		m.AddError(errToSeverity(ErrValidateAddress))
+		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("invalid address: %v", err)
 	}
 
 	decodedAddress, err := btcutil.DecodeAddress(address, c.netParams)
 	if err != nil {
-		m.AddError(errToSeverity(ErrDecodeAddress))
+		m.AddError(metrics.LowSeverity)
 
 		return nil, errors.Errorf("unable to decode address: %v", err)
 	}
 
 	amt, err := decimal.NewFromString(amount)
 	if err != nil {
-		m.AddError(errToSeverity(ErrDecodeAmount))
+		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
 	tx, _, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
 	if err != nil {
-		m.AddError(errToSeverity(ErrCraftTx))
+		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
 	}
 
 	signedTx, isSigned, err := c.client.SignRawTransaction(tx)
 	if err != nil {
-		m.AddError(errToSeverity(ErrSignTx))
+		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to sign generated transaction: %v", err)
 	}
 
 	if !isSigned {
-		m.AddError(errToSeverity(ErrSignTx))
+		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to sign all generated transaction inputs: %v", err)
 	}
 
 	var rawTx bytes.Buffer
 	if err := signedTx.Serialize(&rawTx); err != nil {
-		m.AddError(errToSeverity(ErrSerialiseTx))
+		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable serialize signed tx: %v", err)
 	}
 
@@ -505,13 +505,13 @@ func (c *Connector) SendTransaction(rawTx []byte) error {
 	r := bytes.NewBuffer(rawTx)
 
 	if err := wireTx.Deserialize(r); err != nil {
-		m.AddError(errToSeverity(ErrDeserialiseTx))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to deserialize raw tx: %v", err)
 	}
 
 	_, err := c.client.SendRawTransaction(wireTx, true)
 	if err != nil {
-		m.AddError(errToSeverity(ErrSendTx))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to send transaction: %v", err)
 	}
 
@@ -918,7 +918,7 @@ func (c *Connector) sync() error {
 	defer m.Finish()
 
 	if err := c.proceedNextBlock(); err != nil {
-		m.AddError(errToSeverity(ErrProceedNextBlock))
+		m.AddError(metrics.MiddleSeverity)
 		return errors.Errorf("unable to process blocks: %v", err)
 
 	}
@@ -926,13 +926,13 @@ func (c *Connector) sync() error {
 	// As far as pending transaction may occur at any time,
 	// run it every cycle.
 	if err := c.syncUnconfirmed(); err != nil {
-		m.AddError(errToSeverity(ErrSync))
+		m.AddError(metrics.MiddleSeverity)
 		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
 	}
 
 	balance, err := c.ConfirmedBalance("all")
 	if err != nil {
-		m.AddError(errToSeverity(ErrSync))
+		m.AddError(metrics.MiddleSeverity)
 		return errors.Errorf("unable to get available funds: %v", err)
 	}
 
@@ -953,7 +953,7 @@ func (c *Connector) ValidateAddress(address string) error {
 
 	err := validateAddress(string(c.cfg.Asset), address, c.netParams.Name)
 	if err != nil {
-		m.AddError(errToSeverity(ErrValidateAddress))
+		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("invalid address: %v", err)
 	}
 
