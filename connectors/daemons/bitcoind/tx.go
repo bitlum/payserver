@@ -11,7 +11,6 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
-	"github.com/bitlum/connector/connectors"
 )
 
 // ErrInsufficientFunds is a type matching the error interface which is
@@ -27,21 +26,6 @@ func (e *ErrInsufficientFunds) Error() string {
 		" need %v only have %v  available", printAmount(e.amountNeeded),
 		printAmount(e.amountAvailable))
 }
-
-type GeneratedTransaction struct {
-	rawTx []byte
-	txID  string
-}
-
-func (t *GeneratedTransaction) ID() string {
-	return t.txID
-}
-
-func (t *GeneratedTransaction) Bytes() []byte {
-	return t.rawTx
-}
-
-var _ connectors.GeneratedTransaction = (*GeneratedTransaction)(nil)
 
 // selectInputs selects a slice of inputs necessary to meet the specified
 // selection amount. If input selection is unable to succeed to to insufficient
@@ -70,18 +54,21 @@ func selectInputs(amt btcutil.Amount,
 	return 0, nil, &ErrInsufficientFunds{amt, satSelected}
 }
 
-// syncUnspent...
+// syncUnspent populates local map of confirmed from our POV unspent outputs
+// so that later we could construct transaction in a fast manner.
+// Otherwise construction of transaction might take couple of seconds.
 func (c *Connector) syncUnspent() error {
 	c.unspentSyncMtx.Lock()
 	defer c.unspentSyncMtx.Unlock()
 
 	// Find all unlocked unspent outputs with greater than minimum confirmation.
-	var err error
 	minConf := int(c.cfg.MinConfirmations)
 	maxConf := int(math.MaxInt32)
+
+	var err error
 	unspent, err := c.client.ListUnspentMinMax(minConf, maxConf)
 	if err != nil {
-		return errors.Errorf("unable to list unspent: %v")
+		return errors.Errorf("unable to list unspent: %v", err)
 	}
 
 	var amount decimal.Decimal
@@ -92,7 +79,8 @@ func (c *Connector) syncUnspent() error {
 		amount = amount.Add(a)
 	}
 
-	c.log.Debugf("Sync %v unspent inputs to craft transaction", len(unspent))
+	c.log.Debugf("Sync %v unspent inputs, with overall %v %v amount",
+		len(unspent), amount.String(), c.cfg.Asset)
 
 	return nil
 }
@@ -112,6 +100,9 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 
 	c.log.Debugf("Performing coin selection using %v sat/weight as fee "+
 		"rate", feeRatePerWeight)
+
+	// TODO(andrew.shvv) what if send two consequent requests? The
+	// second one will be using the same outputs and it will lead to issue.
 
 	// First of all unlock all unspent outputs, to exclude the situation where
 	// we accidentally locked inputs and server crashed or just forget to
@@ -179,7 +170,7 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 	if changeAmt != 0 {
 		// Create loopback output with remaining amount which point out to the
 		// default account of the wallet.
-		changeAddr, err := c.client.GetNewAddress("")
+		changeAddr, err := c.client.GetNewAddress(defaultAccount)
 		if err != nil {
 			return nil, 0, err
 		}
