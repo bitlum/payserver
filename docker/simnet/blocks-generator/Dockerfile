@@ -19,7 +19,7 @@ RUN curl https://download.bitcoinabc.org/$BITCOIN_CASH_VERSION/linux/bitcoin-abc
 | tar xz -C /bitcoin-cash --wildcards --strip 2 \
 */bin/bitcoin-cli
 
-RUN curl -L https://github.com/dashpay/dash/releases/download/v$DASH_VERSION/dashcore-${DASH_VERSION}-linux64.tar.gz \
+RUN curl -L https://github.com/dashpay/dash/releases/download/v$DASH_VERSION/dashcore-${DASH_VERSION}-x86_64-linux-gnu.tar.gz \
 | tar xz --wildcards --strip 2 \
 */bin/dash-cli
 
