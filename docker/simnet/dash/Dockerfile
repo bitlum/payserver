@@ -7,7 +7,7 @@ ca-certificates \
 curl \
 && rm -rf /var/lib/apt/lists/*
 
-RUN curl -L https://github.com/dashpay/dash/releases/download/v$DASH_VERSION/dashcore-${DASH_VERSION}-linux64.tar.gz \
+RUN curl -L https://github.com/dashpay/dash/releases/download/v$DASH_VERSION/dashcore-${DASH_VERSION}-x86_64-linux-gnu.tar.gz \
 | tar xz --wildcards --strip 2 \
 */bin/dashd \
 */bin/dash-cli
