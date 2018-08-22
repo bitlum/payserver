@@ -65,7 +65,6 @@ services:
       args:
         - CONNECTOR_REVISION
     environment:
-      - EXCHANGE_DISABLED
       - BITCOIN_RPC_USER
       - BITCOIN_RPC_PASSWORD
       - BITCOIN_CASH_RPC_USER
