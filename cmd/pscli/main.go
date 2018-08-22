@@ -14,16 +14,8 @@ const (
 	defaultRPCHostPort = "localhost:" + defaultRPCPort
 )
 
-var (
-	// Commit stores the current commit hash of this build. This should be
-	// set using -ldflags during compilation.
-	Commit string
-
-	defaultLndDir = btcutil.AppDataDir("payserver", false)
-)
-
 func fatal(err error) {
-	fmt.Fprintf(os.Stderr, "[lncli] %v\n", err)
+	fmt.Fprintf(os.Stderr, "[pscli] %v\n", err)
 	os.Exit(1)
 }
 
