@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/bitlum/connector/crpc"
-	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/connectors/daemons/lnd"
 	"github.com/bitlum/connector/metrics"
 	"github.com/btcsuite/btclog"
@@ -61,7 +60,6 @@ func init() {
 	metrics.UseLogger(metricsLog)
 	lnd.UseLogger(lndLog)
 	crpc.UseLogger(rpcLog)
-	estimator.UseLogger(estimatorLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
