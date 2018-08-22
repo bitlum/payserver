@@ -31,11 +31,11 @@ func newErrNetworkNotSupported(network, operation string) Error {
 	}
 }
 
-func newErrAssetNotSupported(asset string) Error {
+func newErrAssetNotSupported(asset, media string) Error {
 	return Error{
 		code: ErrAssetNotSupported,
-		errMsg: fmt.Sprintf("%v: asset(%v) is not supported",
-			ErrAssetNotSupported, asset),
+		errMsg: fmt.Sprintf("%v: asset(%v) is not supported for media(%v)",
+			ErrAssetNotSupported, asset, media),
 	}
 }
 
