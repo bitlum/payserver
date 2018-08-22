@@ -10,13 +10,13 @@ type ExtendedEthRpc struct {
 	*ethrpc.EthRPC
 }
 
-func (c *ExtendedEthRpc) PersonalNewAccount(pass string) (string, error) {
+func (c *ExtendedEthRpc) PersonalNewAddress(pass string) (string, error) {
 	var res string
 	err := c.call("personal_newAccount", &res, pass)
 	return res, err
 }
 
-func (c *ExtendedEthRpc) PersonalUnlockAccount(address,
+func (c *ExtendedEthRpc) PersonalUnlockAddress(address,
 	pass string, delay int) (bool, error) {
 	var res bool
 	err := c.call("personal_unlockAccount", &res, address, pass, delay)

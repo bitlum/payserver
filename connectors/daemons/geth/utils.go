@@ -3,24 +3,25 @@ package geth
 import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/bitlum/connector/connectors"
+	"github.com/go-errors/errors"
 )
 
 // pendingMap stores the information about pending transactions corresponding
 // to accounts.
-type pendingMap map[string]map[string]*connectors.BlockchainPendingPayment
+type pendingMap map[string]map[string]*connectors.Payment
 
-func (m pendingMap) add(tx *connectors.BlockchainPendingPayment) {
+func (m pendingMap) add(tx *connectors.Payment) {
 	if _, ok := m[tx.Account]; !ok {
-		m[tx.Account] = make(map[string]*connectors.BlockchainPendingPayment)
+		m[tx.Account] = make(map[string]*connectors.Payment)
 	}
 
-	m[tx.Account][tx.ID] = tx
+	m[tx.Account][tx.PaymentID] = tx
 }
 
 // merge merges two pending maps and invokes handler with new entry populated
 // as an argument.
 func (m pendingMap) merge(m2 pendingMap,
-	newEntryHandler func(tx *connectors.BlockchainPendingPayment)) {
+	newEntryHandler func(tx *connectors.Payment)) {
 	for account, txs := range m2 {
 		// Add all txs if there is no transaction for this
 		// account and continue.
@@ -71,17 +72,18 @@ func convertVersion(actualNet string) string {
 	return net
 }
 
-type GeneratedTransaction struct {
-	rawTx string
-	hash  string
+func checkAlias(accountAlias string) error {
+	switch accountAlias {
+	case "all", "default", "*":
+		return errors.Errorf("name of account '%v' is reserved for internal"+
+			" usage", accountAlias)
+	default:
+		return nil
+	}
 }
 
-func (t *GeneratedTransaction) ID() string {
-	return t.hash
+// generatePaymentID generates unique string based on the tx id and receive
+// address, which are together
+func generatePaymentID(txID, receiveAddress string, direction connectors.PaymentDirection) string {
+	return connectors.GeneratePaymentID(txID, receiveAddress, string(direction))
 }
-
-func (t *GeneratedTransaction) Bytes() []byte {
-	return []byte(t.rawTx)
-}
-
-var _ connectors.GeneratedTransaction = (*GeneratedTransaction)(nil)
