@@ -17,7 +17,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcutil"
-	"github.com/bitlum/connector/db"
 	"github.com/bitlum/connector/metrics"
 	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/go-errors/errors"
@@ -30,6 +29,7 @@ import (
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/connectors/assets/bitcoin"
 	"github.com/lightningnetwork/lnd/zpay32"
+	"github.com/lightningnetwork/lnd/lnwire"
 )
 
 const (
@@ -77,6 +77,10 @@ type Config struct {
 	// connector. In case of prometheus client they stored locally till
 	// they will be collected by prometheus server.
 	Metrics crypto.MetricsBackend
+
+	// PaymentStorage is an external storage for payments, it is used by
+	// connector to save payment as well as update its state.
+	PaymentStore connectors.PaymentsStore
 }
 
 func (c *Config) validate() error {
@@ -108,6 +112,10 @@ func (c *Config) validate() error {
 		return errors.Errorf("metricsBackend should be specified")
 	}
 
+	if c.PaymentStore == nil {
+		return errors.New("payment store should be specified")
+	}
+
 	return nil
 }
 
@@ -119,7 +127,6 @@ type Connector struct {
 
 	cfg    *Config
 	client lnrpc.LightningClient
-	db     *db.DB
 
 	notifications chan *connectors.Payment
 
@@ -155,7 +162,7 @@ func (c *Connector) Start() error {
 
 	creds, err := credentials.NewClientTLSFromFile(c.cfg.TlsCertPath, "")
 	if err != nil {
-		m.AddError(errToSeverity(ErrTLSRead))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to load credentials: %v", err)
 	}
 
@@ -183,7 +190,7 @@ func (c *Connector) Start() error {
 
 	conn, err := grpc.Dial(target, opts...)
 	if err != nil {
-		m.AddError(errToSeverity(ErrGRPCConnect))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to to dial grpc: %v", err)
 	}
 	c.conn = conn
@@ -192,7 +199,7 @@ func (c *Connector) Start() error {
 	reqInfo := &lnrpc.GetInfoRequest{}
 	respInfo, err := c.client.GetInfo(context.Background(), reqInfo)
 	if err != nil {
-		m.AddError(errToSeverity(ErrGetInfo))
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable get lnd node info: %v", err)
 	}
 
@@ -218,9 +225,9 @@ func (c *Connector) Start() error {
 		defer c.wg.Done()
 
 		for {
-			balance, err := c.FundsAvailable()
+			balance, err := c.ConfirmedBalance("")
 			if err != nil {
-				m.AddError(string(metrics.MiddleSeverity))
+				m.AddError(metrics.MiddleSeverity)
 				log.Errorf("unable to get available funds: %v", err)
 			}
 
@@ -253,7 +260,7 @@ func (c *Connector) Start() error {
 				reqSubsc := &lnrpc.InvoiceSubscription{}
 				invoiceSubscription, err = c.client.SubscribeInvoices(context.Background(), reqSubsc)
 				if err != nil {
-					m.AddError(errToSeverity(ErrResubscribeInvoiceStream))
+					m.AddError(metrics.MiddleSeverity)
 					log.Errorf("unable to re-subscribe on invoice"+
 						" updates: %v", err)
 
@@ -269,41 +276,42 @@ func (c *Connector) Start() error {
 
 			invoiceUpdate, err := invoiceSubscription.Recv()
 			if err != nil {
-				m.AddError(errToSeverity(ErrReadInvoiceStream))
+				m.AddError(metrics.HighSeverity)
 				log.Errorf("unable to read from invoice stream: %v", err)
 				invoiceSubscription = nil
 				continue
 			}
 
 			if !invoiceUpdate.Settled {
-				log.Info("Received non-settled invoice update, "+
-					"invoice(%v)", invoiceUpdate.PaymentRequest)
+				log.Infof("Received invoice creation notification, "+
+					"invoice(%v), amount(%v), receipt(%v), memo(%v)",
+					invoiceUpdate.PaymentRequest,
+					invoiceUpdate.Value, string(invoiceUpdate.Receipt),
+					invoiceUpdate.Memo)
 				continue
 			}
 
-			amount := btcutil.Amount(invoiceUpdate.Value)
+			paymentHash := hex.EncodeToString(invoiceUpdate.RHash)
+			invoice := invoiceUpdate.PaymentRequest
+			amount := lnwire.MilliSatoshi(invoiceUpdate.AmtPaid).ToBTC()
+
 			payment := &connectors.Payment{
-				ID:      invoiceUpdate.PaymentRequest,
-				Amount:  decimal.NewFromFloat(amount.ToBTC()),
-				Account: invoiceUpdate.Memo,
-				Address: c.nodeAddr,
-				Type:    connectors.Lightning,
+				PaymentID: generatePaymentID(invoice, paymentHash),
+				UpdatedAt: time.Now().Unix(),
+				Status:    connectors.Completed,
+				Direction: connectors.Incoming,
+				Account:   string(invoiceUpdate.Receipt),
+				Receipt:   invoice,
+				Asset:     connectors.BTC,
+				Media:     connectors.Lightning,
+				MediaID:   paymentHash,
+				Amount:    decimal.NewFromFloat(amount),
+				MediaFee:  decimal.Zero,
 			}
 
-		repeat:
-			for {
-				select {
-				case <-c.quit:
-					log.Info("Invoice receiver goroutine shutdown")
-					return
-				case c.notifications <- payment:
-					break repeat
-				case <-time.After(time.Second):
-					// TODO(andrew.shvv) add pending queue
-					m.AddError(errToSeverity(ErrSendPaymentNotification))
-					log.Errorf("unable to send notification for payment"+
-						"(%v)", payment.Address)
-				}
+			if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+				log.Errorf("unable to add payment to storage: %v",
+					payment.PaymentID)
 			}
 		}
 	}()
@@ -333,24 +341,26 @@ func (c *Connector) Stop(reason string) error {
 // CreateInvoice is used to create lightning network invoice.
 //
 // NOTE: Part of the connectors.LightningConnector interface.
-func (c *Connector) CreateInvoice(account string, amount string) (string, error) {
+func (c *Connector) CreateInvoice(account, amount, description string) (string,
+	error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodCreateInvoice, c.cfg.Metrics)
 	defer m.Finish()
 
 	satoshis, err := btcToSatoshi(amount)
 	if err != nil {
-		m.AddError(errToSeverity(ErrConvertAmount))
+		m.AddError(metrics.LowSeverity)
 		return "", err
 	}
 
 	invoice := &lnrpc.Invoice{
-		Memo:  account,
-		Value: satoshis,
+		Receipt: []byte(account),
+		Value:   satoshis,
+		Memo:    description,
 	}
 
 	invoiceResp, err := c.client.AddInvoice(context.Background(), invoice)
 	if err != nil {
-		m.AddError(errToSeverity(ErrAddInvoice))
+		m.AddError(metrics.HighSeverity)
 		return "", err
 	}
 
@@ -361,26 +371,76 @@ func (c *Connector) CreateInvoice(account string, amount string) (string, error)
 // payment system.
 //
 // NOTE: Part of the connectors.LightningConnector interface.
-func (c *Connector) SendTo(invoice string) error {
+func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
+	error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodSendTo, c.cfg.Metrics)
 	defer m.Finish()
 
-	req := &lnrpc.SendRequest{
-		PaymentRequest: invoice,
+	// Check that invoice is valid, and that amount which we are sending is
+	// corresponding to what we expect.
+	netParams, err := bitcoin.GetParams(c.cfg.Net)
+	if err != nil {
+		return nil, err
 	}
 
+	amount, err := btcToSatoshi(amountStr)
+	if err != nil {
+		return nil, err
+	}
+
+	invoice, err := zpay32.Decode(invoiceStr, netParams)
+	if err != nil {
+		return nil, err
+	}
+
+	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+		return nil, errors.Errorf("wrong amount")
+	}
+
+	// Send payment to the recipient and wait for it to be received.
+	req := &lnrpc.SendRequest{
+		PaymentRequest: invoiceStr,
+	}
+
+	// TODO(andrew.shvv) Use async version and return waiting payment after
+	// 3-5 seconds.
 	resp, err := c.client.SendPaymentSync(context.Background(), req)
 	if err != nil {
-		m.AddError(errToSeverity(ErrSendPayment))
-		return errors.Errorf("unable to send payment: %v", err)
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable to send payment: %v", err)
 	}
 
 	if resp.PaymentError != "" {
-		m.AddError(errToSeverity(ErrSendPayment))
-		return errors.Errorf("unable to send payment: %v", resp.PaymentError)
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable to send payment: %v", resp.PaymentError)
 	}
 
-	return nil
+	paymentAmt, err := decimal.NewFromString(amountStr)
+	if err != nil {
+		return nil, errors.Errorf("unable to parse amount(%v): %v",
+			amount, err)
+	}
+
+	paymentHash := hex.EncodeToString(invoice.PaymentHash[:])
+	payment := &connectors.Payment{
+		PaymentID: generatePaymentID(invoiceStr, paymentHash),
+		UpdatedAt: time.Now().Unix(),
+		Status:    connectors.Completed,
+		Direction: connectors.Outgoing,
+		Receipt:   invoiceStr,
+		Asset:     connectors.BTC,
+		Media:     connectors.Lightning,
+		Amount:    paymentAmt,
+		MediaFee:  sat2DecAmount(btcutil.Amount(resp.PaymentRoute.TotalFees)),
+		MediaID:   paymentHash,
+	}
+
+	if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable add payment in store: %v", err)
+	}
+
+	return payment, nil
 }
 
 // ReceivedPayments returns channel with transactions which are passed
@@ -401,7 +461,7 @@ func (c *Connector) Info() (*connectors.LightningInfo, error) {
 	req := &lnrpc.GetInfoRequest{}
 	info, err := c.client.GetInfo(context.Background(), req)
 	if err != nil {
-		m.AddError(errToSeverity(ErrGetInfo))
+		m.AddError(metrics.HighSeverity)
 		return nil, err
 	}
 
@@ -424,7 +484,7 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 
 	satoshis, err := btcToSatoshi(amount)
 	if err != nil {
-		m.AddError(errToSeverity(ErrConvertAmount))
+		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("unable to convert amount: %v", err)
 	}
 
@@ -432,13 +492,13 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 	// to check that it is valid.
 	pubKeyBytes, err := hex.DecodeString(pubKey)
 	if err != nil {
-		m.AddError(errToSeverity(ErrPubkey))
+		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf(
 			"unable decode identity key from string: %v", err)
 	}
 
 	if _, err := btcec.ParsePubKey(pubKeyBytes, btcec.S256()); err != nil {
-		m.AddError(errToSeverity(ErrPubkey))
+		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("unable decode identity key: %v", err)
 	}
 
@@ -450,43 +510,31 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 
 	info, err := c.client.QueryRoutes(context.Background(), req)
 	if err != nil {
-		m.AddError(errToSeverity(ErrUnableQueryRoutes))
+		m.AddError(metrics.LowSeverity)
 		return nil, err
 	}
 
 	return info.Routes, nil
 }
 
-// FundsAvailable returns number of funds available under control of
-// connector.
-//
-// NOTE: Part of the connectors.Connector interface.
-func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
-	req := &lnrpc.WalletBalanceRequest{}
-	resp, err := c.client.WalletBalance(context.Background(), req)
-	if err != nil {
-		return decimal.Zero, err
-	}
-
-	return decimal.New(resp.ConfirmedBalance, 0), nil
-}
-
 // ValidateInvoice takes the encoded lightning network invoice and ensure
 // its valid.
+//
+// NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
 	netParams, err := bitcoin.GetParams(c.cfg.Net)
 	if err != nil {
-		return err
+		return errors.Errorf("unable load network params: %v", err)
 	}
 
 	amount, err := btcToSatoshi(amountStr)
 	if err != nil {
-
+		return errors.Errorf("unable convert amount: %v", err)
 	}
 
 	invoice, err := zpay32.Decode(invoiceStr, netParams)
 	if err != nil {
-		return err
+		return errors.Errorf("unable decode invoice: %v", err)
 	}
 
 	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
@@ -498,6 +546,8 @@ func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
 
 // ConfirmedBalance return the amount of confirmed funds available for account.
 // TODO(andrew.shvv) Show funds locked in the channels
+//
+// NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 	req := &lnrpc.WalletBalanceRequest{}
 	resp, err := c.client.WalletBalance(context.Background(), req)
@@ -510,6 +560,8 @@ func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 
 // PendingBalance return the amount of funds waiting to be confirmed.
 // TODO(andrew.shvv) Show funds locked in the channels
+//
+// NOTE: Part of the connectors.Connector interface.
 func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 	req := &lnrpc.WalletBalanceRequest{}
 	resp, err := c.client.WalletBalance(context.Background(), req)
