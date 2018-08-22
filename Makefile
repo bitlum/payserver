@@ -135,36 +135,22 @@ simnet-purge:
 	eval `docker-machine env simnet.connector.bitlum.io` && \
 		docker stop `docker ps -q` || true
 
-	eval `docker-machine env simnet.connector.bitlum.io` && \
-		docker rm `docker ps -aq` || true
-
 	docker-machine ssh simnet.connector.bitlum.io \
 		rm -rf /connector/*
 
 testnet-build-compose:
 	@$(call print,"Activating testnet.connector.bitlum.io machine && building...")
 
-	eval `docker-machine env testnet.connector.bitlum.io-for-zigzag` && \
+	eval `docker-machine env testnet.connector.bitlum.io` && \
 		cd ./docker/testnet && \
 		EXTERNAL_IP=207.154.224.115 \
-		PRIVATE_IP=10.135.11.56 \
-		EXCHANGE_DISABLED=1 \
-		docker-compose up --build -d
-
-	eval `docker-machine env testnet.connector.bitlum.io-for-exchange` && \
-		cd ./docker/testnet && \
-		EXTERNAL_IP=159.89.29.186 \
-		PRIVATE_IP=10.135.98.234 \
-		EXCHANGE_DISABLED=0 \
+		PRIVATE_IP=0.0.0.0 \
 		docker-compose up --build -d
 
 testnet-ps:
 	@$(call print,"Activating testnet.connector.bitlum.io machine && getting ps")
 
-	eval `docker-machine env testnet.connector.bitlum.io-for-zigzag` && \
-		docker ps
-
-	eval `docker-machine env testnet.connector.bitlum.io-for-exchange` && \
+	eval `docker-machine env testnet.connector.bitlum.io` && \
 		docker ps
 
 mainnet-build-compose:
@@ -256,15 +242,9 @@ testnet-rsyslog-deploy:
 	@$(call print,"Deploying testnet rsyslog...")
 
 	docker-machine scp ./docker/testnet/rsyslog.conf \
-		testnet.connector.bitlum.io-for-zigzag:/etc/rsyslog.d/10-connector.conf
+		testnet.connector.bitlum.io:/etc/rsyslog.d/10-connector.conf
 
-	docker-machine ssh testnet.connector.bitlum.io-for-zigzag \
-		systemctl restart syslog.service
-
-	docker-machine scp ./docker/testnet/rsyslog.conf \
-			testnet.connector.bitlum.io-for-exchange:/etc/rsyslog.d/10-connector.conf
-
-	docker-machine ssh testnet.connector.bitlum.io-for-exchange \
+	docker-machine ssh testnet.connector.bitlum.io \
 		systemctl restart syslog.service
 
 testnet-logrotate-deploy:
@@ -272,11 +252,7 @@ testnet-logrotate-deploy:
 
 	docker-machine scp \
 		./docker/testnet/logrotate.conf \
-		testnet.connector.bitlum.io-for-zigzag:/etc/logrotate.d/connector
-
-	docker-machine scp \
-		./docker/testnet/logrotate.conf \
-		testnet.connector.bitlum.io-for-exchange:/etc/logrotate.d/connector
+		testnet.connector.bitlum.io:/etc/logrotate.d/connector
 
 mainnet-rsyslog-deploy:
 	@$(call print,"Deploying mainnet rsyslog...")
