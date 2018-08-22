@@ -2,56 +2,32 @@ package bitcoind
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/AndrewSamokhvalov/slice"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
 	"github.com/bitlum/connector/connectors/daemons/bitcoind/rpcclient"
-	"github.com/bitlum/connector/db"
 	"github.com/bitlum/connector/metrics/crypto"
-	core "github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/btclog"
-	"github.com/coreos/bbolt"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/metrics"
+	"github.com/AndrewSamokhvalov/go-spew/spew"
 )
 
 var (
-	// infoBucket is the bucket which holds all information which is needed
-	// for client to be informed of state of last synchronization.
-	infoBucket = []byte("info")
-
-	// txBucket is the bucket which contains the last transaction which has
-	// been arrived, so that if accidental temporary fork happened we haven't
-	// send notification twice.
-	txBucket = []byte("txs")
-
-	// lastSyncedBlockHashKey is the key which corresponds to the last block hash
-	// which was handled by the processing handler.
-	lastSyncedBlockHashKey = []byte("lastblockhash")
-
-	// txNumber is the number of transactions which we store locally in db
-	// because of the possibility of bitcoin blockchain reorganizations,
-	// in order to not apply them twice.
-	txNumber = 100
-
-	// drainDelay...
-	drainDelay = time.Hour
-
-	// allAccounts denotes all accounts in rpc response to bitcoind.
+	// allAccounts denotes that request should aggregate response for all
+	// accounts available.
 	allAccounts = "*"
 
-	// defaultAccount denotes default account of the bitcoind wallet.
+	// defaultAccount denotes default account of wallet.
 	defaultAccount = ""
 )
 
@@ -90,18 +66,15 @@ type Config struct {
 
 	// LastSyncedBlockHash is the hash of block which were proceeded last.
 	// In this field is specified than, hash will be initialized form it,
-	// rather than form database.
+	// rather than from database.
 	LastSyncedBlockHash string
-
-	// DataDir is the datadir to store bolddb and logs files.
-	DataDir string
 
 	// DaemonCfg holds the information about how to connect to the daemon
 	// which interact with the payment system network.
 	DaemonCfg *DaemonConfig
 
 	// Asset is an asset with which this connector is working.
-	Asset core.AssetType
+	Asset connectors.Asset
 
 	// FeePerUnit fee per unit, where in bitcoin and litecoin unit is weight,
 	// because of the weight, in dash it is byte.
@@ -113,6 +86,14 @@ type Config struct {
 	// Metric is an metrics backend which is used for tracking the metrics of
 	// connector.
 	Metrics crypto.MetricsBackend
+
+	// PaymentStorage is an external storage for payments, it is used by
+	// connector to save payment as well as update its state.
+	PaymentStore connectors.PaymentsStore
+
+	// StateStorage is used to keep data which is needed for connector to
+	// properly synchronise and track transactions.
+	StateStorage connectors.StateStorage
 }
 
 func (c *Config) validate() error {
@@ -121,11 +102,8 @@ func (c *Config) validate() error {
 	}
 
 	if c.MinConfirmations <= 0 {
-		return errors.New("min confirmations shouldn't be greater than zero")
-	}
-
-	if c.DataDir == "" {
-		return errors.New("data dir should be specified")
+		return errors.New("min confirmations shouldn't be less or equal " +
+			" zero")
 	}
 
 	if c.DaemonCfg == nil {
@@ -152,6 +130,10 @@ func (c *Config) validate() error {
 		return errors.New("metrics backend should be specified")
 	}
 
+	if c.PaymentStore == nil {
+		return errors.New("payment store should be specified")
+	}
+
 	return nil
 }
 
@@ -165,13 +147,11 @@ type Connector struct {
 
 	cfg    *Config
 	client *ExtendedRPCClient
-	db     *db.DB
 
 	// pending is a map of blockhain pending payments,
 	// which hasn't been confirmed from connector point of view.
-	pending map[string][]*connectors.BlockchainPendingPayment
-
-	notifications chan []*connectors.Payment
+	// TODO(andrew.shvv) Remove because now we could use storage directly
+	pending map[string][]*connectors.Payment
 
 	lastSyncedBlockHash *chainhash.Hash
 	netParams           *chaincfg.Params
@@ -179,8 +159,8 @@ type Connector struct {
 
 	coinSelectMtx sync.Mutex
 
-	// unspent is used to store btc uxto set locally,
-	// in order to craft transactions faster.
+	// unspent is used to store btc uxto set locally, in order to craft
+	// transactions faster.
 	unspent map[string]btcjson.ListUnspentResult
 
 	// unspentSyncMtx is used to lock the utxo local map during is
@@ -198,9 +178,8 @@ func NewConnector(cfg *Config) (*Connector, error) {
 	}
 
 	return &Connector{
-		cfg:           cfg,
-		notifications: make(chan []*connectors.Payment),
-		quit:          make(chan struct{}),
+		cfg:  cfg,
+		quit: make(chan struct{}),
 		log: &connectors.NamedLogger{
 			Name:   string(cfg.Asset),
 			Logger: cfg.Logger,
@@ -240,7 +219,9 @@ func (c *Connector) Start() error {
 	}
 
 	var chain string
-	if c.cfg.Asset == core.AssetDASH {
+	if c.cfg.Asset == connectors.DASH {
+		// Dash blockchain info response is different from standard bitcoin
+		// blockchain info.
 		resp, err := c.client.GetDashBlockChainInfo()
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
@@ -263,21 +244,11 @@ func (c *Connector) Start() error {
 
 	c.log.Infof("Init connector working with '%v' net", c.cfg.Net)
 
-	c.netParams, err = getParams(string(c.cfg.Asset), chain)
+	c.netParams, err = getParams(c.cfg.Asset, chain)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("failed to get net params: %v", err)
 	}
-
-	// Create or open database file to host the last state of synchronization.
-	c.log.Info("Opening BoltDB database...")
-
-	database, err := db.Open(c.cfg.DataDir, strings.ToLower(string(c.cfg.Asset)))
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return err
-	}
-	c.db = database
 
 	// Initialize cache with the last synced block hash.
 	c.log.Info("Getting last synced block hash...")
@@ -317,12 +288,6 @@ func (c *Connector) Start() error {
 		syncDelay := time.Second * time.Duration(c.cfg.SyncLoopDelay)
 		for {
 			select {
-			case <-time.After(drainDelay):
-				if err := c.drainTransactions(); err != nil {
-					m.AddError(metrics.MiddleSeverity)
-					c.log.Errorf("unable to drain old applied transactions"+
-						": %v", err)
-				}
 			case <-time.After(syncDelay):
 				if err := c.sync(); err != nil {
 					c.log.Error(err)
@@ -371,7 +336,6 @@ func (c *Connector) Stop(reason string) {
 
 	c.wg.Wait()
 
-	close(c.notifications)
 	c.log.Info("client shutdown")
 }
 
@@ -382,34 +346,34 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 // AccountAddress return the deposit address of account.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) AccountAddress(account string) (string, error) {
+func (c *Connector) AccountAddress(accountAlias string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodAccountAddress, c.cfg.Metrics)
 	defer m.Finish()
 
-	addresses, err := c.client.GetAddressesByAccount(account)
+	addresses, err := c.client.GetAddressesByAccount(aliasToAccount(accountAlias))
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
 		return "", err
 	}
 
 	if len(addresses) == 0 {
-		return "", err
+		return "", nil
 	}
-	address := addresses[0].String()
 
+	address := addresses[0].String()
 	return address, nil
 }
 
 // CreateAddress is used to create deposit address.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreateAddress(account string) (string, error) {
+func (c *Connector) CreateAddress(accountAlias string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodCreateAddress, c.cfg.Metrics)
 	defer m.Finish()
 
-	address, err := c.client.GetNewAddress(account)
+	address, err := c.client.GetNewAddress(aliasToAccount(accountAlias))
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return "", err
@@ -423,13 +387,16 @@ func (c *Connector) CreateAddress(account string) (string, error) {
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) PendingTransactions(account string) (
-	[]*connectors.BlockchainPendingPayment, error) {
+	[]*connectors.Payment, error) {
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingTransactions, c.cfg.Metrics)
 	defer m.Finish()
 
-	transactions := make([]*connectors.BlockchainPendingPayment, len(c.pending[account]))
+	// TODO(andrew.shvv) Use payment storage for getting pending transaction
+	// and remove pending map.
+
+	transactions := make([]*connectors.Payment, len(c.pending[account]))
 	for i, tx := range c.pending[account] {
 		transactions[i] = tx
 	}
@@ -437,15 +404,17 @@ func (c *Connector) PendingTransactions(account string) (
 	return transactions, nil
 }
 
-// GenerateTransaction generates raw blockchain transaction.
+// CreatePayment generates the payment, but not sends it,
+// instead returns the payment id and waits for it to be approved.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) GenerateTransaction(address string, amount string) (connectors.GeneratedTransaction, error) {
+func (c *Connector) CreatePayment(address string, amount string) (*connectors.Payment,
+	error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodGenerateTransaction, c.cfg.Metrics)
 	defer m.Finish()
 
-	err := validateAddress(string(c.cfg.Asset), address, c.netParams.Name)
+	err := validateAddress(c.cfg.Asset, address, c.netParams.Name)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("invalid address: %v", err)
@@ -464,7 +433,7 @@ func (c *Connector) GenerateTransaction(address string, amount string) (connecto
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
-	tx, _, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
+	tx, fee, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
@@ -478,7 +447,8 @@ func (c *Connector) GenerateTransaction(address string, amount string) (connecto
 
 	if !isSigned {
 		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to sign all generated transaction inputs: %v", err)
+		return nil, errors.Errorf("unable to sign all generated transaction"+
+			" inputs: %v", err)
 	}
 
 	var rawTx bytes.Buffer
@@ -487,110 +457,187 @@ func (c *Connector) GenerateTransaction(address string, amount string) (connecto
 		return nil, errors.Errorf("unable serialize signed tx: %v", err)
 	}
 
-	return &GeneratedTransaction{
-		rawTx: rawTx.Bytes(),
-		txID:  signedTx.TxHash().String(),
-	}, nil
+	txID := signedTx.TxHash().String()
+
+	payment := &connectors.Payment{
+		PaymentID: generatePaymentID(txID, address, connectors.Outgoing),
+		UpdatedAt: time.Now().Unix(),
+		Status:    connectors.Waiting,
+		Direction: connectors.Outgoing,
+		Receipt:   address,
+		Asset:     connectors.Asset(c.cfg.Asset),
+		Media:     connectors.Blockchain,
+		Amount:    amt,
+		MediaFee:  sat2DecAmount(fee),
+		MediaID:   txID,
+		Detail: &connectors.GeneratedTxDetails{
+			RawTx: rawTx.Bytes(),
+			TxID:  txID,
+		},
+	}
+
+	if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable add payment in store: %v", err)
+	}
+
+	return payment, nil
 }
 
-// SendTransaction sends the given transaction to the blockchain network.
+// SendPayment sends created previously payment to the
+// blockchain network.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) SendTransaction(rawTx []byte) error {
+func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSendTransaction, c.cfg.Metrics)
 	defer m.Finish()
 
+	payment, err := c.cfg.PaymentStore.PaymentByID(paymentID)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable find payment(%v): %v", paymentID,
+			err)
+	}
+
+	details, ok := payment.Detail.(*connectors.GeneratedTxDetails)
+	if !ok {
+		return nil, errors.Errorf("unable get details for payment(%v)",
+			paymentID)
+	}
+
 	wireTx := new(wire.MsgTx)
-	r := bytes.NewBuffer(rawTx)
+	r := bytes.NewBuffer(details.RawTx)
 
 	if err := wireTx.Deserialize(r); err != nil {
 		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to deserialize raw tx: %v", err)
+		return nil, errors.Errorf("unable to deserialize raw tx: %v", err)
 	}
 
-	_, err := c.client.SendRawTransaction(wireTx, true)
+	_, err = c.client.SendRawTransaction(wireTx, true)
+	if err != nil {
+		payment.Status = connectors.Failed
+		payment.UpdatedAt = time.Now().Unix()
+
+		err = c.cfg.PaymentStore.SavePayment(payment)
+		if err != nil {
+			m.AddError(metrics.HighSeverity)
+			c.log.Errorf("unable update payment(%v) status to fail: %v",
+				paymentID, err)
+		}
+
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable to send transaction: %v", err)
+	}
+
+	payment.Status = connectors.Pending
+	payment.UpdatedAt = time.Now().Unix()
+
+	err = c.cfg.PaymentStore.SavePayment(payment)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to send transaction: %v", err)
+		c.log.Errorf("unable update payment(%v) status to pending: %v",
+			paymentID, err)
 	}
 
-	return nil
+	return payment, nil
 }
 
 // ConfirmedBalance returns number of funds available under control of
 // connector.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
-	if strings.ToLower(account) == "default" {
-		account = defaultAccount
-	}
-
-	if strings.ToLower(account) == "all" {
-		account = allAccounts
-	}
-
+func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, error) {
+	account := aliasToAccount(accountAlias)
 	balance, err := c.client.GetBalanceMinConf(account, c.cfg.MinConfirmations)
 	if err != nil {
 		return decimal.Zero, err
 	}
+
 	return decimal.NewFromFloat(balance.ToBTC()).Round(8), nil
 }
 
 // PendingBalance return the amount of funds waiting ro be confirmed.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
+func (c *Connector) PendingBalance(accountAlias string) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
 	defer m.Finish()
 
+	// TODO(andrew.shvv) Use storage for getting pending transaction and
+	// calculation of pending balance.
+
 	var amount decimal.Decimal
-	for _, tx := range c.pending[account] {
-		amount = amount.Add(tx.Amount)
+	if accountAlias == "all" {
+		for _, pendingPayments := range c.pending {
+			for _, payment := range pendingPayments {
+				amount = amount.Add(payment.Amount)
+			}
+		}
+	} else {
+		for _, payment := range c.pending[accountAlias] {
+			amount = amount.Add(payment.Amount)
+		}
 	}
 
 	return amount.Round(8), nil
 }
 
-// ReceivedPayments returns channel with transactions which
-// passed the minimum threshold required by the bitcoin client to treat the
-// transactions as confirmed.
-//
-// NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) ReceivedPayments() <-chan []*connectors.Payment {
-	return c.notifications
-}
-
-// syncUnconfirmed initialize the in-memory map of pending transactions which
-// correspond to specific account.
+// syncUnconfirmed updates status of incoming payments, from waiting to
+// pending, as well as blockchain detail and number of transaction needed for
+// it to be confirmed.
 func (c *Connector) syncUnconfirmed() error {
+	// Return set of non-confirmed from our point of view incoming
+	// transactions.
 	txs, err := c.client.ListUnspentMinMax(0, int(c.cfg.MinConfirmations-1))
 	if err != nil {
 		return err
 	}
 
-	c.pending = make(map[string][]*connectors.BlockchainPendingPayment)
+	c.pending = make(map[string][]*connectors.Payment)
 	for _, tx := range txs {
-		c.pending[tx.Account] = append(c.pending[tx.Account],
-			&connectors.BlockchainPendingPayment{
-				Payment: connectors.Payment{
-					ID:      tx.TxID,
-					Amount:  decimal.NewFromFloat(tx.Amount),
-					Account: tx.Account,
-					Address: tx.Address,
-					Type:    connectors.Blockchain,
-				},
-				Confirmations: tx.Confirmations,
-				ConfirmationsLeft: int64(c.cfg.MinConfirmations) - tx.
-					Confirmations,
-			})
+		payment := &connectors.Payment{
+			UpdatedAt: time.Now().Unix(),
+			Status:    connectors.Pending,
+			Receipt:   tx.Address,
+			Asset:     c.cfg.Asset,
+			Account:   accountToAlias(tx.Account),
+			Media:     connectors.Blockchain,
+			Amount:    decimal.NewFromFloat(tx.Amount),
+			MediaFee:  decimal.Zero,
+			MediaID:   tx.TxID,
+			Detail: &connectors.BlockchainPendingDetails{
+				Confirmations:     tx.Confirmations,
+				ConfirmationsLeft: int64(c.cfg.MinConfirmations) - tx.Confirmations,
+			},
+		}
+
+		if tx.Account == defaultAccount {
+			payment.Direction = connectors.Internal
+			payment.MediaFee = decimal.Zero
+			payment.PaymentID = generatePaymentID(tx.TxID, tx.Address,
+				connectors.Internal)
+		} else {
+			payment.Direction = connectors.Incoming
+			payment.MediaFee = decimal.Zero
+			payment.PaymentID = generatePaymentID(tx.TxID, tx.Address,
+				connectors.Incoming)
+		}
+
+		// TODO(andrew.shvv) Remove because now we could use storage directly
+		// for pending balance and pending transaction.
+		c.pending[tx.Account] = append(c.pending[tx.Account], payment)
+
+		if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+			return errors.Errorf("unable to save payment(%v): %v",
+				payment.PaymentID, err)
+		}
 
 		c.log.Infof("Pending transaction(%v),"+
 			"confirmations left(%v), account(%v), amount(%v)", tx.TxID,
-			int64(c.cfg.MinConfirmations)-tx.Confirmations, tx.Account,
-			tx.Amount)
+			int64(c.cfg.MinConfirmations)-tx.Confirmations,
+			accountToAlias(tx.Account), tx.Amount)
 	}
 
 	return nil
@@ -618,8 +665,8 @@ func (c *Connector) findForkBlock(orphanBlock *btcjson.GetBlockVerboseResult) (
 	return orphanBlock, nil
 }
 
-// proceedNextBlock process new blocks and notify subscribed clients that
-// transaction reached the minimum confirmation limit.
+// proceedNextBlock process new blocks and updates payment status that
+// transaction reached the minimum confirmation threshold.
 func (c *Connector) proceedNextBlock() error {
 	lastSyncedBlock, err := c.client.GetBlockVerbose(c.lastSyncedBlockHash)
 	if err != nil {
@@ -676,7 +723,6 @@ func (c *Connector) proceedNextBlock() error {
 			return err
 		}
 
-		var payments []*connectors.Payment
 		for _, txHashStr := range proceededBlock.Tx {
 			txHash, err := chainhash.NewHashFromStr(txHashStr)
 			if err != nil {
@@ -684,7 +730,7 @@ func (c *Connector) proceedNextBlock() error {
 				continue
 			}
 
-			// Get transaction and if this transaction not correspons to non
+			// Get transaction and if this transaction not correspond to non
 			// of our account the error will be returned, in the case skip
 			// this transaction.
 			tx, err := c.client.GetTransaction(txHash)
@@ -699,89 +745,65 @@ func (c *Connector) proceedNextBlock() error {
 			}
 
 			for _, detail := range tx.Details {
-				// Skip if details describe receive/send tp/from default
-				// account.
-				if detail.Account == defaultAccount {
-					continue
+				payment := &connectors.Payment{
+					UpdatedAt: time.Now().Unix(),
+					Status:    connectors.Completed,
+					Receipt:   detail.Address,
+					Asset:     c.cfg.Asset,
+					Account:   accountToAlias(detail.Account),
+					Media:     connectors.Blockchain,
+					MediaID:   tx.TxID,
 				}
 
-				// We are interested only in incoming payments.
-				if detail.Category != "receive" {
-					continue
-				}
+				if detail.Category == "receive" &&
+					detail.Account == defaultAccount {
 
-				payments = append(payments, &connectors.Payment{
-					ID:      tx.TxID,
-					Amount:  decimal.NewFromFloat(detail.Amount),
-					Account: detail.Account,
-					Address: detail.Address,
-					Type:    connectors.Blockchain,
-				})
-			}
-		}
+					payment.MediaFee = decimal.Zero
+					payment.Direction = connectors.Internal
+					payment.Amount = decimal.NewFromFloat(detail.Amount)
+					payment.PaymentID = generatePaymentID(tx.TxID,
+						detail.Address, connectors.Internal)
 
-		if err := c.db.Update(func(dbTx *bolt.Tx) error {
-			infoBucket, err := dbTx.CreateBucketIfNotExists(infoBucket)
-			if err != nil {
-				return errors.Errorf("unable to get info bucket: %v", err)
-			}
+				} else if detail.Category == "receive" {
+					payment.Direction = connectors.Incoming
+					payment.MediaFee = decimal.Zero
+					payment.Amount = decimal.NewFromFloat(detail.Amount)
+					payment.PaymentID = generatePaymentID(tx.TxID,
+						detail.Address, connectors.Incoming)
 
-			txBucket, err := infoBucket.CreateBucketIfNotExists(txBucket)
-			if err != nil {
-				return errors.Errorf("unable to get txs bucket: %v", err)
-			}
+				} else if detail.Category == "send" {
+					payment.PaymentID = generatePaymentID(tx.TxID,
+						detail.Address, connectors.Outgoing)
 
-			// Write down last synced hash in database.
-			if err := infoBucket.Put(lastSyncedBlockHashKey, nextHash.CloneBytes()); err != nil {
-				return errors.Errorf("unable to put block hash in db: %v", err)
-			}
-
-			var paymentToSend []*connectors.Payment
-			for _, payment := range payments {
-				if data := txBucket.Get([]byte(payment.ID)); data == nil {
-					paymentToSend = append(paymentToSend, payment)
-				} else {
-					c.log.Warnf("Transaction(%v) already has been send, "+
-						"possibly because of the reorganization filter it", payment.ID)
-				}
-			}
-
-			if len(paymentToSend) != 0 {
-				select {
-				case <-c.quit:
-					return errors.Errorf("unable send payment notification, "+
-						"block(%v): client shutdown", proceededBlock.Hash)
-				case c.notifications <- paymentToSend:
-					for _, payment := range paymentToSend {
-						index, err := txBucket.NextSequence()
-						if err != nil {
-							c.log.Errorf("unable to generate next sequence"+
-								": %v", payment.ID)
-							continue
-						}
-
-						var data [8]byte
-						binary.BigEndian.PutUint64(data[:], index)
-						err = txBucket.Put([]byte(payment.ID), data[:])
-						if err != nil {
-							c.log.Errorf("unable to put tx to the bucket")
-						}
-
-						c.log.Infof("Payment(%v) has been confirmed", payment.ID)
+					_, err := c.cfg.PaymentStore.PaymentByID(payment.PaymentID)
+					if err != nil {
+						// If payment is not found in the storage that means
+						// that this is the "change". Such check only works if
+						// payment id consist of address and txid.
+						continue
 					}
-				case <-time.After(time.Second * 5):
-					return errors.Errorf("limit of waiting for sending "+
-						"notifications were exceeded, block(%v)",
-						proceededBlock.Hash)
+
+					payment.Amount = decimal.NewFromFloat(detail.Amount).Abs()
+					payment.MediaFee = decimal.NewFromFloat(tx.Fee).Abs()
+					payment.Direction = connectors.Outgoing
+				}
+
+				c.log.Warn(payment.PaymentID, spew.Sdump(detail))
+				if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+					return errors.Errorf("unable to save payment(%v): %v",
+						payment.PaymentID, err)
 				}
 			}
-
-			c.lastSyncedBlockHash = nextHash
-			lastSyncedBlock = proceededBlock
-			return nil
-		}); err != nil {
-			return err
 		}
+
+		// ...
+		err = c.cfg.StateStorage.PutLastSyncedHash(nextHash.CloneBytes())
+		if err != nil {
+			return errors.Errorf("unable to put block hash in db: %v", err)
+		}
+
+		c.lastSyncedBlockHash = nextHash
+		lastSyncedBlock = proceededBlock
 
 		// After transaction has been consumed by other subsystem
 		// overwrite cache.
@@ -789,106 +811,30 @@ func (c *Connector) proceedNextBlock() error {
 	}
 }
 
-// drainTransactions checks number of stored applied transaction and remove
-// the old one.
-func (c *Connector) drainTransactions() error {
-	return c.db.Update(func(dbTx *bolt.Tx) error {
-		infoBucket, err := dbTx.CreateBucketIfNotExists(infoBucket)
-		if err != nil {
-			return errors.Errorf("unable to get info bucket: %v", err)
-		}
-
-		txBucket, err := infoBucket.CreateBucketIfNotExists(txBucket)
-		if err != nil {
-			return errors.Errorf("unable to get txs bucket: %v", err)
-		}
-
-		type tx struct {
-			index uint64
-			id    string
-		}
-
-		// Fetch all transaction with their id and sequence index, in order to
-		// understand which transaction have been added earlier and which of
-		// the have to be removed.
-		var txs []tx
-		txBucket.ForEach(func(k, v []byte) error {
-			if v == nil {
-				return nil
-			}
-
-			index := binary.BigEndian.Uint64(v)
-			txs = append(txs, tx{
-				index: index,
-				id:    string(k),
-			})
-			return nil
-		})
-
-		if len(txs) < txNumber {
-			return nil
-		}
-
-		// Sort transaction by sequence number, transaction which has been
-		// added earlier will be at the start of slice.
-		slice.Sort(txs[:], func(i, j int) bool {
-			return txs[i].index < txs[j].index
-		})
-
-		transactionToRemove := txs[:txNumber]
-
-		c.log.Infof("Draining %v old applied transactions", len(transactionToRemove))
-		for _, tx := range transactionToRemove {
-			if err := txBucket.Delete([]byte(tx.id)); err != nil {
-				return errors.Errorf("unable to drain transaction(%v): %v",
-					tx.id, err)
-			}
-		}
-
-		return nil
-	})
-}
-
 // fetchLastSyncedBlockHash returns hash of block which were handled in previous
 // cycle of processing.
 func (c *Connector) fetchLastSyncedBlockHash() (*chainhash.Hash, error) {
-	var lastHash *chainhash.Hash
-	err := c.db.Update(func(dbTx *bolt.Tx) error {
-		bucket, err := dbTx.CreateBucketIfNotExists(infoBucket)
+	c.log.Info("Restore hash from database...")
+	data, _ := c.cfg.StateStorage.LastSyncedHash()
+	if data != nil {
+		lastHash, err := chainhash.NewHash(data)
 		if err != nil {
-			return errors.Errorf("unable to get info bucket: %v", err)
+			return nil, errors.Errorf("unable initialize hash: %v", err)
 		}
 
-		data := bucket.Get(lastSyncedBlockHashKey)
-		if data != nil {
-			c.log.Info("Restore hash from database...")
+		return lastHash, nil
+	}
 
-			lastHash, err = chainhash.NewHash(data)
-			if err != nil {
-				return errors.Errorf("unable initialize hash: %v", err)
-			}
-
-			return nil
-		}
-
-		c.log.Info("Unable to find block in db, fetching best block...")
-
-		hash, err := c.client.GetBestBlockHash()
-		if err != nil {
-			return errors.Errorf("unable to request last best block "+
-				"hash: %v", err)
-		}
-
-		err = bucket.Put(lastSyncedBlockHashKey, hash.CloneBytes())
-		if err != nil {
-			return errors.Errorf("unable to put best block in db: %v", err)
-		}
-
-		lastHash = hash
-		return nil
-	})
+	c.log.Info("Unable to find block in db, fetching best block...")
+	lastHash, err := c.client.GetBestBlockHash()
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("unable to request last best block "+
+			"hash: %v", err)
+	}
+
+	err = c.cfg.StateStorage.PutLastSyncedHash(lastHash.CloneBytes())
+	if err != nil {
+		return nil, errors.Errorf("unable to put block hash in db: %v", err)
 	}
 
 	return lastHash, nil
@@ -896,7 +842,7 @@ func (c *Connector) fetchLastSyncedBlockHash() (*chainhash.Hash, error) {
 
 // fetchDefaultAddress...
 func (c *Connector) fetchDefaultAddress() (string, error) {
-	defaultAddress, err := c.AccountAddress(defaultAccount)
+	defaultAddress, err := c.AccountAddress("default")
 	if err != nil {
 		return "", errors.Errorf("unable to get default address: %v", err)
 	}
@@ -951,7 +897,7 @@ func (c *Connector) ValidateAddress(address string) error {
 		MethodValidate, c.cfg.Metrics)
 	defer m.Finish()
 
-	err := validateAddress(string(c.cfg.Asset), address, c.netParams.Name)
+	err := validateAddress(c.cfg.Asset, address, c.netParams.Name)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("invalid address: %v", err)
@@ -970,25 +916,45 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 		MethodValidate, c.cfg.Metrics)
 	defer m.Finish()
 
-	var feeRate decimal.Decimal
+	// Fee estimation for simnet and testnet working unstable,
+	// for that reason just return zero.
+	if c.cfg.Net == "simnet" || c.cfg.Net == "testnet" {
+		return decimal.Zero, nil
+	}
 
-	switch strings.ToLower(string(c.cfg.Asset)) {
-	case "bch":
+	feeRate, err := c.getFeeRate()
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	// Estimate fee for the median transaction size of 225 bytes.
+	// TODO(andrew.shvv) Use amount to construct actual transaction and
+	// calculate its size.
+	size := decimal.New(225, 0)
+	satoshiFee := feeRate.Mul(size)
+	return satoshiFee.Div(satoshiPerBitcoin), nil
+}
+
+func (c *Connector) getFeeRate() (decimal.Decimal, error) {
+	switch c.cfg.Asset {
+	case connectors.BCH, connectors.DASH:
 		// Bitcoin Cash removed estimatesmartfee in 17.2 version of their client,
 		// for that reason we need to have different behaviour for Bitcoin Cash
 		// asset, and use original estimatefee method.
-		res, err := c.client.EstimateFee(1)
+		res, err := c.client.EstimateFee(2)
 		if err != nil {
 			return decimal.Zero, err
 		}
 
-		feeRate = decimal.NewFromFloat(**res)
+		feeRate := decimal.NewFromFloat(**res)
 		if feeRate.LessThanOrEqual(decimal.Zero) {
 			return decimal.Zero, errors.New("not enough data to make an estimation")
 		}
 
+		return feeRate, nil
+
 	default:
-		res, err := c.client.EstimateSmartFeeWithMode(1,
+		res, err := c.client.EstimateSmartFeeWithMode(2,
 			btcjson.ConservativeEstimateMode)
 		if err != nil {
 			return decimal.Zero, err
@@ -998,13 +964,7 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 			return decimal.Zero, errors.New((*res.Errors)[0])
 		}
 
-		feeRate = decimal.NewFromFloat(*res.FeeRate)
+		feeRate := decimal.NewFromFloat(*res.FeeRate)
+		return feeRate, nil
 	}
-
-	// Estimate fee for the median transaction size of 225 bytes.
-	// TODO(andrew.shvv) Use amount to construct actual transaction and
-	// calculate its size.
-	size := decimal.New(225, 0)
-	satoshiFee := feeRate.Mul(size)
-	return satoshiFee.Div(satoshiPerBitcoin), nil
 }
