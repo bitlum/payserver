@@ -1,6 +1,14 @@
 version: "3.5"
 
 
+# Explicitly defined connector network to be able to set static IPs
+networks:
+  connector.simnet:
+    name: connector.simnet
+    driver: bridge
+    ipam:
+      config:
+      - subnet: 172.100.1.0/24
 
 # Default settings for all containers.
 x-defaults:
@@ -11,6 +19,10 @@ x-defaults:
     driver: syslog
     options:
       tag: "connector-docker/{{ .Name }}"
+
+  # Using automatically assigned ip address from connect.simnet network.
+  networks:
+    connector.simnet:
 
   # Restart on exit.
   restart: always
@@ -73,6 +85,11 @@ services:
   ethereum-bootnode.simnet:
     << : *defaults
     container_name: ethereum-bootnode.simnet
+    networks:
+      connector.simnet:
+        # Make ip static so that enode url written in the enode file has been
+        # valid after restarts.
+        ipv4_address: 172.100.0.2
     image: ethereum-bootnode.simnet
     build:
       context: ./ethereum-bootnode
@@ -347,6 +364,7 @@ services:
         - ETHEREUM_REVISION
         - ROLE=secondary
     environment:
+      - MINE=0
       - EXTERNAL_IP
     volumes:
       - /connector/ethereum.simnet.secondary:/root/.ethereum
