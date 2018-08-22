@@ -41,12 +41,13 @@
   revision = "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c"
 
 [[constraint]]
-  name = "github.com/coreos/bbolt"
-  revision = "4f5275f4ebbf6fe7cb772de987fa96ee674460a7"
-
-[[constraint]]
   name = "github.com/btcsuite/btclog"
   revision = "84c8d2346e9fc8c7b947e243b9c24e6df9fd206a"
+
+[[constraint]]
+  name = "github.com/onrik/ethrpc"
+  source = "github.com/bitlum/ethrpc"
+  revision = "832e2ac7365078c74ae80ea39fb7a95b8e884002"
 
 [[constraint]]
   name = "github.com/davecgh/go-spew"
@@ -94,6 +95,10 @@
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   version = "0.8.0"
+
+[[constraint]]
+  name = "github.com/jinzhu/gorm"
+  branch = "master"
 
 [prune]
   go-tests = true
