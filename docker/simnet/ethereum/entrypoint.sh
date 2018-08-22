@@ -61,7 +61,7 @@ if [ ! -d $GETH ] || [ ! "$(ls -A $GETH)" ]; then
 fi
 
 # Set mine option to enable blocks mining if required.
-if [ $MINE -eq 1 ]; then
+if [ "$MINE" -eq "1" ]; then
     MINE_OPT="--mine"
 fi
 
