@@ -68,6 +68,10 @@ func main() {
 		validateReceiptCommand,
 		balanceCommand,
 		estimateFeeCommand,
+		sendPaymentCommand,
+		paymentByIDCommand,
+		paymentByReceiptCommand,
+		listPaymentsCommand,
 	}
 
 	if err := app.Run(os.Args); err != nil {
