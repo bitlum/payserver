@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"time"
-
 	"path/filepath"
 
 	"net"
@@ -13,19 +11,18 @@ import (
 
 	"github.com/bitlum/connector/connectors/daemons/bitcoind"
 	rpc "github.com/bitlum/connector/crpc"
-	"github.com/bitlum/connector/estimator"
 	"github.com/bitlum/connector/connectors/daemons/geth"
 	"github.com/bitlum/connector/connectors/daemons/lnd"
 	"github.com/bitlum/connector/metrics"
 	cryptoMetrics "github.com/bitlum/connector/metrics/crypto"
 	rpcMetrics "github.com/bitlum/connector/metrics/rpc"
-	"github.com/bitlum/viabtc_rpc_client"
 	"github.com/btcsuite/go-flags"
 	"github.com/go-errors/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"github.com/bitlum/connector/connectors"
-	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/db/inmemory"
+	"github.com/bitlum/connector/db/sqlite"
 )
 
 var (
@@ -53,21 +50,28 @@ func backendMain() error {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
 
-	blockchainConnectors := make(map[viabtc.AssetType]connectors.BlockchainConnector)
-	lightningConnectors := make(map[viabtc.AssetType]connectors.LightningConnector)
+	paymentsStore := inmemory.NewMemoryPaymentsStore()
+	blockchainConnectors := make(map[connectors.Asset]connectors.BlockchainConnector)
+	lightningConnectors := make(map[connectors.Asset]connectors.LightningConnector)
+
+	db, err := sqlite.Open(loadedConfig.DataDir, "sqlite")
+	if err != nil {
+		return errors.Errorf("unable open sqlite db: %v", err)
+	}
 
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
 	// pending transaction user have and also to withdraw money from exchange.
 	if !loadedConfig.BitcoinCash.Disabled {
-		bitcoinCashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		blockchainConnectors[connectors.BCH], err = bitcoind.NewConnector(&bitcoind.Config{
 			Net:              loadedConfig.Network,
 			MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
-			DataDir:          loadedConfig.DataDir,
-			Asset:            viabtc.AssetBCH,
+			Asset:            connectors.BCH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
+			PaymentStore:     paymentsStore,
+			StateStorage:     sqlite.NewConnectorStateStorage(connectors.BCH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -81,19 +85,18 @@ func backendMain() error {
 		if err != nil {
 			return errors.Errorf("unable to create bitcoin cash connector: %v", err)
 		}
-
-		blockchainConnectors[viabtc.AssetBCH] = bitcoinCashConnector
 	}
 
 	if !loadedConfig.Bitcoin.Disabled {
-		bitcoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		blockchainConnectors[connectors.BTC], err = bitcoind.NewConnector(&bitcoind.Config{
 			Net:              loadedConfig.Network,
 			MinConfirmations: loadedConfig.Bitcoin.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.Bitcoin.SyncDelay,
-			DataDir:          loadedConfig.DataDir,
-			Asset:            viabtc.AssetBTC,
+			Asset:            connectors.BTC,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
+			PaymentStore:     paymentsStore,
+			StateStorage:     sqlite.NewConnectorStateStorage(connectors.BTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -107,19 +110,18 @@ func backendMain() error {
 		if err != nil {
 			return errors.Errorf("unable to create bitcoin connector: %v", err)
 		}
-
-		blockchainConnectors[viabtc.AssetBTC] = bitcoinConnector
 	}
 
 	if !loadedConfig.Dash.Disabled {
-		dashConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		blockchainConnectors[connectors.DASH], err = bitcoind.NewConnector(&bitcoind.Config{
 			Net:              loadedConfig.Network,
 			MinConfirmations: loadedConfig.Dash.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.Dash.SyncDelay,
-			DataDir:          loadedConfig.DataDir,
-			Asset:            viabtc.AssetDASH,
+			Asset:            connectors.DASH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
+			PaymentStore:     paymentsStore,
+			StateStorage:     sqlite.NewConnectorStateStorage(connectors.DASH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerUnit: loadedConfig.Dash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -133,19 +135,18 @@ func backendMain() error {
 		if err != nil {
 			return errors.Errorf("unable to create dash connector: %v", err)
 		}
-
-		blockchainConnectors[viabtc.AssetDASH] = dashConnector
 	}
 
 	if !loadedConfig.Litecoin.Disabled {
-		litecoinConnector, err := bitcoind.NewConnector(&bitcoind.Config{
+		blockchainConnectors[connectors.LTC], err = bitcoind.NewConnector(&bitcoind.Config{
 			Net:              loadedConfig.Network,
 			MinConfirmations: loadedConfig.Litecoin.MinConfirmations,
 			SyncLoopDelay:    loadedConfig.Litecoin.SyncDelay,
-			DataDir:          loadedConfig.DataDir,
-			Asset:            viabtc.AssetLTC,
+			Asset:            connectors.LTC,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
+			PaymentStore:     paymentsStore,
+			StateStorage:     sqlite.NewConnectorStateStorage(connectors.LTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerUnit: loadedConfig.Litecoin.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -159,19 +160,19 @@ func backendMain() error {
 		if err != nil {
 			return errors.Errorf("unable to create litecoin connector: %v", err)
 		}
-
-		blockchainConnectors[viabtc.AssetLTC] = litecoinConnector
 	}
 
 	if !loadedConfig.Ethereum.Disabled {
-		ethConnector, err := geth.NewConnector(&geth.Config{
+		blockchainConnectors[connectors.ETH], err = geth.NewConnector(&geth.Config{
 			Net:              loadedConfig.Network,
 			MinConfirmations: loadedConfig.Ethereum.MinConfirmations,
 			SyncTickDelay:    loadedConfig.Ethereum.SyncDelay,
-			DataDir:          loadedConfig.DataDir,
-			Asset:            viabtc.AssetETH,
+			Asset:            connectors.ETH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
+			PaymentStorage:   paymentsStore,
+			StateStorage:     sqlite.NewConnectorStateStorage(connectors.ETH, db),
+			AccountStorage:   sqlite.NewGethAccountsStorage(db),
 			DaemonCfg: &geth.DaemonConfig{
 				Name:       "geth",
 				ServerHost: loadedConfig.Ethereum.Host,
@@ -182,8 +183,6 @@ func backendMain() error {
 		if err != nil {
 			return errors.Errorf("unable to create ethereum connector: %v", err)
 		}
-
-		blockchainConnectors[viabtc.AssetETH] = ethConnector
 	}
 
 	if !loadedConfig.BitcoinLightning.Disabled {
@@ -197,6 +196,7 @@ func backendMain() error {
 			TlsCertPath:  loadedConfig.BitcoinLightning.TlsCertPath,
 			MacaroonPath: loadedConfig.BitcoinLightning.MacaroonPath,
 			Metrics:      cryptoMetricsBackend,
+			PaymentStore: paymentsStore,
 		})
 		if err != nil {
 			return errors.Errorf("unable to create lightning bitcoin connector"+
@@ -214,7 +214,7 @@ func backendMain() error {
 			}
 		}()
 
-		lightningConnectors[viabtc.AssetBTC] = lightningConnector
+		lightningConnectors[connectors.BTC] = lightningConnector
 	}
 
 	for asset, connector := range blockchainConnectors {
@@ -232,11 +232,6 @@ func backendMain() error {
 		}
 	}
 
-	estmtr := estimator.NewCoinmarketcapEstimator()
-	if err := estmtr.Start(); err != nil {
-		return errors.Errorf("unable to start estimator: %v", err)
-	}
-
 	// Initialise the metric endpoint. This endpoint is used by the metric
 	// server to collect the metric from.
 	metricsEndpointAddr := net.JoinHostPort(loadedConfig.Prometheus.Host,
@@ -250,13 +245,10 @@ func backendMain() error {
 		return errors.Errorf("unable to init rpc metrics: %v", err)
 	}
 
-	paymentsStore := common.NewMemoryPaymentsStore(30 * 24 * time.Hour)
-	paymentsStore.StartCleaner()
-
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
 	rpcServer, err := rpc.NewRPCServer(loadedConfig.Network, blockchainConnectors,
-		lightningConnectors, paymentsStore, estmtr, rpcMetricsBackend)
+		lightningConnectors, paymentsStore, rpcMetricsBackend)
 	if err != nil {
 		return errors.Errorf("unable to init RPC server: %v", err)
 	}
@@ -300,64 +292,7 @@ func backendMain() error {
 	quit := make(chan struct{})
 	var wg sync.WaitGroup
 
-	if blockchainConnectors != nil {
-		for asset, connector := range blockchainConnectors {
-			mainLog.Infof("Initialize blockchain connector for '%v' asset",
-				asset)
-
-			wg.Add(1)
-			go func(asset viabtc.AssetType, connector connectors.BlockchainConnector) {
-				defer wg.Done()
-
-				for {
-					select {
-					case <-quit:
-						return
-					case payments := <-connector.ReceivedPayments():
-						for _, payment := range payments {
-							if !loadedConfig.EngineDisabled {
-								doDeposit(client, payment, asset)
-							}
-							paymentsStore.AddPayment(payment)
-						}
-					}
-				}
-			}(asset, connector)
-		}
-	} else {
-		mainLog.Warnf("connector client haven't been initialized, " +
-			"skipping running the transaction notification listener")
-	}
-
-	if lightningConnectors != nil {
-		for asset, connector := range lightningConnectors {
-			mainLog.Infof("Initialize lightning connector for '%v' asset",
-				asset)
-
-			wg.Add(1)
-			go func(asset viabtc.AssetType, connector connectors.LightningConnector) {
-				defer wg.Done()
-
-				for {
-					select {
-					case <-quit:
-						return
-					case payment := <-connector.ReceivedPayments():
-						if !loadedConfig.EngineDisabled {
-							doDeposit(client, payment, asset)
-						}
-						paymentsStore.AddPayment(payment)
-					}
-				}
-			}(asset, connector)
-		}
-	} else {
-		mainLog.Warnf("connector client haven't been initialized, " +
-			"skipping running the transaction notification listener")
-	}
-
 	addInterruptHandler(shutdownChannel, func() {
-		paymentsStore.StopCleaner()
 		grpcServer.Stop()
 
 		for _, c := range blockchainConnectors {
@@ -371,7 +306,6 @@ func backendMain() error {
 
 		close(quit)
 		wg.Wait()
-		estmtr.Stop()
 	})
 
 	select {
