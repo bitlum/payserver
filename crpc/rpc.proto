@@ -64,6 +64,12 @@ message CreateReceiptRequest {
     // (optional) Amount is the amount which should be received on this
     // receipt.
     string amount = 3;
+
+    //
+    // (optional) Description works only for lightning invoices. This
+    // description will be placed in the invoice itself, which would allow user
+    // to see what he paid for later in the wallet.
+    string description = 4;
 }
 
 message CreateReceiptResponse {
@@ -84,7 +90,7 @@ message BalanceRequest {
     Media media = 2;
 }
 
-message BalanceResponse {
+message Balance {
     //
     // Available is the number of funds which could be used by this account
     // to send funds to someone else within the specified media.
@@ -96,6 +102,19 @@ message BalanceResponse {
     // confirmed. In case of lightning media it is funds in pending payment
     // channels.
     string pending = 2;
+
+    //
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 3;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 4;
+}
+
+message BalanceResponse {
+    repeated Balance balances = 1;
 }
 
 message ValidateReceiptRequest {
@@ -143,16 +162,29 @@ message EstimateFeeResponse {
 
 message SendPaymentRequest {
     //
-    // SystemPaymentID is the payment id which was created by service itself,
-    // for unified identification of the payment.
-    string system_payment_id = 1;
+    // Asset is an acronim of the crypto currency.
+    Asset asset = 1;
+
+    //
+    // Media is a type of technology which is used to transport value of
+    // underlying asset.
+    Media media = 2;
+
+    //
+    // Amount is number of money which should be given to the another entity.
+    string amount = 3;
+
+    //
+    // Receipt represent either blockchains address or lightning
+    // network invoice, which we should use determine payment receiver.
+    string receipt = 4;
 }
 
 message PaymentByIDRequest {
     //
-    // SystemPaymentID is the payment id which was created by service itself,
+    // PaymentID is the payment id which was created by service itself,
     // for unified identification of the payment.
-    string system_payment_id = 1;
+    string payment_id = 1;
 }
 
 message PaymentsByReceiptRequest {
@@ -173,8 +205,8 @@ message ListPaymentsRequest {
     PaymentStatus status = 1;
 
     //
-    // (optional) Type denotes the direction of the payment.
-    PaymentType type = 2;
+    // (optional) Direction denotes the direction of the payment.
+    PaymentDirection direction = 2;
 
     //
     // (optional) Asset is an acronim of the crypto currency.
@@ -192,40 +224,51 @@ message ListPaymentsResponse {
 
 message Payment {
     //
-    // SystemPaymentID is the payment id which was created by service itself,
-    // for unified identification of the payment.
-    string system_payment_id = 1;
+    // PaymentID it is unique identificator of the payment generated inside
+    // the system.
+    string payment_id = 1;
 
     //
-    // MediaPaymentID in case of blockchain media payment id is the
-    // transaction id, in case of lightning media it is the payment hash.
-    string media_payment_id = 2;
+    // UpdatedAt denotes the time when payment object has been last updated.
+    int64 updated_at = 2;
 
     //
     // Status denotes the stage of the processing the payment.
     PaymentStatus status = 3;
 
     //
-    // Type denotes the direction of the payment.
-    PaymentType type = 4;
+    // Direction denotes the direction of the payment.
+    PaymentDirection direction = 4;
 
     //
     // Asset is an acronim of the crypto currency.
     Asset asset = 5;
 
     //
+    // Receipt is a string which identifies the receiver of the
+    // payment. It is address in case of the blockchain media,
+    // and lightning network invoice in case lightning media.
+    string receipt = 6;
+
+    // MediaID is identificator of the payment inside the media.
+    // In case of blockchain media payment id is the transaction id,
+    // in case of lightning media it is the payment hash. It is not used as
+    // payment identificator because of the reason that it is not unique.
+    string media_id = 7;
+
+    //
     // Media is a type of technology which is used to transport value of
     // underlying asset.
-    Media media = 6;
+    Media media = 8;
 
     //
     // Amount is the number of funds which receiver gets at the end.
-    int64 amount = 7;
+    string amount = 9;
 
     //
     // MediaFee is the fee which is taken by the blockchain or lightning
     // network in order to propagate the payment.
-    string media_fee = 8;
+    string media_fee = 10;
 }
 
 // Asset is the list of a trading assets which are available in the exchange
@@ -296,9 +339,9 @@ enum PaymentStatus {
     FAILED = 4;
 }
 
-// PaymentType denotes the direction of the payment.
-enum PaymentType {
-    TYPE_NONE = 0;
+// PaymentDirection denotes the direction of the payment.
+enum PaymentDirection {
+    DIRECTION_NONE = 0;
 
     //
     // INCOMING type of payment which service has received from someone else
@@ -309,4 +352,9 @@ enum PaymentType {
     // OUTGOING type of payment which service has sent to someone else in the
     // media.
     OUTGOING = 2;
+
+    //
+    // INTERNAL type of payment which service has sent to itself for a
+    // purpose of optimisation.
+    INTERNAL = 3;
 }
