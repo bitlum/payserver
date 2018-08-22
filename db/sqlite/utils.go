@@ -1,4 +1,4 @@
-package db
+package sqlite
 
 import (
 	"io/ioutil"
@@ -11,21 +11,21 @@ import (
 func MakeTestDB() (*DB, func(), error) {
 	// First, create a temporary directory to be used for the duration of
 	// this test.
-	tempDirName, err := ioutil.TempDir("", "channeldb")
+	tempDirName, err := ioutil.TempDir("", "db")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Next, create channeldb for the first time.
-	cdb, err := Open(tempDirName, "db")
+	db, err := Open(tempDirName, "sqlite.db")
 	if err != nil {
 		return nil, nil, err
 	}
 
 	cleanUp := func() {
-		cdb.Close()
+		db.Close()
 		os.RemoveAll(tempDirName)
 	}
 
-	return cdb, cleanUp, nil
+	return db, cleanUp, nil
 }
+
