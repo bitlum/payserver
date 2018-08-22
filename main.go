@@ -46,19 +46,6 @@ func backendMain() error {
 	closeRotator := initLogRotator(logFile)
 	defer closeRotator()
 
-	var client *viabtc.Client
-	if !loadedConfig.EngineDisabled {
-
-		// Create client client in order to be able to communicate with exchange
-		// client itself.
-		mainLog.Infof("Initialize client client %v:%v", loadedConfig.EngineHost,
-			loadedConfig.EnginePort)
-		client = viabtc.NewClient(&viabtc.Config{
-			Host: loadedConfig.EngineHost,
-			Port: loadedConfig.EnginePort,
-		})
-	}
-
 	// TODO(andrew.shvv) add net config and daemon checks
 	mainLog.Infof("Initialising metric for crypto clients...")
 	cryptoMetricsBackend, err := cryptoMetrics.InitMetricsBackend(loadedConfig.Network)
