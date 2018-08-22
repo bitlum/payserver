@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 		t.Fatalf("unable to get version: %v", err)
 	}
 
-	account, err := client.PersonalNewAccount("kek")
+	account, err := client.PersonalNewAddress("kek")
 	if err != nil {
 		t.Fatalf("unable to get version: %v", err)
 	}
@@ -51,12 +51,12 @@ func TestClient(t *testing.T) {
 func TestSignTransaction(t *testing.T) {
 	client := ExtendedEthRpc{ethrpc.NewEthRPC("http://165.227.118.113:20306")}
 
-	address, err := client.PersonalNewAccount("kek")
+	address, err := client.PersonalNewAddress("kek")
 	if err != nil {
 		t.Fatalf("unable to get version: %v", err)
 	}
 
-	_, err = client.PersonalUnlockAccount(address, "kek", 2)
+	_, err = client.PersonalUnlockAddress(address, "kek", 2)
 	if err != nil {
 		t.Fatalf("unable to unlock account: %v", err)
 	}
