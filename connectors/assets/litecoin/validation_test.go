@@ -324,9 +324,10 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "LTC simnet BCH testnet3 address",
-			args:    args{"LTC", "simnet", "mwHfttSrSFWz7MztJNCtubUPGAFqRPHUKi"},
-			wantErr: true,
+			name: "LTC simnet BCH testnet3 address",
+			args: args{"LTC", "simnet", "mwHfttSrSFWz7MztJNCtubUPGAFqRPHUKi"},
+			// Because Bitcoin Cash has the same network parameters.
+			wantErr: false,
 		},
 		{
 			name:    "LTC simnet ETH address",
@@ -346,12 +347,16 @@ func TestValidate(t *testing.T) {
 		{
 			name:    "LTC simnet regtest address",
 			args:    args{"LTC", "simnet", "mnf5Etv6JePkDPXJtNZgZZ45dQSrieJfLk"},
-			wantErr: true,
+
+			// Because regression network has the same parameters as regtest.
+			wantErr: false,
 		},
 		{
-			name:    "LTC simnet testnet3 address",
-			args:    args{"LTC", "simnet", "mwt7UCMmfKcCVz6XUQhPpxEMZbs7Rxn5o3"},
-			wantErr: true,
+			name: "LTC simnet testnet3 address",
+			args: args{"LTC", "simnet", "mwt7UCMmfKcCVz6XUQhPpxEMZbs7Rxn5o3"},
+
+			// Because regression network has the same parameters as testnet.
+			wantErr: false,
 		},
 		{
 			name:    "LTC simnet random",
