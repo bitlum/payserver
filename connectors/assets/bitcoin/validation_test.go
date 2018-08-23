@@ -115,18 +115,8 @@ func TestValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "BTC regtest P2WPKH",
-			args:    args{"BTC", "regtest", "tb1qn6f5cd9rpxtgavsxyk7lgyvgn75mj8tceqz4le"},
-			wantErr: false,
-		},
-		{
 			name:    "BTC regtest P2SH",
 			args:    args{"BTC", "regtest", "2MzWbbAk8n1esUzQtek3FkoCVrqZRj9kPti"},
-			wantErr: false,
-		},
-		{
-			name:    "BTC regtest P2WSH",
-			args:    args{"BTC", "regtest", "tb1qn6f5cd9rpxtgavsxyk7lgyvgn75mj8tc56aenn3yvck7d0x6sc0qlwx4wh"},
 			wantErr: false,
 		},
 		{
@@ -308,12 +298,6 @@ func TestValidate(t *testing.T) {
 		{
 			name:    "BTC simnet mainnet address",
 			args:    args{"BTC", "simnet", "bc1qn6f5cd9rpxtgavsxyk7lgyvgn75mj8tcnxexy2"},
-			wantErr: true,
-		},
-
-		{
-			name:    "BTC simnet regtest address",
-			args:    args{"BTC", "simnet", "n3mK9MiauLXGjFXgvW8V15mFkVM5hMXy5V"},
 			wantErr: true,
 		},
 		{

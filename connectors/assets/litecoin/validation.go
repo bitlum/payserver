@@ -4,6 +4,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // ValidateAddress ensures that address is valid and belongs to the given
@@ -15,23 +16,25 @@ func ValidateAddress(address, netName string) error {
 	}
 
 	err = validate(address, netParams)
-	if err != nil && netName != "mainnet" {
+	if err != nil {
 		// If there is error we shouldn't return it in mainnet straight away,
 		// but instead because there is a possibility of address belong to the
 		// legacy litecoin address type we should make another check.
+		if netName == "mainnet" {
+			legacyNetParams, err := GetParams("mainnet-legacy")
+			if err != nil {
+				return errors.Errorf("unable to get legacy mainnet params: %v", err)
+			}
+
+			return validate(address, legacyNetParams)
+		}
+
 		return err
-	} else if err == nil {
-		// If validation was successful, than address is valid and we should
-		// exit.
-		return nil
 	}
 
-	legacyNetParams, err := GetParams("mainnet-legacy")
-	if err != nil {
-		return errors.Errorf("unable to get legacy mainnet params: %v", err)
-	}
-
-	return validate(address, legacyNetParams)
+	// If validation was successful, than address is valid and we should
+	// exit.
+	return nil
 }
 
 func validate(address string, network *chaincfg.Params) error {

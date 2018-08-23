@@ -54,7 +54,7 @@ var TestNet3Params = chaincfg.Params{
 }
 
 // RegressionNetParams defines the network parameters for the regression test
-// Dash network.  Not to be confused with the test network (version
+// Bitcoin Cash network. Not to be confused with the test network (version
 // 3), this network is sometimes simply called "testnet".
 var RegressionNetParams = chaincfg.Params{
 	Net:              TestNet,
