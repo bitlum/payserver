@@ -191,11 +191,19 @@ func NewConnector(cfg *Config) (*Connector, error) {
 	}, nil
 }
 
-func (c *Connector) Start() error {
+func (c *Connector) Start() (err error) {
 	if !atomic.CompareAndSwapInt32(&c.started, 0, 1) {
 		c.log.Warn("client already started")
 		return nil
 	}
+
+	defer func() {
+		// If start has failed than, we should oll back mark that
+		// service has started.
+		if err != nil {
+			atomic.SwapInt32(&c.started, 0)
+		}
+	}()
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodStart, c.cfg.Metrics)
@@ -793,10 +801,10 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 			}
 
 			// TODO(adnrew.shvv) Remove when bug will be catched
-			c.log.Tracef("Handle tx(%v) sender account(%v), " +
+			c.log.Tracef("Handle tx(%v) sender account(%v), "+
 				"receiver account(%v), from(%v), to(%v)", confirmedTx.Hash,
-					senderAccount, receiverAccount, confirmedTx.From,
-						confirmedTx.To)
+				senderAccount, receiverAccount, confirmedTx.From,
+				confirmedTx.To)
 
 			makeDirection := func(sender, receiver string) string {
 				switch sender {

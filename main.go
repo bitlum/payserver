@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/db/sqlite"
+	"time"
 )
 
 var (
@@ -42,12 +43,21 @@ func backendMain() error {
 	closeRotator := initLogRotator(logFile)
 	defer closeRotator()
 
-	// TODO(andrew.shvv) add net config and daemon checks
 	mainLog.Infof("Initialising metric for crypto clients...")
 	cryptoMetricsBackend, err := cryptoMetrics.InitMetricsBackend(loadedConfig.Network)
 	if err != nil {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
+
+	mainLog.Infof("Initialising metric for rpc...")
+	rpcMetricsBackend, err := rpcMetrics.InitMetricsBackend(loadedConfig.Network)
+	if err != nil {
+		return errors.Errorf("unable to init rpc metrics: %v", err)
+	}
+
+	// Channel is used to notify spawned in the main func goroutines that
+	// daemon is shutting down.
+	quit := make(chan struct{}, 0)
 
 	blockchainConnectors := make(map[connectors.Asset]connectors.BlockchainConnector)
 	lightningConnectors := make(map[connectors.Asset]connectors.LightningConnector)
@@ -199,14 +209,32 @@ func backendMain() error {
 			PaymentStore: paymentsStore,
 		})
 		if err != nil {
-			return errors.Errorf("unable to create lightning bitcoin connector"+
-				": %v", err)
+			return errors.Errorf("unable to create lightning bitcoin "+
+				"connector: %v", err)
 		}
 
-		if err := lightningConnector.Start(); err != nil {
-			return errors.Errorf("unable to create lightning bitcoin client: %v",
-				err)
-		}
+		// Retry start connector until daemon will exit or connector start
+		// succeed. It is needed so that prometheus could scratch the fail
+		// start metric and send alert.
+		go func(c *lnd.Connector) {
+			for {
+				if err := c.Start(); err != nil {
+					mainLog.Errorf("unable to start BTC lightning "+
+						" connector: %v", err)
+
+					select {
+					case <-time.After(5 * time.Second):
+						mainLog.Infof("Retrying start BTC lightning connector")
+						continue
+					case <-quit:
+						return
+					}
+				}
+
+				return
+			}
+		}(lightningConnector)
+
 		defer func() {
 			if err := lightningConnector.Stop("stopped by user"); err != nil {
 				mainLog.Warn("unable to shutdown lightning bitcoin"+
@@ -220,15 +248,51 @@ func backendMain() error {
 	for asset, connector := range blockchainConnectors {
 		switch c := connector.(type) {
 		case *bitcoind.Connector:
-			if err := c.Start(); err != nil {
-				return errors.Errorf("unable to start %v connector: %v",
-					asset, err)
-			}
+			// Retry start connector until daemon will exit or connector start
+			// succeed. It is needed so that prometheus could scratch the fail
+			// start metric and send alert.
+			go func(c *bitcoind.Connector, asset connectors.Asset) {
+				for {
+					if err := c.Start(); err != nil {
+						mainLog.Errorf("unable to start %v blockchain "+
+							"connector: %v", asset, err)
+
+						select {
+						case <-time.After(5 * time.Second):
+							mainLog.Infof("Retrying start lightning BTC connector")
+							continue
+						case <-quit:
+							return
+						}
+					}
+
+					return
+				}
+			}(c, asset)
+
 		case *geth.Connector:
-			if err := c.Start(); err != nil {
-				return errors.Errorf("unable to start %v connector: %v",
-					asset, err)
-			}
+			// Retry start connector until daemon will exit or connector start
+			// succeed. It is needed so that prometheus could scratch the fail
+			// start metric and send alert.
+			go func(c *geth.Connector, asset connectors.Asset) {
+				for {
+					if err := c.Start(); err != nil {
+						mainLog.Errorf("unable to start %v connector: %v",
+							asset, err)
+
+						select {
+						case <-time.After(5 * time.Second):
+							mainLog.Infof("Retrying start lightning ETH " +
+								"connector")
+							continue
+						case <-quit:
+							return
+						}
+					}
+
+					return
+				}
+			}(c, asset)
 		}
 	}
 
@@ -237,13 +301,6 @@ func backendMain() error {
 	metricsEndpointAddr := net.JoinHostPort(loadedConfig.Prometheus.Host,
 		loadedConfig.Prometheus.Port)
 	metrics.StartServer(metricsEndpointAddr)
-
-	// TODO(andrew.shvv) add net config and daemon checks
-	mainLog.Infof("Initialising metric for rpc...")
-	rpcMetricsBackend, err := rpcMetrics.InitMetricsBackend(loadedConfig.Network)
-	if err != nil {
-		return errors.Errorf("unable to init rpc metrics: %v", err)
-	}
 
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
@@ -289,7 +346,6 @@ func backendMain() error {
 		mainLog.Info("stop serving gRPC")
 	}()
 
-	quit := make(chan struct{})
 	var wg sync.WaitGroup
 
 	addInterruptHandler(shutdownChannel, func() {
