@@ -4,6 +4,7 @@ import (
 	"github.com/bitlum/connector/connectors/daemons/geth"
 	"time"
 	"github.com/jinzhu/gorm"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type EthereumAddress struct {
@@ -41,6 +42,8 @@ func (s *GethAccountsStorage) GetAccountByAddress(addressStr string) (string, er
 	} else if err != nil {
 		return "", err
 	}
+
+	spew.Dump(address)
 
 	return address.Account, nil
 }
