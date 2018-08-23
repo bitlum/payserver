@@ -4,7 +4,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcutil"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // ValidateAddress ensures that address is valid and belongs to the given
