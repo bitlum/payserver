@@ -2,16 +2,11 @@ package lnd
 
 import (
 	"context"
-	"io/ioutil"
-
 	"sync"
 
 	"time"
 
 	"sync/atomic"
-
-	"net"
-	"strconv"
 
 	"encoding/hex"
 
@@ -21,11 +16,8 @@ import (
 	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/go-errors/errors"
 	"github.com/lightningnetwork/lnd/lnrpc"
-	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"gopkg.in/macaroon.v2"
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/connectors/assets/bitcoin"
 	"github.com/lightningnetwork/lnd/zpay32"
@@ -150,51 +142,28 @@ func NewConnector(cfg *Config) (*Connector, error) {
 	}, nil
 }
 
-// Start...
-func (c *Connector) Start() error {
+func (c *Connector) Start() (err error) {
 	if !atomic.CompareAndSwapInt32(&c.started, 0, 1) {
 		log.Warn("lightning client already started")
 		return nil
 	}
 
+	defer func() {
+		// If start has failed than, we should oll back mark that
+		// service has started.
+		if err != nil {
+			atomic.SwapInt32(&c.started, 0)
+		}
+	}()
+
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodStart, c.cfg.Metrics)
 	defer m.Finish()
 
-	creds, err := credentials.NewClientTLSFromFile(c.cfg.TlsCertPath, "")
+	c.client, c.conn, err = c.getClient(c.cfg.MacaroonPath)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to load credentials: %v", err)
+		return errors.Errorf("unable get grpc client: %v", err)
 	}
-
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(creds),
-	}
-
-	if c.cfg.MacaroonPath != "" {
-		macaroonBytes, err := ioutil.ReadFile(c.cfg.MacaroonPath)
-		if err != nil {
-			return errors.Errorf("Unable to read macaroon file: %v", err)
-		}
-
-		mac := &macaroon.Macaroon{}
-		if err = mac.UnmarshalBinary(macaroonBytes); err != nil {
-			return errors.Errorf("Unable to unmarshal macaroon: %v", err)
-		}
-
-		opts = append(opts,
-			grpc.WithPerRPCCredentials(macaroons.NewMacaroonCredential(mac)))
-	}
-
-	target := net.JoinHostPort(c.cfg.Host, strconv.Itoa(c.cfg.Port))
-	log.Infof("lightning client connection to lnd: %v", target)
-
-	conn, err := grpc.Dial(target, opts...)
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to to dial grpc: %v", err)
-	}
-	c.conn = conn
-	c.client = lnrpc.NewLightningClient(c.conn)
 
 	reqInfo := &lnrpc.GetInfoRequest{}
 	respInfo, err := c.client.GetInfo(context.Background(), reqInfo)
@@ -249,8 +218,10 @@ func (c *Connector) Start() error {
 	go func() {
 		m := crypto.NewMetric(c.cfg.Name, "BTC", MethodHandleInvoice, c.cfg.Metrics)
 		defer m.Finish()
-
 		defer c.wg.Done()
+
+		var err error
+
 		for {
 			if invoiceSubscription == nil {
 				log.Info("Subscribe on invoice updates...")
@@ -261,7 +232,7 @@ func (c *Connector) Start() error {
 				invoiceSubscription, err = c.client.SubscribeInvoices(context.Background(), reqSubsc)
 				if err != nil {
 					m.AddError(metrics.MiddleSeverity)
-					log.Errorf("unable to re-subscribe on invoice"+
+					log.Errorf("unable to subscribe on invoice"+
 						" updates: %v", err)
 
 					select {
@@ -269,6 +240,17 @@ func (c *Connector) Start() error {
 						log.Info("Invoice receiver goroutine shutdown")
 						return
 					case <-time.After(time.Second * 5):
+						// Subscribe error usually happens because of the
+						// dial connection being closed.
+						client, conn, err := c.getClient(c.cfg.MacaroonPath)
+						if err != nil {
+							m.AddError(metrics.HighSeverity)
+							log.Errorf("unable create gRPC client: %v", err)
+							continue
+						}
+
+						c.client = client
+						c.conn = conn
 						continue
 					}
 				}
@@ -317,7 +299,7 @@ func (c *Connector) Start() error {
 	}()
 
 	log.Info("lightning client started")
-	return nil
+	return err
 }
 
 // Stop gracefully stops the connection with lnd daemon.
