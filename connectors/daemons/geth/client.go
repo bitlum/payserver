@@ -800,12 +800,6 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 				continue
 			}
 
-			// TODO(adnrew.shvv) Remove when bug will be catched
-			c.log.Tracef("Handle tx(%v) sender account(%v), "+
-				"receiver account(%v), from(%v), to(%v)", confirmedTx.Hash,
-				senderAccount, receiverAccount, confirmedTx.From,
-				confirmedTx.To)
-
 			makeDirection := func(sender, receiver string) string {
 				switch sender {
 				case "default":

@@ -4,7 +4,6 @@ import (
 	"github.com/bitlum/connector/connectors/daemons/geth"
 	"time"
 	"github.com/jinzhu/gorm"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type EthereumAddress struct {
@@ -35,15 +34,13 @@ var _ geth.AccountsStorage = (*GethAccountsStorage)(nil)
 //
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) GetAccountByAddress(addressStr string) (string, error) {
-	address := &EthereumAddress{Address: addressStr}
-	err := s.db.Find(address).Error
+	address := &EthereumAddress{}
+	err := s.db.Where("address = ?", addressStr).Find(address).Error
 	if gorm.IsRecordNotFoundError(err) {
 		return "", nil
 	} else if err != nil {
 		return "", err
 	}
-
-	spew.Dump(address)
 
 	return address.Account, nil
 }

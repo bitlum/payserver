@@ -44,9 +44,9 @@ func (s *ConnectorStateStorage) PutLastSyncedHash(hash []byte) error {
 //
 // NOTE: Part of the bitcoind.Storage interface.
 func (s *ConnectorStateStorage) LastSyncedHash() ([]byte, error) {
-	state := &ConnectorState{Asset: string(s.asset)}
-
-	if err := s.db.Find(state).Error; err != nil {
+	state := &ConnectorState{}
+	if err := s.db.Where("asset = ?", string(s.asset)).
+		Find(state).Error; err != nil {
 		return nil, err
 	}
 
