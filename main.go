@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"github.com/bitlum/connector/connectors"
-	"github.com/bitlum/connector/db/inmemory"
 	"github.com/bitlum/connector/db/sqlite"
 )
 
@@ -50,7 +49,6 @@ func backendMain() error {
 		return errors.Errorf("unable to init bitcoind metrics: %v", err)
 	}
 
-	paymentsStore := inmemory.NewMemoryPaymentsStore()
 	blockchainConnectors := make(map[connectors.Asset]connectors.BlockchainConnector)
 	lightningConnectors := make(map[connectors.Asset]connectors.LightningConnector)
 
@@ -58,6 +56,8 @@ func backendMain() error {
 	if err != nil {
 		return errors.Errorf("unable open sqlite db: %v", err)
 	}
+
+	paymentsStore := &sqlite.PaymentsStore{DB: db}
 
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
