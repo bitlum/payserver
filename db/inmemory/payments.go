@@ -72,8 +72,9 @@ func (s *MemoryPaymentsStore) SavePayment(p *connectors.Payment) error {
 func (s *MemoryPaymentsStore) ListPayments(asset connectors.Asset,
 	status connectors.PaymentStatus, direction connectors.PaymentDirection,
 	media connectors.PaymentMedia) ([]*connectors.Payment, error) {
-	s.paymentsMutex.Lock()
-	defer s.paymentsMutex.Unlock()
+
+	s.paymentsMutex.RLock()
+	defer s.paymentsMutex.RUnlock()
 
 	var payments []*connectors.Payment
 	for _, payment := range s.paymentsByID {
