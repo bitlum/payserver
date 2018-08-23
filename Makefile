@@ -182,7 +182,8 @@ simnet-clean:
 simnet-build:
 	@$(call print,"Building simnet connector...")
 	mkdir -p ./docker/simnet/connector/bin
-	GOOS=linux GOARCH=amd64 go build -v -i -o ./docker/simnet/connector/bin/connector
+	GOOS=linux CC=/usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-gcc \
+	CGO_ENABLED=1 GOARCH=amd64 go build -v -i -o ./docker/simnet/connector/bin/connector
 
 simnet-deploy: \
 	check-bitlum-user-set \
