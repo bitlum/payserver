@@ -80,15 +80,15 @@ func TestChainSvrCmds(t *testing.T) {
 		{
 			name: "estimatesmartfee",
 			newCmd: func() (interface{}, error) {
-				return btcjson.NewCmd("estimatesmartfee", 6, btcjson.ConservativeEstimeMode)
+				return NewCmd("estimatesmartfee", 6, ConservativeEstimateMode)
 			},
 			staticCmd: func() interface{} {
-				return btcjson.NewEstimateSmartFeeCmd(6, btcjson.ConservativeEstimeMode)
+				return NewEstimateSmartFeeCmd(6, ConservativeEstimateMode)
 			},
 			marshalled: `{"jsonrpc":"1.0","method":"estimatesmartfee","params":[6,"CONSERVATIVE"],"id":1}`,
-			unmarshalled: &btcjson.EstimateSmartFeeCmd{
+			unmarshalled: &EstimateSmartFeeCmd{
 				ConfTarget:   6,
-				EstimateMode: btcjson.ConservativeEstimeMode,
+				EstimateMode: ConservativeEstimateMode,
 			},
 		},
 

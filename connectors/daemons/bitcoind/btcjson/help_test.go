@@ -569,7 +569,6 @@ func TestMethodHelpWithVariousCommandStructs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		s
 		name        string
 		method      string
 		reflectType reflect.Type
