@@ -172,16 +172,18 @@ func (c *Connector) Start() (err error) {
 		return errors.Errorf("unable get lnd node info: %v", err)
 	}
 
-	// TODO(andrew.shvv) not working for mainnet, as far response don't have
-	// a mainnet param.
 	lndNet := "simnet"
 	if respInfo.Testnet {
 		lndNet = "testnet"
 	}
 
-	if lndNet != c.cfg.Net {
-		return errors.Errorf("hub net is '%v', but config net is '%v'",
-			c.cfg.Net, lndNet)
+	// TODO(andrew.shvv) not working for mainnet, as far response don't have
+	// a mainnet param.
+	if c.cfg.Net != "mainnet" {
+		if lndNet != c.cfg.Net {
+			return errors.Errorf("hub net is '%v', but config net is '%v'",
+				c.cfg.Net, lndNet)
+		}
 	}
 
 	log.Infof("Init connector working with '%v' net", lndNet)
