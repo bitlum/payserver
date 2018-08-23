@@ -119,7 +119,7 @@ type Payment struct {
 
 	// Detail stores all additional information which is needed for this type
 	// and status of payment.
-	Detail interface{}
+	Detail Serializable
 }
 
 // BlockchainPendingDetails is the information about pending blockchain
@@ -131,13 +131,6 @@ type BlockchainPendingDetails struct {
 	// ConfirmationsLeft is the number of confirmations left in order to
 	// interpret the transaction as confirmed.
 	ConfirmationsLeft int64
-}
-
-// GeneratedTxDetails is the string form of signed blockchain transaction
-// which.
-type GeneratedTxDetails struct {
-	RawTx []byte
-	TxID  string
 }
 
 // GeneratePaymentID generates payment id based of the which is uniqie for
