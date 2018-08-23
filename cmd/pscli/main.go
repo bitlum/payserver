@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"github.com/bitlum/connector/crpc"
-	"github.com/btcsuite/btcutil"
 	"github.com/urfave/cli"
 	"google.golang.org/grpc"
 )
