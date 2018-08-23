@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"testing"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestAccountsStorage(t *testing.T) {
@@ -61,5 +62,15 @@ func TestAccountsStorage(t *testing.T) {
 
 	if len(allAddresses) != 2 {
 		t.Fatalf("wrong len")
+	}
+
+	emptyAddress, err := storage.GetAccountByAddress("")
+	if err != nil {
+		t.Fatalf("unable to get address: %v", err)
+	}
+
+	spew.Dump(emptyAddress)
+	if emptyAddress != "" {
+		t.Fatalf("wrong address")
 	}
 }
