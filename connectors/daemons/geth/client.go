@@ -435,7 +435,7 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 
 	// Ensure that we are not trying to send negative amount.
 	if includeFee && txFee.Cmp(txAmount) > 0 {
-		return nil, decimal.Zero, errors.Errorf("fee is greater than amount")
+		return nil, decimal.Zero, errors.New("fee is greater than amount")
 	}
 
 	// If transaction is redirected to the default account than we should use
