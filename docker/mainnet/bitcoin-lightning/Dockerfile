@@ -32,7 +32,7 @@ COPY --from=builder /go/bin/lnd /go/bin/lncli /usr/local/bin/
 COPY bitcoin-lightning.mainnet.conf /root/default/lnd.conf
 
 # Entrypoint script used to init datadir if required and for
-# starting bitcoin daemon.
+# starting lightning daemon.
 COPY entrypoint.sh /root/
 
 # We are using exec syntax to enable gracefull shutdown. Check
