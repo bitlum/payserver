@@ -108,30 +108,6 @@ services:
   #
   ######################################################################
 
-  connector.simnet.primary:
-    << : *defaults
-    container_name: connector.simnet.primary
-    image: connector.simnet.primary
-    build:
-      context: ./connector
-      args:
-        - ROLE=primary
-    volumes:
-      - /connector/connector.simnet.primary:/root/.connector
-      - /connector/bitcoin-lightning.simnet.primary:/root/.lnd/:ro
-    ports:
-      # RPC port
-      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9002:9002"
-      # Prometheus monitoring
-      - "${PRIVATE_IP?PRIVATE_IP environment variable should be defined}:9999:9999"
-    depends_on:
-      - bitcoin.simnet.primary
-      - bitcoin-lightning.simnet.primary
-      - bitcoin-cash.simnet.primary
-      - dash.simnet.primary
-      - ethereum.simnet.primary
-      - litecoin.simnet.primary
-
   bitcoin.simnet.primary:
     << : *defaults
     container_name: bitcoin.simnet.primary
@@ -248,20 +224,18 @@ services:
   #
   ######################################################################
 
-  connector.simnet.secondary:
+  connector.simnet:
     << : *defaults
-    container_name: connector.simnet.secondary
-    image: connector.simnet.secondary
+    container_name: connector.simnet
+    image: connector.simnet
     build:
       context: ./connector
-      args:
-        - ROLE=secondary
     volumes:
-      - /connector/connector.simnet.secondary:/root/.connector
+      - /connector/connector.simnet:/root/.connector
       - /connector/bitcoin-lightning.simnet.secondary:/root/.lnd/:ro
     ports:
       # RPC port
-      - "10000:9003"
+      - "9002:9002"
       # Prometheus monitoring
       - "9998:9998"
     depends_on:
