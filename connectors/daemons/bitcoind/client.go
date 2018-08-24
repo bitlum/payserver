@@ -938,12 +938,6 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 		EstimateFee, c.cfg.Metrics)
 	defer m.Finish()
 
-	// Fee estimation for simnet and testnet working unstable,
-	// for that reason just return zero.
-	if c.cfg.Net == "simnet" || c.cfg.Net == "testnet" {
-		return decimal.Zero, nil
-	}
-
 	// Estimate fee for the median transaction size of 225 bytes.
 	// TODO(andrew.shvv) Use amount to construct actual transaction and
 	// calculate its size.
