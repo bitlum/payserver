@@ -392,7 +392,7 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 
 	payment := &connectors.Payment{
 		PaymentID: generatePaymentID(details.TxID, toAddress, connectors.Outgoing),
-		UpdatedAt: time.Now().Unix(),
+		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
 		Direction: connectors.Outgoing,
 		Receipt:   toAddress,
@@ -516,7 +516,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	}
 
 	payment.Status = connectors.Pending
-	payment.UpdatedAt = time.Now().Unix()
+	payment.UpdatedAt = connectors.NowInMilliSeconds()
 
 	err = c.cfg.PaymentStorage.SavePayment(payment)
 	if err != nil {
@@ -648,7 +648,7 @@ lastSyncedBlockNumber int) (pendingMap, error) {
 			fee := gas.Mul(gasPrice).Div(weiInEth)
 
 			payment := &connectors.Payment{
-				UpdatedAt: time.Now().Unix(),
+				UpdatedAt: connectors.NowInMilliSeconds(),
 				Status:    connectors.Pending,
 				Account:   account,
 				Receipt:   tx.To,
@@ -713,7 +713,7 @@ func (c *Connector) syncPending() (pendingMap, error) {
 		fee := gas.Mul(gasPrice).Div(weiInEth)
 
 		payment := &connectors.Payment{
-			UpdatedAt: time.Now().Unix(),
+			UpdatedAt: connectors.NowInMilliSeconds(),
 			Status:    connectors.Pending,
 			Account:   account,
 			Receipt:   tx.To,
@@ -877,7 +877,7 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 			fee := gas.Mul(gasPrice).Div(weiInEth)
 
 			payment := connectors.Payment{
-				UpdatedAt: time.Now().Unix(),
+				UpdatedAt: connectors.NowInMilliSeconds(),
 				Status:    connectors.Completed,
 				Account:   receiverAccount,
 				Receipt:   confirmedTx.To,
@@ -983,7 +983,7 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 
 	aggregatePayment := &connectors.Payment{
 		PaymentID: generatePaymentID(aggregateTx.TxID, c.defaultAddress, connectors.Internal),
-		UpdatedAt: time.Now().Unix(),
+		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
 		Direction: connectors.Internal,
 		Account:   defaultAccount,
