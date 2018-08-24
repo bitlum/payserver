@@ -20,7 +20,7 @@ COPY bin/connector /usr/local/bin
 
 # Default config used to initalize datadir volume at first or
 # cleaned deploy.
-COPY connector.simnet.$ROLE.conf /root/default/connector.conf
+COPY connector.simnet.conf /root/default/connector.conf
 
 # Entrypoint script used to init datadir if required and for
 # starting dash daemon
