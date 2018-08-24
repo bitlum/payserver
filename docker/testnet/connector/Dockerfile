@@ -11,7 +11,7 @@ RUN curl -L https://github.com/bitlum/connector/archive/$CONNECTOR_REVISION.tar.
 
 RUN dep ensure -v
 
-RUN go install
+RUN go install . ./cmd/...
 
 
 
@@ -25,6 +25,7 @@ curl \
 # This implies that service has to be built locally first, and putted
 # in the docker directory, for running docker build.
 COPY --from=builder /go/bin/connector /usr/local/bin
+COPY --from=builder /go/bin/pscli /usr/local/bin
 
 # Default config used to initalize datadir volume at first or
 # cleaned deploy. It will be restored and used after each restart.
