@@ -19,7 +19,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/metrics"
-	"github.com/AndrewSamokhvalov/go-spew/spew"
 )
 
 var (
@@ -153,9 +152,11 @@ type Connector struct {
 	// TODO(andrew.shvv) Remove because now we could use storage directly
 	pending map[string][]*connectors.Payment
 
-	lastSyncedBlockHash *chainhash.Hash
-	netParams           *chaincfg.Params
-	log                 *connectors.NamedLogger
+	lastSyncedBlock    *btcjson.GetBlockVerboseResult
+	lastSyncedBlockMtx sync.Mutex
+
+	netParams *chaincfg.Params
+	log       *connectors.NamedLogger
 
 	coinSelectMtx sync.Mutex
 
@@ -260,14 +261,15 @@ func (c *Connector) Start() (err error) {
 
 	// Initialize cache with the last synced block hash.
 	c.log.Info("Getting last synced block hash...")
+	var lastSyncedBlockHash *chainhash.Hash
 	if c.cfg.LastSyncedBlockHash != "" {
-		c.lastSyncedBlockHash, err = chainhash.NewHashFromStr(c.cfg.LastSyncedBlockHash)
+		lastSyncedBlockHash, err = chainhash.NewHashFromStr(c.cfg.LastSyncedBlockHash)
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to decode hash: %v", err)
 		}
 	} else {
-		c.lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
+		lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to fetch last block synced "+
@@ -275,7 +277,13 @@ func (c *Connector) Start() (err error) {
 		}
 	}
 
-	c.log.Infof("Last synced block hash(%v)", c.lastSyncedBlockHash)
+	c.lastSyncedBlock, err = c.client.GetBlockVerbose(lastSyncedBlockHash)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return errors.Errorf("unable to fetch last synced block: %v", err)
+	}
+
+	c.log.Infof("Last synced block hash(%v)", c.lastSyncedBlock.Hash)
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
@@ -419,7 +427,7 @@ func (c *Connector) PendingTransactions(account string) (
 func (c *Connector) CreatePayment(address string, amount string) (*connectors.Payment,
 	error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodGenerateTransaction, c.cfg.Metrics)
+		MethodCreatePayment, c.cfg.Metrics)
 	defer m.Finish()
 
 	err := validateAddress(c.cfg.Asset, address, c.netParams.Name)
@@ -500,7 +508,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSendTransaction, c.cfg.Metrics)
+		MethodSendPayment, c.cfg.Metrics)
 	defer m.Finish()
 
 	payment, err := c.cfg.PaymentStore.PaymentByID(paymentID)
@@ -678,11 +686,11 @@ func (c *Connector) findForkBlock(orphanBlock *btcjson.GetBlockVerboseResult) (
 // proceedNextBlock process new blocks and updates payment status that
 // transaction reached the minimum confirmation threshold.
 func (c *Connector) proceedNextBlock() error {
-	lastSyncedBlock, err := c.client.GetBlockVerbose(c.lastSyncedBlockHash)
-	if err != nil {
-		return errors.Errorf("unable to get last sync block "+
-			"from daemon: %v", err)
-	}
+	var lastSyncedBlock *btcjson.GetBlockVerboseResult
+
+	c.lastSyncedBlockMtx.Lock()
+	lastSyncedBlock = c.lastSyncedBlock
+	c.lastSyncedBlockMtx.Unlock()
 
 	// If bitcoind returns negative confirmation number it means that
 	// blockchain re-organization happened and we should handle it properly by
@@ -717,7 +725,7 @@ func (c *Connector) proceedNextBlock() error {
 		// This check is a bit redundant, but we should be ensured that
 		// next hash exists, otherwise the last synced hash will be overwritten
 		// with zero hash.
-		if lastSyncedBlock.NextHash == "" {
+		if c.lastSyncedBlock.NextHash == "" {
 			c.log.Errorf("unable to continue processing block(%v):"+
 				"next hash empty", lastSyncedBlock.Hash)
 			return nil
@@ -798,7 +806,6 @@ func (c *Connector) proceedNextBlock() error {
 					payment.Direction = connectors.Outgoing
 				}
 
-				c.log.Warn(payment.PaymentID, spew.Sdump(detail))
 				if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 					return errors.Errorf("unable to save payment(%v): %v",
 						payment.PaymentID, err)
@@ -806,18 +813,21 @@ func (c *Connector) proceedNextBlock() error {
 			}
 		}
 
-		// ...
 		err = c.cfg.StateStorage.PutLastSyncedHash(nextHash.CloneBytes())
 		if err != nil {
 			return errors.Errorf("unable to put block hash in db: %v", err)
 		}
 
-		c.lastSyncedBlockHash = nextHash
 		lastSyncedBlock = proceededBlock
+
+		c.lastSyncedBlockMtx.Lock()
+		c.lastSyncedBlock = proceededBlock
+		c.lastSyncedBlockMtx.Unlock()
 
 		// After transaction has been consumed by other subsystem
 		// overwrite cache.
-		c.log.Infof("Process block hash(%v)", proceededBlock.Hash)
+		c.log.Infof("Process block hash(%v), number(%v)",
+			proceededBlock.Hash, proceededBlock.Height)
 	}
 }
 
@@ -923,7 +933,7 @@ func (c *Connector) ValidateAddress(address string) error {
 // which has to be used to construct the transaction.
 func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodValidate, c.cfg.Metrics)
+		EstimateFee, c.cfg.Metrics)
 	defer m.Finish()
 
 	// Fee estimation for simnet and testnet working unstable,
