@@ -6,15 +6,15 @@ app = Flask(__name__)
 
 rpcAddr = "bitcoin-lightning.simnet.primary:10009"
 
-macaroonFile = "/root/.lnd/admin.macaroon"
+macaroonFile = "/root/.lnd/data/chain/bitcoin/regtest/admin.macaroon"
 tlsCertFile = "/root/.lnd/tls.cert"
 
 @app.route('/pay_invoice')
 def pay_invoice():
     invoice = request.args.get('invoice')
 
-    bashCommand = "lncli --rpcserver={} --macaroonpath={} --tlscertpath={} " \
-                  "payinvoice --pay_req={}".format( \
+    bashCommand = "lncli --network=regtest --rpcserver={} --macaroonpath={} " \
+                  "--tlscertpath={} payinvoice --force --pay_req={}".format( \
                   rpcAddr, macaroonFile, tlsCertFile, invoice)
 
     print(bashCommand)
@@ -26,8 +26,8 @@ def pay_invoice():
 def generate_invoice():
     amount = request.args.get('amount')
 
-    bashCommand = "lncli --rpcserver={} --macaroonpath={} --tlscertpath={} " \
-                  "addinvoice --amt={}".format( \
+    bashCommand = "lncli --network=regtest --rpcserver={} --macaroonpath={} " \
+                  "--tlscertpath={} addinvoice --amt={}".format( \
                   rpcAddr, macaroonFile, tlsCertFile, amount)
 
     print(bashCommand)
