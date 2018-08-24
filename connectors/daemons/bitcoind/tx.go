@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcutil"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
+	"github.com/btcsuite/btcd/blockchain"
 )
 
 // ErrInsufficientFunds is a type matching the error interface which is
@@ -88,7 +89,7 @@ func (c *Connector) syncUnspent() error {
 // craftTransaction performs coin selection in order to obtain outputs which sum
 // to at least 'numCoins' amount of satoshis. If necessary, a change address will
 // also be generated.
-func (c *Connector) craftTransaction(feeRatePerWeight uint64,
+func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	amt btcutil.Amount, address btcutil.Address) (*wire.MsgTx,
 	btcutil.Amount, error) {
 
@@ -98,8 +99,8 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 	c.coinSelectMtx.Lock()
 	defer c.coinSelectMtx.Unlock()
 
-	c.log.Debugf("Performing coin selection using %v sat/weight as fee "+
-		"rate", feeRatePerWeight)
+	c.log.Debugf("Performing coin selection using %v sat/byte as fee "+
+		"rate", feeRatePerByte)
 
 	// TODO(andrew.shvv) what if send two consequent requests? The
 	// second one will be using the same outputs and it will lead to issue.
@@ -128,7 +129,7 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 	// in order to find enough coins to meet the funding amount
 	// requirements.
 	c.unspentSyncMtx.Lock()
-	selectedInputs, changeAmt, requiredFee, err := coinSelect(feeRatePerWeight,
+	selectedInputs, changeAmt, requiredFee, err := coinSelect(feeRatePerByte,
 		amt, c.unspent)
 	c.unspentSyncMtx.Unlock()
 
@@ -196,7 +197,7 @@ func (c *Connector) craftTransaction(feeRatePerWeight uint64,
 // change output to fund amt satoshis, adhering to the specified fee rate. The
 // specified fee rate should be expressed in sat/byte for coin selection to
 // function properly.
-func coinSelect(feeRatePerWeight uint64, amt btcutil.Amount,
+func coinSelect(feeRatePerByte uint64, amt btcutil.Amount,
 	unspent map[string]btcjson.ListUnspentResult) ([]btcjson.ListUnspentResult,
 	btcutil.Amount, btcutil.Amount, error) {
 
@@ -232,6 +233,7 @@ func coinSelect(feeRatePerWeight uint64, amt btcutil.Amount,
 		// amount isn't enough to pay fees, then increase the requested
 		// coin amount by the estimate required fee, performing another
 		// round of coin selection.
+		feeRatePerWeight := feeRatePerByte * blockchain.WitnessScaleFactor
 		requiredFee := btcutil.Amount(uint64(weightEstimate.Weight()) * feeRatePerWeight)
 		if overShootAmt < requiredFee {
 			amtNeeded = amt + requiredFee
