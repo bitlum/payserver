@@ -61,7 +61,7 @@ endif
 # Slack #
 # # # # #
 
-SLACK_HOOK := $(BITLUM_SLACK_HOOK)
+SLACK_HOOK := $(SLACK_HOOK)
 
 # We use USERNAME makefile variable to make variable interpolation work
 # in commands below.
@@ -184,6 +184,8 @@ simnet-build:
 	mkdir -p ./docker/simnet/connector/bin
 	GOOS=linux CC=/usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-gcc \
 	CGO_ENABLED=1 GOARCH=amd64 go build -v -i -o ./docker/simnet/connector/bin/connector
+	GOOS=linux CC=/usr/local/gcc-4.8.1-for-linux64/bin/x86_64-pc-linux-gcc \
+	CGO_ENABLED=1 GOARCH=amd64 go build -v -i -o ./docker/simnet/connector/bin/pscli ./cmd/pscli
 
 simnet-deploy: \
 	check-bitlum-user-set \
