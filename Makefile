@@ -189,11 +189,11 @@ simnet-build:
 
 simnet-deploy: \
 	check-bitlum-user-set \
+	simnet-start-notification \
 	simnet-build \
 	simnet-build-compose \
-	simnet-clean
-	# simnet-start-notification \
-	# simnet-end-notification
+	simnet-clean \
+	simnet-end-notification
 
 testnet-deploy: \
 	check-bitlum-user-set \
@@ -203,9 +203,9 @@ testnet-deploy: \
 
 mainnet-deploy: \
 	check-bitlum-user-set \
-	mainnet-start-notification \
-	mainnet-build-compose \
-	mainnet-end-notification
+	mainnet-build-compose
+#	mainnet-start-notification \
+#	mainnet-end-notification
 
 
 # # # # # # # #
