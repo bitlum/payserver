@@ -4,6 +4,7 @@ import (
 	"github.com/shopspring/decimal"
 	"hash/fnv"
 	"strconv"
+	"time"
 )
 
 // Asset is the list of a trading assets which are available in the exchange
@@ -144,4 +145,8 @@ func GeneratePaymentID(parts ...string) string {
 	algorithm := fnv.New64a()
 	algorithm.Write([]byte(uniqueString))
 	return strconv.FormatUint(algorithm.Sum64(), 10)
+}
+
+func NowInMilliSeconds() int64 {
+	return int64(time.Now().Nanosecond() / 1000)
 }

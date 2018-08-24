@@ -281,7 +281,7 @@ func (c *Connector) Start() (err error) {
 
 			payment := &connectors.Payment{
 				PaymentID: generatePaymentID(invoice, paymentHash),
-				UpdatedAt: time.Now().Unix(),
+				UpdatedAt: connectors.NowInMilliSeconds(),
 				Status:    connectors.Completed,
 				Direction: connectors.Incoming,
 				Account:   string(invoiceUpdate.Receipt),
@@ -408,7 +408,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 	paymentHash := hex.EncodeToString(invoice.PaymentHash[:])
 	payment := &connectors.Payment{
 		PaymentID: generatePaymentID(invoiceStr, paymentHash),
-		UpdatedAt: time.Now().Unix(),
+		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Completed,
 		Direction: connectors.Outgoing,
 		Receipt:   invoiceStr,

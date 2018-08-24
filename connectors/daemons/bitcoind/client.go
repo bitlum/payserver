@@ -441,6 +441,8 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
+
+
 	tx, fee, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
@@ -469,7 +471,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 
 	payment := &connectors.Payment{
 		PaymentID: generatePaymentID(txID, address, connectors.Outgoing),
-		UpdatedAt: time.Now().Unix(),
+		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
 		Direction: connectors.Outgoing,
 		Receipt:   address,
@@ -525,7 +527,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	_, err = c.client.SendRawTransaction(wireTx, true)
 	if err != nil {
 		payment.Status = connectors.Failed
-		payment.UpdatedAt = time.Now().Unix()
+		payment.UpdatedAt = connectors.NowInMilliSeconds()
 
 		err = c.cfg.PaymentStore.SavePayment(payment)
 		if err != nil {
@@ -539,7 +541,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	}
 
 	payment.Status = connectors.Pending
-	payment.UpdatedAt = time.Now().Unix()
+	payment.UpdatedAt = connectors.NowInMilliSeconds()
 
 	err = c.cfg.PaymentStore.SavePayment(payment)
 	if err != nil {
@@ -606,7 +608,7 @@ func (c *Connector) syncUnconfirmed() error {
 	c.pending = make(map[string][]*connectors.Payment)
 	for _, tx := range txs {
 		payment := &connectors.Payment{
-			UpdatedAt: time.Now().Unix(),
+			UpdatedAt: connectors.NowInMilliSeconds(),
 			Status:    connectors.Pending,
 			Receipt:   tx.Address,
 			Asset:     c.cfg.Asset,
@@ -754,7 +756,7 @@ func (c *Connector) proceedNextBlock() error {
 
 			for _, detail := range tx.Details {
 				payment := &connectors.Payment{
-					UpdatedAt: time.Now().Unix(),
+					UpdatedAt: connectors.NowInMilliSeconds(),
 					Status:    connectors.Completed,
 					Receipt:   detail.Address,
 					Asset:     c.cfg.Asset,
@@ -943,6 +945,7 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 	return satoshiFee.Div(satoshiPerBitcoin), nil
 }
 
+// getFeeRate return amount of satoshis per byte i.e. rate.
 func (c *Connector) getFeeRate() (decimal.Decimal, error) {
 	switch c.cfg.Asset {
 	case connectors.BCH, connectors.DASH:
