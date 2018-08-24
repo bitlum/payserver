@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  name = "github.com/AndrewSamokhvalov/go-spew"
-  packages = ["spew"]
-  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
-  version = "v1.1.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/aead/chacha20"
   packages = [
@@ -90,7 +84,7 @@
     "walletdb",
     "wtxmgr"
   ]
-  revision = "1ede0a1a66bad8f7db796615e496a0a0faba5182"
+  revision = "5fb94231d0c814f02ffc3110eee588278151b4e1"
 
 [[projects]]
   branch = "master"
@@ -130,6 +124,11 @@
   revision = "31079b6807923eb23992c421b114992b95131b55"
 
 [[projects]]
+  name = "github.com/coreos/bbolt"
+  packages = ["."]
+  revision = "4f5275f4ebbf6fe7cb772de987fa96ee674460a7"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
@@ -139,17 +138,8 @@
   packages = [
     "common",
     "common/hexutil",
-    "common/math",
-    "core/types",
-    "crypto",
-    "crypto/secp256k1",
     "crypto/sha3",
-    "ethdb",
-    "log",
-    "metrics",
-    "params",
-    "rlp",
-    "trie"
+    "params"
   ]
   revision = "225171a4bfcc16bd12a1906b1e0d43d0b18c353b"
   version = "v1.8.13"
@@ -158,12 +148,6 @@
   name = "github.com/go-errors/errors"
   packages = ["."]
   revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
-
-[[projects]]
-  name = "github.com/go-stack/stack"
-  packages = ["."]
-  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
-  version = "v1.7.0"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -175,12 +159,6 @@
     "ptypes/struct"
   ]
   revision = "bbd03ef6da3a115852eaf24c8a1c46aeb39aa175"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/golang/snappy"
-  packages = ["."]
-  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/grpc-gateway"
@@ -237,7 +215,7 @@
     "headerfs",
     "headerlist"
   ]
-  revision = "b451667d69910cd20995452c56e02441896a3349"
+  revision = "0d0ce901538af81e234c1b2376babf20fe976b09"
 
 [[projects]]
   name = "github.com/lightningnetwork/lightning-onion"
@@ -266,7 +244,7 @@
     "tor",
     "zpay32"
   ]
-  revision = "fab1aa2d49380a3e8aef545c6b6a82e650e3b20f"
+  revision = "625b210f441ece841c76b81377dd96e8d09aba8e"
   source = "github.com/bitlum/lnd"
 
 [[projects]]
@@ -375,25 +353,6 @@
   version = "1.1.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/syndtr/goleveldb"
-  packages = [
-    "leveldb",
-    "leveldb/cache",
-    "leveldb/comparer",
-    "leveldb/errors",
-    "leveldb/filter",
-    "leveldb/iterator",
-    "leveldb/journal",
-    "leveldb/memdb",
-    "leveldb/opt",
-    "leveldb/storage",
-    "leveldb/table",
-    "leveldb/util"
-  ]
-  revision = "ae2bd5eed72d46b28834ec3f60db3a3ebedd8dbd"
-
-[[projects]]
   name = "github.com/urfave/cli"
   packages = ["."]
   revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
@@ -493,12 +452,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "v2"
-  name = "gopkg.in/karalabe/cookiejar.v2"
-  packages = ["collections/prque"]
-  revision = "8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57"
-
-[[projects]]
   name = "gopkg.in/macaroon-bakery.v2"
   packages = [
     "bakery",
@@ -511,11 +464,10 @@
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
-  version = "v2.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a7fdeec69d9176fde79b729a8e23b57a2904854b67e407666b382356ec3b6348"
+  inputs-digest = "6ff084372646ec4b273f34bfd6d48eec82ad1daf051cd823cc73fc88496b75c2"
   solver-name = "gps-cdcl"
   solver-version = 1
