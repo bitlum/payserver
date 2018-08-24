@@ -41,6 +41,7 @@ const (
 	MethodSync                = "Sync"
 	MethodValidate            = "Validate"
 	EstimateFee               = "EstimateFee"
+	GetFeeRate                = "GetFeeRate"
 )
 
 type DaemonConfig struct {
@@ -451,16 +452,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
-	var feeSatoshiPerByte uint64
-	feePerByte, err := c.getFeeRate()
-	if err != nil {
-		m.AddError(metrics.LowSeverity)
-		c.log.Errorf("unable get fee rate: %v", err)
-		feeSatoshiPerByte = uint64(c.cfg.FeePerByte)
-	} else {
-		feeSatoshiPerByte = uint64(feePerByte.IntPart())
-	}
-
+	feeSatoshiPerByte := uint64(c.getFeeRate().IntPart())
 	tx, fee, err := c.craftTransaction(feeSatoshiPerByte, decAmount2Sat(amt), decodedAddress)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
@@ -952,17 +944,15 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 		return decimal.Zero, nil
 	}
 
-	feeRate, err := c.getFeeRate()
-	if err != nil {
-		return decimal.Zero, err
-	}
-
 	// Estimate fee for the median transaction size of 225 bytes.
 	// TODO(andrew.shvv) Use amount to construct actual transaction and
 	// calculate its size.
 	size := decimal.New(225, 0)
-	feeSatoshiPerByte := feeRate.Mul(size)
-	feeInBitcoin := feeSatoshiPerByte.Div(satoshiPerBitcoin)
+
+	feeRateSatoshiPerByte := c.getFeeRate()
+	feeInSatoshis := feeRateSatoshiPerByte.Mul(size)
+	feeInBitcoin := feeInSatoshis.Div(satoshiPerBitcoin)
+
 	return feeInBitcoin.Round(8), nil
 }
 
@@ -971,8 +961,13 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 //
 // NOTE: Uses virtual transaction size as defined in BIP 141
 // (witness data is discounted).
-func (c *Connector) getFeeRate() (decimal.Decimal, error) {
+func (c *Connector) getFeeRate() decimal.Decimal {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		GetFeeRate, c.cfg.Metrics)
+	defer m.Finish()
+
 	var feeRateBtcPerKiloByte decimal.Decimal
+	var respErr error
 
 	switch c.cfg.Asset {
 	case connectors.BCH, connectors.DASH:
@@ -981,33 +976,49 @@ func (c *Connector) getFeeRate() (decimal.Decimal, error) {
 		// asset, and use original estimatefee method.
 		res, err := c.client.EstimateFee(2)
 		if err != nil {
-			return decimal.Zero, err
+			respErr = err
+			break
 		}
 
-		feeRateBtcPerKiloByte := decimal.NewFromFloat(**res)
+		feeRateBtcPerKiloByte = decimal.NewFromFloat(**res)
 		if feeRateBtcPerKiloByte.LessThanOrEqual(decimal.Zero) {
-			return decimal.Zero, errors.New("not enough data to make an estimation")
+			respErr = errors.New("not enough data to make an estimation")
+			break
 		}
 
 	default:
 		res, err := c.client.EstimateSmartFeeWithMode(2,
 			btcjson.ConservativeEstimateMode)
 		if err != nil {
-			return decimal.Zero, err
+			respErr = err
+			break
 		}
 
 		if res.Errors != nil {
-			return decimal.Zero, errors.New((*res.Errors)[0])
+			respErr = errors.New((*res.Errors)[0])
+			break
 		}
 
 		feeRateBtcPerKiloByte = decimal.NewFromFloat(*res.FeeRate)
 		if feeRateBtcPerKiloByte.LessThanOrEqual(decimal.Zero) {
-			return decimal.Zero, errors.New("not enough data to make an estimation")
+			respErr = errors.New("not enough data to make an estimation")
+			break
 		}
 	}
 
-	bytesInKiloByte := decimal.NewFromFloat(1024)
-	feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
-	feeRateSatoshiPerByte := feeRateSatoshiPerKiloByte.Div(bytesInKiloByte)
-	return feeRateSatoshiPerByte, nil
+	if respErr != nil {
+		if c.cfg.Net == "mainnet" {
+			c.log.Errorf("unable get fee rate: %v", respErr)
+			m.AddError(metrics.HighSeverity)
+		}
+
+		return decimal.New(int64(c.cfg.FeePerByte), 0)
+
+	} else {
+		// Initial rate is return us BTC/Kb
+		bytesInKiloByte := decimal.NewFromFloat(1024)
+		feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
+		feeRateSatoshiPerByte := feeRateSatoshiPerKiloByte.Div(bytesInKiloByte)
+		return feeRateSatoshiPerByte
+	}
 }
