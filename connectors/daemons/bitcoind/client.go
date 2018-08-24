@@ -35,11 +35,12 @@ const (
 	MethodAccountAddress      = "AccountAddress"
 	MethodCreateAddress       = "CreateAddress"
 	MethodPendingTransactions = "PendingTransactions"
-	MethodGenerateTransaction = "GenerateTransaction"
-	MethodSendTransaction     = "SendTransaction"
+	MethodCreatePayment       = "CreatePayment"
+	MethodSendPayment         = "MethodSendPayment"
 	MethodPendingBalance      = "PendingBalance"
 	MethodSync                = "Sync"
 	MethodValidate            = "Validate"
+	EstimateFee               = "EstimateFee"
 )
 
 type DaemonConfig struct {
@@ -75,10 +76,11 @@ type Config struct {
 	// Asset is an asset with which this connector is working.
 	Asset connectors.Asset
 
-	// FeePerUnit fee per unit, where in bitcoin and litecoin unit is weight,
-	// because of the weight, in dash it is byte.
-	// TODO(andrew.shvv) Create subsystem to return current fee per unit
-	FeePerUnit int
+	// FeePerByte fee sat/byte, which blockchain miners require for including
+	// transactions in two coming blocks.
+	//
+	// NOTE: This is used only if internal system was unable to return fee rate.
+	FeePerByte int
 
 	Logger btclog.Logger
 
@@ -121,7 +123,7 @@ func (c *Config) validate() error {
 		return errors.New("asset should be specified")
 	}
 
-	if c.FeePerUnit == 0 {
+	if c.FeePerByte == 0 {
 		return errors.New("fee per unit should be specified")
 	}
 
@@ -449,9 +451,17 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
+	var feeSatoshiPerByte uint64
+	feePerByte, err := c.getFeeRate()
+	if err != nil {
+		m.AddError(metrics.LowSeverity)
+		c.log.Errorf("unable get fee rate: %v", err)
+		feeSatoshiPerByte = uint64(c.cfg.FeePerByte)
+	} else {
+		feeSatoshiPerByte = uint64(feePerByte.IntPart())
+	}
 
-
-	tx, fee, err := c.craftTransaction(uint64(c.cfg.FeePerUnit), decAmount2Sat(amt), decodedAddress)
+	tx, fee, err := c.craftTransaction(feeSatoshiPerByte, decAmount2Sat(amt), decodedAddress)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
@@ -951,12 +961,19 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 	// TODO(andrew.shvv) Use amount to construct actual transaction and
 	// calculate its size.
 	size := decimal.New(225, 0)
-	satoshiFee := feeRate.Mul(size)
-	return satoshiFee.Div(satoshiPerBitcoin), nil
+	feeSatoshiPerByte := feeRate.Mul(size)
+	feeInBitcoin := feeSatoshiPerByte.Div(satoshiPerBitcoin)
+	return feeInBitcoin.Round(8), nil
 }
 
-// getFeeRate return amount of satoshis per byte i.e. rate.
+// getFeeRate estimates the approximate rate in sat/byte needed for a
+// transaction to begin confirmation within 2 blocks if possible.
+//
+// NOTE: Uses virtual transaction size as defined in BIP 141
+// (witness data is discounted).
 func (c *Connector) getFeeRate() (decimal.Decimal, error) {
+	var feeRateBtcPerKiloByte decimal.Decimal
+
 	switch c.cfg.Asset {
 	case connectors.BCH, connectors.DASH:
 		// Bitcoin Cash removed estimatesmartfee in 17.2 version of their client,
@@ -967,12 +984,10 @@ func (c *Connector) getFeeRate() (decimal.Decimal, error) {
 			return decimal.Zero, err
 		}
 
-		feeRate := decimal.NewFromFloat(**res)
-		if feeRate.LessThanOrEqual(decimal.Zero) {
+		feeRateBtcPerKiloByte := decimal.NewFromFloat(**res)
+		if feeRateBtcPerKiloByte.LessThanOrEqual(decimal.Zero) {
 			return decimal.Zero, errors.New("not enough data to make an estimation")
 		}
-
-		return feeRate, nil
 
 	default:
 		res, err := c.client.EstimateSmartFeeWithMode(2,
@@ -985,7 +1000,14 @@ func (c *Connector) getFeeRate() (decimal.Decimal, error) {
 			return decimal.Zero, errors.New((*res.Errors)[0])
 		}
 
-		feeRate := decimal.NewFromFloat(*res.FeeRate)
-		return feeRate, nil
+		feeRateBtcPerKiloByte = decimal.NewFromFloat(*res.FeeRate)
+		if feeRateBtcPerKiloByte.LessThanOrEqual(decimal.Zero) {
+			return decimal.Zero, errors.New("not enough data to make an estimation")
+		}
 	}
+
+	bytesInKiloByte := decimal.NewFromFloat(1024)
+	feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
+	feeRateSatoshiPerByte := feeRateSatoshiPerKiloByte.Div(bytesInKiloByte)
+	return feeRateSatoshiPerByte, nil
 }

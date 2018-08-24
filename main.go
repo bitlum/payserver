@@ -83,7 +83,7 @@ func backendMain() error {
 			PaymentStore:     paymentsStore,
 			StateStorage:     sqlite.NewConnectorStateStorage(connectors.BCH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
-			FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
+			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
 				Name:       "bitcoinabc",
 				ServerHost: loadedConfig.BitcoinCash.Host,
@@ -108,7 +108,7 @@ func backendMain() error {
 			PaymentStore:     paymentsStore,
 			StateStorage:     sqlite.NewConnectorStateStorage(connectors.BTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
-			FeePerUnit: loadedConfig.BitcoinCash.FeePerUnit,
+			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
 				Name:       "bitcoind",
 				ServerHost: loadedConfig.Bitcoin.Host,
@@ -133,7 +133,7 @@ func backendMain() error {
 			PaymentStore:     paymentsStore,
 			StateStorage:     sqlite.NewConnectorStateStorage(connectors.DASH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
-			FeePerUnit: loadedConfig.Dash.FeePerUnit,
+			FeePerByte: loadedConfig.Dash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
 				Name:       "dashd",
 				ServerHost: loadedConfig.Dash.Host,
@@ -158,7 +158,7 @@ func backendMain() error {
 			PaymentStore:     paymentsStore,
 			StateStorage:     sqlite.NewConnectorStateStorage(connectors.LTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
-			FeePerUnit: loadedConfig.Litecoin.FeePerUnit,
+			FeePerByte: loadedConfig.Litecoin.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
 				Name:       "litecoind",
 				ServerHost: loadedConfig.Litecoin.Host,
