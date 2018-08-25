@@ -71,6 +71,21 @@ func (m Metric) CurrentFunds(amount float64) {
 	m.backend.CurrentFunds(m.daemon, m.asset, amount)
 }
 
+// OverallSent overall number of funds sent by connector.
+func (m Metric) OverallSent(amount float64) {
+	m.backend.OverallSent(m.daemon, m.asset, amount)
+}
+
+// OverallReceived overall number of funds received by connector.
+func (m Metric) OverallReceived(amount float64) {
+	m.backend.OverallReceived(m.daemon, m.asset, amount)
+}
+
+// OverallFee overall number of fee spent by connector.
+func (m Metric) OverallFee(amount float64) {
+	m.backend.OverallFee(m.daemon, m.asset, amount)
+}
+
 // AddRequestDuration adds request duration metric. Supposed to be
 // called after `NewMetric` which defines `startTime`. Calculates
 // duration using `startTime` and now as end time.
