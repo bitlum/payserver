@@ -155,8 +155,7 @@ type Connector struct {
 	// TODO(andrew.shvv) Remove because now we could use storage directly
 	pending map[string][]*connectors.Payment
 
-	lastSyncedBlock    *btcjson.GetBlockVerboseResult
-	lastSyncedBlockMtx sync.Mutex
+	lastSyncedBlock *btcjson.GetBlockVerboseResult
 
 	netParams *chaincfg.Params
 	log       *connectors.NamedLogger
@@ -699,19 +698,26 @@ func (c *Connector) findForkBlock(orphanBlock *btcjson.GetBlockVerboseResult) (
 // proceedNextBlock process new blocks and updates payment status that
 // transaction reached the minimum confirmation threshold.
 func (c *Connector) proceedNextBlock() error {
-	var lastSyncedBlock *btcjson.GetBlockVerboseResult
+	var err error
 
-	c.lastSyncedBlockMtx.Lock()
-	lastSyncedBlock = c.lastSyncedBlock
-	c.lastSyncedBlockMtx.Unlock()
+	hash, err := chainhash.NewHashFromStr(c.lastSyncedBlock.Hash)
+	if err != nil {
+		return err
+	}
+
+	// Update state of the block, such info as number of confirmations.
+	c.lastSyncedBlock, err = c.client.GetBlockVerbose(hash)
+	if err != nil {
+		return err
+	}
 
 	// If bitcoind returns negative confirmation number it means that
 	// blockchain re-organization happened and we should handle it properly by
 	// moving backwards.
-	if lastSyncedBlock.Confirmations < 0 {
+	if c.lastSyncedBlock.Confirmations < 0 {
 		c.log.Info("Chain re-organisation has been found, handle it...")
 
-		forkBlock, err := c.findForkBlock(lastSyncedBlock)
+		forkBlock, err := c.findForkBlock(c.lastSyncedBlock)
 		if err != nil {
 			return errors.Errorf("unable to handle "+
 				"re-organizations: %v", err)
@@ -719,7 +725,7 @@ func (c *Connector) proceedNextBlock() error {
 
 		c.log.Infof("Fork have been detected on block("+
 			"%v) using it as last synced block", forkBlock.Hash)
-		lastSyncedBlock = forkBlock
+		c.lastSyncedBlock = forkBlock
 	}
 
 	for {
@@ -731,20 +737,20 @@ func (c *Connector) proceedNextBlock() error {
 
 		// We should check next block only if there is minimum amount of
 		// confirmation above it.
-		if lastSyncedBlock.Confirmations < int64(c.cfg.MinConfirmations)+1 {
+		if c.lastSyncedBlock.Confirmations < int64(c.cfg.MinConfirmations)+1 {
 			return nil
 		}
 
 		// This check is a bit redundant, but we should be ensured that
 		// next hash exists, otherwise the last synced hash will be overwritten
 		// with zero hash.
-		if lastSyncedBlock.NextHash == "" {
+		if c.lastSyncedBlock.NextHash == "" {
 			c.log.Errorf("unable to continue processing block(%v):"+
-				"next hash empty", lastSyncedBlock.Hash)
+				"next hash empty", c.lastSyncedBlock.Hash)
 			return nil
 		}
 
-		nextHash, err := chainhash.NewHashFromStr(lastSyncedBlock.NextHash)
+		nextHash, err := chainhash.NewHashFromStr(c.lastSyncedBlock.NextHash)
 		if err != nil {
 			return err
 		}
@@ -831,18 +837,12 @@ func (c *Connector) proceedNextBlock() error {
 			return errors.Errorf("unable to put block hash in db: %v", err)
 		}
 
-		lastSyncedBlock = proceededBlock
-
-		c.lastSyncedBlockMtx.Lock()
 		c.lastSyncedBlock = proceededBlock
-		c.lastSyncedBlockMtx.Unlock()
 
 		// After transaction has been consumed by other subsystem
 		// overwrite cache.
 		c.log.Infof("Process block hash(%v), number(%v)",
 			proceededBlock.Hash, proceededBlock.Height)
-
-
 	}
 }
 
