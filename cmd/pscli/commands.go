@@ -594,9 +594,23 @@ var listPaymentsCommand = cli.Command{
 	Usage:    "Return list payments by the given filter parameters",
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name: "receipt",
-			Usage: "Receipt is either blockchain address or lightning network" +
-				" invoice which identifies the receiver of the payment.",
+			Name:  "asset",
+			Usage: "Asset is an acronym of the crypto currency",
+		},
+		cli.StringFlag{
+			Name: "media",
+			Usage: "Media is a type of technology which is used to transport" +
+				" value of underlying asset",
+		},
+		cli.StringFlag{
+			Name: "direction",
+			Usage: "Direction identifies the direction of the payment, " +
+				"(incoming, outgoing, internal).",
+		},
+		cli.StringFlag{
+			Name: "status",
+			Usage: "Status is the state of the payment, " +
+				"(waiting, pending, completed, failed).",
 		},
 	},
 	Action: listPayments,
