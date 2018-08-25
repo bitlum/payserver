@@ -40,11 +40,13 @@ const (
 	MethodAccountAddress      = "AccountAddress"
 	MethodCreateAddress       = "CreateAddress"
 	MethodPendingTransactions = "PendingTransactions"
-	MethodGenerateTransaction = "GenerateTransaction"
-	MethodSendTransaction     = "SendTransaction"
+	MethodCreatePayment       = "MethodCreatePayment"
+	MethodSendPayment         = "SendPayment"
 	MethodConfirmedBalance    = "ConfirmedBalance"
 	MethodPendingBalance      = "PendingBalance"
 	MethodSync                = "Sync"
+	MethodEstimateFee         = "MethodEstimateFee"
+	MethodValidateAddress     = "MethodValidateAddress"
 )
 
 type DaemonConfig struct {
@@ -379,7 +381,7 @@ func (c *Connector) PendingTransactions(account string) (
 func (c *Connector) CreatePayment(toAddress, amountStr string) (
 	*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodGenerateTransaction, c.cfg.Metrics)
+		MethodCreatePayment, c.cfg.Metrics)
 	defer m.Finish()
 
 	amount, err := decimal.NewFromString(amountStr)
@@ -485,7 +487,7 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSendTransaction, c.cfg.Metrics)
+		MethodSendPayment, c.cfg.Metrics)
 	defer m.Finish()
 
 	// We should be able to receive payment which we putter in storage
@@ -1166,7 +1168,16 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateAddress(address string) error {
-	return ethereum.ValidateAddress(address)
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodValidateAddress, c.cfg.Metrics)
+	defer m.Finish()
+
+	if err := ethereum.ValidateAddress(address); err != nil {
+		m.AddError(metrics.LowSeverity)
+		return err
+	}
+
+	return nil
 }
 
 // EstimateFee estimate fee for the transaction with the given sending
@@ -1174,9 +1185,14 @@ func (c *Connector) ValidateAddress(address string) error {
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodEstimateFee, c.cfg.Metrics)
+	defer m.Finish()
+
 	// Fetch suggested by the daemon gas price.
 	gp, err := c.client.EthGasPrice()
 	if err != nil {
+		m.AddError(metrics.LowSeverity)
 		return decimal.Zero, err
 	}
 
@@ -1203,6 +1219,7 @@ func (c *Connector) reportMetrics() error {
 	payments, err := c.cfg.PaymentStorage.ListPayments(c.cfg.Asset,
 		connectors.Completed, "", connectors.Blockchain)
 	if err != nil {
+		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("unable to list payments: %v", err)
 	}
 
