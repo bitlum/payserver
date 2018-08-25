@@ -1,4 +1,4 @@
-Pay Server - is the blockchain microservice which is working on [zigzag.io](https://zigzag.io), and service as unified API for other microservices to receive and send cryptocurrency.
+Pay server - is the blockchain microservice which is working on [zigzag.io](https://zigzag.io). It is used as unified API for other microservices to receive and send cryptocurrency.
 
 | State  | Feature |
 | ------------- | ------------- |
@@ -7,7 +7,7 @@ Pay Server - is the blockchain microservice which is working on [zigzag.io](http
 | not implemented | Payment re-try in case of failure |
 | not implemented | UTXO re-orginisation |
 | not implemented | Lightning Network channel re-balancing |
-|not implemented|Support of payment HTLC on addresses|
+|not implemented|Support of payments on HTLC addresses|
 
 ```
 GRPC API:
