@@ -576,7 +576,9 @@ func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 		return decimal.Zero, err
 	}
 
-	return decimal.New(resp.ConfirmedBalance, 0), nil
+	balanceSatoshis := decimal.New(resp.ConfirmedBalance, 0)
+	balanceBTC := balanceSatoshis.Div(satoshiPerBitcoin)
+	return balanceBTC.Round(8), nil
 }
 
 // PendingBalance return the amount of funds waiting to be confirmed.
@@ -594,7 +596,9 @@ func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 		return decimal.Zero, err
 	}
 
-	return decimal.New(resp.UnconfirmedBalance, 0), nil
+	balanceSatoshis := decimal.New(resp.UnconfirmedBalance, 0)
+	balanceBTC := balanceSatoshis.Div(satoshiPerBitcoin)
+	return balanceBTC.Round(8), nil
 }
 
 // reportMetrics is used to report necessary health metrics about internal
