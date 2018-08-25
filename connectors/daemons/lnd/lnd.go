@@ -25,12 +25,15 @@ import (
 )
 
 const (
-	MethodCreateInvoice = "CreateInvoice"
-	MethodSendTo        = "SendTo"
-	MethodInfo          = "Info"
-	MethodQueryRoutes   = "QueryRoutes"
-	MethodStart         = "Start"
-	MethodHandleInvoice = "HandlePayments"
+	MethodCreateInvoice    = "CreateInvoice"
+	MethodSendTo           = "SendTo"
+	MethodInfo             = "Info"
+	MethodQueryRoutes      = "QueryRoutes"
+	MethodStart            = "Start"
+	MethodHandleInvoice    = "HandlePayments"
+	MethodValidateInvoice  = "ValidateInvoice"
+	MethodConfirmedBalance = "ConfirmedBalance"
+	MethodPendingBalance   = "PendingBalance"
 )
 
 // Config is a connector config.
@@ -382,20 +385,24 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 	// corresponding to what we expect.
 	netParams, err := bitcoin.GetParams(c.cfg.Net)
 	if err != nil {
+		m.AddError(metrics.HighSeverity)
 		return nil, err
 	}
 
 	amount, err := btcToSatoshi(amountStr)
 	if err != nil {
+		m.AddError(metrics.LowSeverity)
 		return nil, err
 	}
 
 	invoice, err := zpay32.Decode(invoiceStr, netParams)
 	if err != nil {
+		m.AddError(metrics.LowSeverity)
 		return nil, err
 	}
 
 	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("wrong amount")
 	}
 
@@ -419,6 +426,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 
 	paymentAmt, err := decimal.NewFromString(amountStr)
 	if err != nil {
+		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to parse amount(%v): %v",
 			amount, err)
 	}
@@ -524,22 +532,29 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
+	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodValidateInvoice, c.cfg.Metrics)
+	defer m.Finish()
+
 	netParams, err := bitcoin.GetParams(c.cfg.Net)
 	if err != nil {
+		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable load network params: %v", err)
 	}
 
 	amount, err := btcToSatoshi(amountStr)
 	if err != nil {
+		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("unable convert amount: %v", err)
 	}
 
 	invoice, err := zpay32.Decode(invoiceStr, netParams)
 	if err != nil {
+		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("unable decode invoice: %v", err)
 	}
 
 	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("wrong amount")
 	}
 
@@ -551,9 +566,13 @@ func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
+	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodConfirmedBalance, c.cfg.Metrics)
+	defer m.Finish()
+
 	req := &lnrpc.WalletBalanceRequest{}
 	resp, err := c.client.WalletBalance(context.Background(), req)
 	if err != nil {
+		m.AddError(metrics.HighSeverity)
 		return decimal.Zero, err
 	}
 
@@ -565,9 +584,13 @@ func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
+	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodConfirmedBalance, c.cfg.Metrics)
+	defer m.Finish()
+
 	req := &lnrpc.WalletBalanceRequest{}
 	resp, err := c.client.WalletBalance(context.Background(), req)
 	if err != nil {
+		m.AddError(metrics.HighSeverity)
 		return decimal.Zero, err
 	}
 

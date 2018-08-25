@@ -1026,7 +1026,7 @@ func (c *Connector) getFeeRate() decimal.Decimal {
 // state of the connector.
 func (c *Connector) reportMetrics() error {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		GetFeeRate, c.cfg.Metrics)
+		"ReportMetrics", c.cfg.Metrics)
 	defer m.Finish()
 
 	var overallSent decimal.Decimal
