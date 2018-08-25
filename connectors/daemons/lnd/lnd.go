@@ -577,7 +577,8 @@ func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 // reportMetrics is used to report necessary health metrics about internal
 // state of the connector.
 func (c *Connector) reportMetrics() error {
-	m := crypto.NewMetric("lnd", string(connectors.BTC),
+	asset := connectors.BTC
+	m := crypto.NewMetric("lnd", string(asset),
 		"ReportMetrics", c.cfg.Metrics)
 	defer m.Finish()
 
@@ -585,7 +586,7 @@ func (c *Connector) reportMetrics() error {
 	var overallReceived decimal.Decimal
 	var overallFee decimal.Decimal
 
-	payments, err := c.cfg.PaymentStore.ListPayments(connectors.BTC,
+	payments, err := c.cfg.PaymentStore.ListPayments(asset,
 		connectors.Completed, "", connectors.Lightning)
 	if err != nil {
 		return errors.Errorf("unable to list payments: %v", err)
@@ -606,14 +607,18 @@ func (c *Connector) reportMetrics() error {
 		}
 	}
 
-	or, _ := overallReceived.Float64()
-	m.OverallReceived(or)
+	overallReceivedF, _ := overallReceived.Float64()
+	m.OverallReceived(overallReceivedF)
 
-	os, _ := overallSent.Float64()
-	m.OverallSent(os)
+	overallSentF, _ := overallSent.Float64()
+	m.OverallSent(overallSentF)
 
-	of, _ := overallFee.Float64()
-	m.OverallFee(of)
+	overallFeeF, _ := overallFee.Float64()
+	m.OverallFee(overallFeeF)
+
+	log.Infof("Metrics reported, overall received(%v %v), "+
+		"overall sent(%v %v), overall fee(%v %v)", asset, overallReceivedF,
+		asset, overallSentF, asset, overallFeeF)
 
 	return nil
 }
