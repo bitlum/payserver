@@ -269,6 +269,10 @@ func (c *Connector) Start() (err error) {
 				if err != nil {
 					c.log.Errorf("unable to sync: %v", err)
 				}
+			case <-time.After(time.Second * 30):
+				if err := c.reportMetrics(); err != nil {
+					c.log.Errorf("unable to report metric: %v", err)
+				}
 			case <-c.quit:
 				return
 			}
@@ -1183,4 +1187,48 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 	txFee := new(big.Int).Mul(gas, gasPrice)
 
 	return decimal.NewFromBigInt(txFee, 0).Div(weiInEth), nil
+}
+
+// reportMetrics is used to report necessary health metrics about internal
+// state of the connector.
+func (c *Connector) reportMetrics() error {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		"ReportMetrics", c.cfg.Metrics)
+	defer m.Finish()
+
+	var overallSent decimal.Decimal
+	var overallReceived decimal.Decimal
+	var overallFee decimal.Decimal
+
+	payments, err := c.cfg.PaymentStorage.ListPayments(c.cfg.Asset,
+		connectors.Completed, "", connectors.Blockchain)
+	if err != nil {
+		return errors.Errorf("unable to list payments: %v", err)
+	}
+
+	for _, payment := range payments {
+		if payment.Direction == connectors.Incoming {
+			overallReceived.Add(payment.Amount)
+		}
+
+		if payment.Direction == connectors.Outgoing {
+			overallSent.Add(payment.Amount)
+			overallFee.Add(payment.Amount)
+		}
+
+		if payment.Direction == connectors.Internal {
+			overallFee.Add(payment.Amount)
+		}
+	}
+
+	or, _ := overallReceived.Float64()
+	m.OverallReceived(or)
+
+	os, _ := overallSent.Float64()
+	m.OverallSent(os)
+
+	of, _ := overallFee.Float64()
+	m.OverallFee(of)
+
+	return nil
 }

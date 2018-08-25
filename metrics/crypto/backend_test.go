@@ -9,9 +9,12 @@ type testBackend struct {
 	panicSent bool
 }
 
-func (b *testBackend) CurrentFunds(daemon, asset string, amount float64) {}
-func (b *testBackend) AddRequest(daemon, asset, request string)          {}
-func (b *testBackend) AddError(daemon, asset, request, severity string)  {}
+func (b *testBackend) OverallSent(daemon, asset string, amount float64)     {}
+func (b *testBackend) OverallReceived(daemon, asset string, amount float64) {}
+func (b *testBackend) OverallFee(daemon, asset string, amount float64)      {}
+func (b *testBackend) CurrentFunds(daemon, asset string, amount float64)    {}
+func (b *testBackend) AddRequest(daemon, asset, request string)             {}
+func (b *testBackend) AddError(daemon, asset, request, severity string)     {}
 func (b *testBackend) AddPanic(daemon, asset, request string) {
 	b.panicSent = true
 }

@@ -33,7 +33,11 @@ const (
 // MetricsBackend is a system which is responsible for receiving and storing
 // the connector metricsBackend.
 type MetricsBackend interface {
+	OverallSent(daemon, asset string, amount float64)
+	OverallReceived(daemon, asset string, amount float64)
+	OverallFee(daemon, asset string, amount float64)
 	CurrentFunds(daemon, asset string, amount float64)
+
 	AddRequest(daemon, asset, request string)
 	AddError(daemon, asset, request, severity string)
 	AddPanic(daemon, asset, request string)
@@ -55,6 +59,9 @@ type PrometheusBackend struct {
 	panicsTotal            *prometheus.CounterVec
 	requestDurationSeconds *prometheus.HistogramVec
 	currentFunds           *prometheus.GaugeVec
+	overallSentFunds       *prometheus.GaugeVec
+	overallReceivedFunds   *prometheus.GaugeVec
+	overallFeeFunds        *prometheus.GaugeVec
 }
 
 // CurrentFunds sets the number of funds available under control of system.
@@ -63,6 +70,45 @@ type PrometheusBackend struct {
 // with parallel metrics report.
 func (m PrometheusBackend) CurrentFunds(daemon, asset string, amount float64) {
 	m.currentFunds.With(
+		prometheus.Labels{
+			assetLabel:  asset,
+			daemonLabel: daemon,
+		},
+	).Set(amount)
+}
+
+// OverallSent sets the number of funds sent by the connector.
+//
+// NOTE: Non-pointer receiver made by intent to avoid conflict in the system
+// with parallel metrics report.
+func (m PrometheusBackend) OverallSent(daemon, asset string, amount float64) {
+	m.overallSentFunds.With(
+		prometheus.Labels{
+			assetLabel:  asset,
+			daemonLabel: daemon,
+		},
+	).Set(amount)
+}
+
+// OverallReceived sets the number of funds received by the connector.
+//
+// NOTE: Non-pointer receiver made by intent to avoid conflict in the system
+// with parallel metrics report.
+func (m PrometheusBackend) OverallReceived(daemon, asset string, amount float64) {
+	m.overallReceivedFunds.With(
+		prometheus.Labels{
+			assetLabel:  asset,
+			daemonLabel: daemon,
+		},
+	).Set(amount)
+}
+
+// OverallFee sets the number of fee funds spent by the connector.
+//
+// NOTE: Non-pointer receiver made by intent to avoid conflict in the system
+// with parallel metrics report.
+func (m PrometheusBackend) OverallFee(daemon, asset string, amount float64) {
+	m.overallFeeFunds.With(
 		prometheus.Labels{
 			assetLabel:  asset,
 			daemonLabel: daemon,
@@ -252,7 +298,73 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 
 	if err := prometheus.Register(backend.currentFunds); err != nil {
 		return backend, errors.Errorf(
-			"unable to register 'currentFund' metric: " +
+			"unable to register 'currentFunds' metric: " +
+				err.Error())
+	}
+
+	backend.overallSentFunds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystem,
+			Name:      "overall_sent",
+			Help:      "Number of funds sent by service",
+			ConstLabels: prometheus.Labels{
+				metrics.NetLabel: net,
+			},
+		},
+		[]string{
+			assetLabel,
+			daemonLabel,
+		},
+	)
+
+	if err := prometheus.Register(backend.overallSentFunds); err != nil {
+		return backend, errors.Errorf(
+			"unable to register 'overallSentFunds' metric: " +
+				err.Error())
+	}
+
+	backend.overallReceivedFunds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystem,
+			Name:      "overall_received",
+			Help:      "Number of funds received by service",
+			ConstLabels: prometheus.Labels{
+				metrics.NetLabel: net,
+			},
+		},
+		[]string{
+			assetLabel,
+			daemonLabel,
+		},
+	)
+
+	if err := prometheus.Register(backend.overallReceivedFunds); err != nil {
+		return backend, errors.Errorf(
+			"unable to register 'overallReceivedFunds' metric: " +
+				err.Error())
+	}
+
+	backend.overallFeeFunds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystem,
+			Name:      "overall_fee",
+			Help:      "Number of funds spent by service",
+			ConstLabels: prometheus.Labels{
+				metrics.NetLabel: net,
+			},
+		},
+		[]string{
+			assetLabel,
+			daemonLabel,
+		},
+	)
+
+	if err := prometheus.Register(backend.overallFeeFunds); err != nil {
+		return backend, errors.Errorf(
+			"unable to register 'overallFeeFunds' metric: " +
 				err.Error())
 	}
 

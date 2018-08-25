@@ -218,6 +218,24 @@ func (c *Connector) Start() (err error) {
 
 	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
+
+		for {
+			if err := c.reportMetrics(); err != nil {
+				log.Errorf("unable report metrics: %v", err)
+				continue
+			}
+
+			select {
+			case <-time.After(time.Second * 30):
+			case <-c.quit:
+				return
+			}
+		}
+	}()
+
+	c.wg.Add(1)
+	go func() {
 		m := crypto.NewMetric(c.cfg.Name, "BTC", MethodHandleInvoice, c.cfg.Metrics)
 		defer m.Finish()
 		defer c.wg.Done()
@@ -554,4 +572,48 @@ func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 	}
 
 	return decimal.New(resp.UnconfirmedBalance, 0), nil
+}
+
+// reportMetrics is used to report necessary health metrics about internal
+// state of the connector.
+func (c *Connector) reportMetrics() error {
+	m := crypto.NewMetric("lnd", string(connectors.BTC),
+		"ReportMetrics", c.cfg.Metrics)
+	defer m.Finish()
+
+	var overallSent decimal.Decimal
+	var overallReceived decimal.Decimal
+	var overallFee decimal.Decimal
+
+	payments, err := c.cfg.PaymentStore.ListPayments(connectors.BTC,
+		connectors.Completed, "", connectors.Lightning)
+	if err != nil {
+		return errors.Errorf("unable to list payments: %v", err)
+	}
+
+	for _, payment := range payments {
+		if payment.Direction == connectors.Incoming {
+			overallReceived.Add(payment.Amount)
+		}
+
+		if payment.Direction == connectors.Outgoing {
+			overallSent.Add(payment.Amount)
+			overallFee.Add(payment.Amount)
+		}
+
+		if payment.Direction == connectors.Internal {
+			overallFee.Add(payment.Amount)
+		}
+	}
+
+	or, _ := overallReceived.Float64()
+	m.OverallReceived(or)
+
+	os, _ := overallSent.Float64()
+	m.OverallSent(os)
+
+	of, _ := overallFee.Float64()
+	m.OverallFee(of)
+
+	return nil
 }
