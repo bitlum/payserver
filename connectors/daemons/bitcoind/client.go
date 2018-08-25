@@ -1047,16 +1047,16 @@ func (c *Connector) reportMetrics() error {
 
 	for _, payment := range payments {
 		if payment.Direction == connectors.Incoming {
-			overallReceived.Add(payment.Amount)
+			overallReceived = overallReceived.Add(payment.Amount)
 		}
 
 		if payment.Direction == connectors.Outgoing {
-			overallSent.Add(payment.Amount)
-			overallFee.Add(payment.Amount)
+			overallSent = overallSent.Add(payment.Amount)
+			overallFee = overallFee.Add(payment.MediaFee)
 		}
 
 		if payment.Direction == connectors.Internal {
-			overallFee.Add(payment.Amount)
+			overallFee = overallFee.Add(payment.MediaFee)
 		}
 	}
 
