@@ -644,8 +644,8 @@ func (c *Connector) reportMetrics() error {
 	m.OverallFee(overallFeeF)
 
 	log.Infof("Metrics reported, overall received(%v %v), "+
-		"overall sent(%v %v), overall fee(%v %v)", asset, overallReceivedF,
-		asset, overallSentF, asset, overallFeeF)
+		"overall sent(%v %v), overall fee(%v %v)", overallReceivedF,
+		asset, overallSentF, asset, overallFeeF, asset)
 
 	return nil
 }

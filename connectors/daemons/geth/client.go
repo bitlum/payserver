@@ -254,10 +254,12 @@ func (c *Connector) Start() (err error) {
 	go func() {
 		delay := time.Duration(c.cfg.SyncTickDelay) * time.Second
 		syncingTicker := time.NewTicker(delay)
+		reportTicker := time.NewTicker(time.Second * 30)
 
 		defer func() {
 			c.log.Info("Quit syncing transactions goroutine")
 			syncingTicker.Stop()
+			reportTicker.Stop()
 			c.wg.Done()
 		}()
 
@@ -271,7 +273,7 @@ func (c *Connector) Start() (err error) {
 				if err != nil {
 					c.log.Errorf("unable to sync: %v", err)
 				}
-			case <-time.After(time.Second * 30):
+			case <-reportTicker.C:
 				if err := c.reportMetrics(); err != nil {
 					c.log.Errorf("unable to report metric: %v", err)
 				}
@@ -1248,8 +1250,8 @@ func (c *Connector) reportMetrics() error {
 	m.OverallFee(overallFeeF)
 
 	c.log.Infof("Metrics reported, overall received(%v %v), "+
-		"overall sent(%v %v), overall fee(%v %v)", c.cfg.Asset, overallReceivedF,
-		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF)
+		"overall sent(%v %v), overall fee(%v %v)", overallReceivedF,
+		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF, c.cfg.Asset)
 
 	return nil
 }

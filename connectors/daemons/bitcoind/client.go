@@ -305,14 +305,20 @@ func (c *Connector) Start() (err error) {
 		c.log.Info("Starting syncing goroutine...")
 
 		syncDelay := time.Second * time.Duration(c.cfg.SyncLoopDelay)
+		syncTicker := time.NewTicker(syncDelay)
+		defer syncTicker.Stop()
+
+		reportTicker := time.NewTicker(time.Second * 30)
+		defer reportTicker.Stop()
+
 		for {
 			select {
-			case <-time.After(syncDelay):
+			case <-syncTicker.C:
 				if err := c.sync(); err != nil {
 					c.log.Error(err)
 					continue
 				}
-			case <-time.After(time.Second * 30):
+			case <-reportTicker.C:
 				if err := c.reportMetrics(); err != nil {
 					c.log.Error(err)
 					continue
@@ -1064,8 +1070,8 @@ func (c *Connector) reportMetrics() error {
 	m.OverallFee(overallFeeF)
 
 	c.log.Infof("Metrics reported, overall received(%v %v), "+
-		"overall sent(%v %v), overall fee(%v %v)", c.cfg.Asset, overallReceivedF,
-		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF)
+		"overall sent(%v %v), overall fee(%v %v)", overallReceivedF,
+		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF, c.cfg.Asset)
 
 	return nil
 }
