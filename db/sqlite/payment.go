@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
+	"sort"
 )
 
 type PaymentsStore struct {
@@ -152,6 +153,10 @@ func (s *PaymentsStore) ListPayments(asset connectors.Asset,
 
 		payments = append(payments, payment)
 	}
+
+	sort.Slice(payments, func(i, j int) bool {
+		return payments[i].UpdatedAt > payments[j].UpdatedAt
+	})
 
 	return payments, nil
 }
