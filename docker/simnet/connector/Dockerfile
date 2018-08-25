@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
 # This implies that service has to be built locally first, and putted
 # in the docker directory, for running docker build.
 COPY bin/connector /usr/local/bin
+COPY bin/pscli /usr/local/bin
 
 # Default config used to initalize datadir volume at first or
 # cleaned deploy.
