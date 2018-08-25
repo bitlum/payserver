@@ -1109,6 +1109,9 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	}
 	lastSyncedBlockHash = lastSyncedBlock.Hash
 
+	// Report last synchronised block number from daemon point of view.
+	m.BlockNumber(int64(lastSyncedBlock.Number))
+
 	// Sync block above minimum confirmation threshold and
 	// populate unconfirmed pending map with transactions.
 	unconfirmedTxs, err := c.syncUnconfirmed(bestBlockNumber,

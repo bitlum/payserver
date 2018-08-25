@@ -37,6 +37,7 @@ type MetricsBackend interface {
 	OverallReceived(daemon, asset string, amount float64)
 	OverallFee(daemon, asset string, amount float64)
 	CurrentFunds(daemon, asset string, amount float64)
+	BlockNumber(daemon, asset string, blockNumber int64)
 
 	AddRequest(daemon, asset, request string)
 	AddError(daemon, asset, request, severity string)
@@ -62,6 +63,7 @@ type PrometheusBackend struct {
 	overallSentFunds       *prometheus.GaugeVec
 	overallReceivedFunds   *prometheus.GaugeVec
 	overallFeeFunds        *prometheus.GaugeVec
+	blockNumber            *prometheus.GaugeVec
 }
 
 // CurrentFunds sets the number of funds available under control of system.
@@ -114,6 +116,20 @@ func (m PrometheusBackend) OverallFee(daemon, asset string, amount float64) {
 			daemonLabel: daemon,
 		},
 	).Set(amount)
+}
+
+// BlockNumber sets the number of last synchronised block from daemon point
+// of view.
+//
+// NOTE: Non-pointer receiver made by intent to avoid conflict in the system
+// with parallel metrics report.
+func (m PrometheusBackend) BlockNumber(daemon, asset string, blockNumber int64) {
+	m.blockNumber.With(
+		prometheus.Labels{
+			assetLabel:  asset,
+			daemonLabel: daemon,
+		},
+	).Set(float64(blockNumber))
 }
 
 // AddRequest increases request counter for the given request name.
@@ -365,6 +381,28 @@ func InitMetricsBackend(net string) (MetricsBackend, error) {
 	if err := prometheus.Register(backend.overallFeeFunds); err != nil {
 		return backend, errors.Errorf(
 			"unable to register 'overallFeeFunds' metric: " +
+				err.Error())
+	}
+
+	backend.blockNumber = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: subsystem,
+			Name:      "block_number",
+			Help:      "Last synchronised block number",
+			ConstLabels: prometheus.Labels{
+				metrics.NetLabel: net,
+			},
+		},
+		[]string{
+			assetLabel,
+			daemonLabel,
+		},
+	)
+
+	if err := prometheus.Register(backend.blockNumber); err != nil {
+		return backend, errors.Errorf(
+			"unable to register 'blockNumber' metric: " +
 				err.Error())
 	}
 

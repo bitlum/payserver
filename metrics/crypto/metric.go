@@ -86,6 +86,12 @@ func (m Metric) OverallFee(amount float64) {
 	m.backend.OverallFee(m.daemon, m.asset, amount)
 }
 
+// BlockNumber is used to report last synchronised block number of from
+// daemon point of view.
+func (m Metric) BlockNumber(blockNumber int64) {
+	m.backend.BlockNumber(m.daemon, m.asset, blockNumber)
+}
+
 // AddRequestDuration adds request duration metric. Supposed to be
 // called after `NewMetric` which defines `startTime`. Calculates
 // duration using `startTime` and now as end time.

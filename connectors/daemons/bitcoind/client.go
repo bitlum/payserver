@@ -738,7 +738,7 @@ func (c *Connector) proceedNextBlock() error {
 		// This check is a bit redundant, but we should be ensured that
 		// next hash exists, otherwise the last synced hash will be overwritten
 		// with zero hash.
-		if c.lastSyncedBlock.NextHash == "" {
+		if lastSyncedBlock.NextHash == "" {
 			c.log.Errorf("unable to continue processing block(%v):"+
 				"next hash empty", lastSyncedBlock.Hash)
 			return nil
@@ -841,6 +841,8 @@ func (c *Connector) proceedNextBlock() error {
 		// overwrite cache.
 		c.log.Infof("Process block hash(%v), number(%v)",
 			proceededBlock.Hash, proceededBlock.Height)
+
+
 	}
 }
 
@@ -920,6 +922,9 @@ func (c *Connector) sync() error {
 
 	f, _ := balance.Float64()
 	m.CurrentFunds(f)
+
+	// Report last synchronised block number from daemon point of view.
+	m.BlockNumber(c.lastSyncedBlock.Height)
 
 	return nil
 }
