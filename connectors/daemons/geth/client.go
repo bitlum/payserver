@@ -1221,14 +1221,18 @@ func (c *Connector) reportMetrics() error {
 		}
 	}
 
-	or, _ := overallReceived.Float64()
-	m.OverallReceived(or)
+	overallReceivedF, _ := overallReceived.Float64()
+	m.OverallReceived(overallReceivedF)
 
-	os, _ := overallSent.Float64()
-	m.OverallSent(os)
+	overallSentF, _ := overallSent.Float64()
+	m.OverallSent(overallSentF)
 
-	of, _ := overallFee.Float64()
-	m.OverallFee(of)
+	overallFeeF, _ := overallFee.Float64()
+	m.OverallFee(overallFeeF)
+
+	c.log.Infof("Metrics reported, overall received(%v %v), "+
+		"overall sent(%v %v), overall fee(%v %v)", c.cfg.Asset, overallReceivedF,
+		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF)
 
 	return nil
 }
