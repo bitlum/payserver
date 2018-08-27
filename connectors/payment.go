@@ -148,5 +148,5 @@ func GeneratePaymentID(parts ...string) string {
 }
 
 func NowInMilliSeconds() int64 {
-	return int64(time.Now().Nanosecond() / 1000)
+	return time.Now().UnixNano() / int64(time.Millisecond)
 }
