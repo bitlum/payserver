@@ -10,7 +10,6 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
 	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
 	"github.com/bitlum/connector/connectors/daemons/bitcoind/rpcclient"
 	"github.com/bitlum/connector/metrics/crypto"
@@ -443,17 +442,10 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		MethodCreatePayment, c.cfg.Metrics)
 	defer m.Finish()
 
-	err := validateAddress(c.cfg.Asset, address, c.netParams.Name)
+	decodedAddress, err := decodeAddress(c.cfg.Asset, address, c.netParams.Name)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("invalid address: %v", err)
-	}
-
-	decodedAddress, err := btcutil.DecodeAddress(address, c.netParams)
-	if err != nil {
-		m.AddError(metrics.LowSeverity)
-
-		return nil, errors.Errorf("unable to decode address: %v", err)
 	}
 
 	amtInBtc, err := decimal.NewFromString(amount)
@@ -931,13 +923,13 @@ func (c *Connector) sync() error {
 	return nil
 }
 
-// ValidateAddress takes the blockchain address and ensure its validity.
+// DecodeAddress takes the blockchain address and ensure its validity.
 func (c *Connector) ValidateAddress(address string) error {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodValidate, c.cfg.Metrics)
 	defer m.Finish()
 
-	err := validateAddress(c.cfg.Asset, address, c.netParams.Name)
+	_, err := decodeAddress(c.cfg.Asset, address, c.netParams.Name)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("invalid address: %v", err)

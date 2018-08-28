@@ -7,33 +7,53 @@ import (
 	cashAddr "github.com/schancel/cashaddr-converter/address"
 )
 
-// ValidateAddress validates bitcoin cash address according net.
-// Supports cashaddr and legacy addresses.
+// DecodeAddress validates bitcoin cash address according net,
+// and return btcutil compatible legacy bitcoin address. Supports cashaddr and
+// legacy addresses.
 //
 // NOTE: Regtest net treated as testnet 3.Ò
-func ValidateAddress(address, network string) error {
+func DecodeAddress(address, network string) (btcutil.Address, error) {
 	netParams, err := GetParams(network)
 	if err != nil {
-		return errors.Errorf("unable to get net params: %v", err)
+		return nil, errors.Errorf("unable to get net params: %v", err)
 	}
 
 	// Check that address is valid, but if it return errors,
 	// continue validation because it might be special "Cash Address" type.
 	decodedAddress, err := btcutil.DecodeAddress(address, netParams)
-	if err == nil && decodedAddress.IsForNet(netParams) {
-		return nil
+	if err == nil {
+		if decodedAddress.IsForNet(netParams) {
+			return decodedAddress, nil
+		} else {
+			return nil, errors.New("address is not for specified network")
+		}
 	}
 
 	cashAddress, err := cashAddr.NewFromString(address)
 	if err != nil {
-		return errors.New("address neither legacy address nor cash addr")
+		return nil, errors.New("address neither legacy address nor cash addr")
 	}
 
-	if cashAddrNetToInt(cashAddress.Network) != bitcoinCashNetToInt(netParams) {
-		return errors.New("address is not for specified network")
+	legacyAddress, err := cashAddress.Legacy()
+	if err != nil {
+		return nil, errors.Errorf("unable convert to legacy address: %v", err)
 	}
 
-	return nil
+	address, err = legacyAddress.Encode()
+	if err != nil {
+		return nil, errors.Errorf("unable encode legacy address: %v", err)
+	}
+
+	decodedAddress, err = btcutil.DecodeAddress(address, netParams)
+	if err == nil {
+		if decodedAddress.IsForNet(netParams) {
+			return decodedAddress, nil
+		} else {
+			return nil, errors.New("address is not for specified network")
+		}
+	}
+
+	return decodedAddress, nil
 }
 
 func cashAddrNetToInt(networkType cashAddr.NetworkType) int {

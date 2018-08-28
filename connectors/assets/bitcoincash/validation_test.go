@@ -235,8 +235,13 @@ func TestValidate(t *testing.T) {
 		},
 		// false positive
 		{
-			name:    "BTC regtest LTC mainnet P2PKH address",
-			args:    args{"BTC", "regtest", "mnf5Etv6JePkDPXJtNZgZZ45dQSrieJfLk"},
+			name:    "BCH regtest LTC mainnet P2PKH address",
+			args:    args{"BCH", "regtest", "mnf5Etv6JePkDPXJtNZgZZ45dQSrieJfLk"},
+			wantErr: false,
+		},
+		{
+			name:    "BCH mainnet BCH mainnet P2PKH address",
+			args:    args{"BCH", "mainnet", "qrpu9ylkzk5jxq3nl43d0jndmyc4el4qxgunewsufk"},
 			wantErr: false,
 		},
 	}
@@ -249,7 +254,8 @@ func TestValidate(t *testing.T) {
 				}
 			}()
 			var err error
-			if err = ValidateAddress(tt.args.addr, tt.args.net); (err != nil) != tt.wantErr {
+			if _, err = DecodeAddress(tt.args.addr,
+				tt.args.net); (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})

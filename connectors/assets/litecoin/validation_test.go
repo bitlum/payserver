@@ -383,7 +383,8 @@ func TestValidate(t *testing.T) {
 				}
 			}()
 			var err error
-			if err = ValidateAddress(tt.args.addr, tt.args.net); (err != nil) != tt.wantErr {
+			if _, err = DecodeAddress(tt.args.addr,
+				tt.args.net); (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})

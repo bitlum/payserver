@@ -51,18 +51,19 @@ func isProperNet(desiredNet, actualNet string) bool {
 	return desiredNet == actualNet
 }
 
-func validateAddress(asset connectors.Asset, address, network string) error {
+func decodeAddress(asset connectors.Asset, address,
+network string) (btcutil.Address, error) {
 	switch asset {
 	case connectors.BTC:
-		return bitcoin.ValidateAddress(address, network)
+		return bitcoin.DecodeAddress(address, network)
 	case connectors.LTC:
-		return litecoin.ValidateAddress(address, network)
+		return litecoin.DecodeAddress(address, network)
 	case connectors.BCH:
-		return bitcoincash.ValidateAddress(address, network)
+		return bitcoincash.DecodeAddress(address, network)
 	case connectors.DASH:
-		return dash.ValidateAddress(address, network)
+		return dash.DecodeAddress(address, network)
 	default:
-		return errors.Errorf("unsupported asset asset(%v)", asset)
+		return nil, errors.Errorf("unsupported asset asset(%v)", asset)
 	}
 }
 
