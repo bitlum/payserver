@@ -202,11 +202,10 @@ testnet-deploy: \
 	testnet-end-notification
 
 mainnet-deploy: \
+	mainnet-start-notification \
 	check-bitlum-user-set \
-	mainnet-build-compose
-#	mainnet-start-notification \
-#	mainnet-end-notification
-
+	mainnet-build-compose \
+	mainnet-end-notification
 
 # # # # # # # #
 # Simnet init #
