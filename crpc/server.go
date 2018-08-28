@@ -69,7 +69,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(CreateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		address, err := c.CreateAddress(defaultAccount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(CreateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(CreateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -103,7 +103,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		invoice, err := c.CreateInvoice(defaultAccount, req.Amount, req.Description)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(CreateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -113,7 +113,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		}
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(CreateReceiptReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ValidateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -150,7 +150,7 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ValidateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -160,14 +160,14 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		}
 
 		if err := c.ValidateInvoice(req.Receipt, req.Amount); err != nil {
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ValidateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
 
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(ValidateReceiptReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 			if !ok {
 				err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(BalanceReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -211,7 +211,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			available, err := c.ConfirmedBalance("all")
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -219,7 +219,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			pending, err := c.PendingBalance("all")
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -227,7 +227,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			protoAsset, err := convertAssetToProto(asset)
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -254,7 +254,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 			if !ok {
 				err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(BalanceReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -273,7 +273,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			available, err := c.ConfirmedBalance(defaultAccount)
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -281,7 +281,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			pending, err := c.PendingBalance(defaultAccount)
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -289,7 +289,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			protoAsset, err := convertAssetToProto(asset)
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Tracef("command(%v), error: %v", getFunctionName(), err)
+				log.Errorf("command(%v), error: %v", getFunctionName(), err)
 				s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -320,7 +320,7 @@ func (s *Server) EstimateFee(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -332,7 +332,7 @@ func (s *Server) EstimateFee(ctx context.Context,
 		fee, err := c.EstimateFee(req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -343,7 +343,7 @@ func (s *Server) EstimateFee(ctx context.Context,
 
 	case Media_LIGHTNING:
 		err := errors.New("fee estimation for lightning is not supported")
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 		return nil, err
 
@@ -379,7 +379,7 @@ func (s *Server) SendPayment(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -393,7 +393,7 @@ func (s *Server) SendPayment(ctx context.Context,
 		payment, err = c.CreatePayment(req.Receipt, req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -401,7 +401,7 @@ func (s *Server) SendPayment(ctx context.Context,
 		payment, err = c.SendPayment(payment.PaymentID)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -410,7 +410,7 @@ func (s *Server) SendPayment(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -422,14 +422,14 @@ func (s *Server) SendPayment(ctx context.Context,
 		payment, err = c.SendTo(req.Receipt, req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 			return nil, err
 		}
 
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -437,7 +437,7 @@ func (s *Server) SendPayment(ctx context.Context,
 	resp, err = convertPaymentToProto(payment)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(SendPaymentReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -458,7 +458,7 @@ func (s *Server) PaymentByID(ctx context.Context, req *PaymentByIDRequest) (*Pay
 	payment, err := s.paymentsStore.PaymentByID(req.PaymentId)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(PaymentByIDReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -466,7 +466,7 @@ func (s *Server) PaymentByID(ctx context.Context, req *PaymentByIDRequest) (*Pay
 	resp, err := convertPaymentToProto(payment)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(PaymentByIDReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -488,7 +488,7 @@ func (s *Server) PaymentsByReceipt(ctx context.Context,
 	payments, err := s.paymentsStore.PaymentByReceipt(req.Receipt)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(PaymentsByReceiptReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func (s *Server) PaymentsByReceipt(ctx context.Context,
 		protoPayment, err := convertPaymentToProto(payment)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(PaymentsByReceiptReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -536,7 +536,7 @@ func (s *Server) ListPayments(ctx context.Context,
 		asset, err = ConvertAssetFromProto(req.Asset)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ListPaymentsReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -546,7 +546,7 @@ func (s *Server) ListPayments(ctx context.Context,
 		direction, err = ConvertPaymentDirectionFromProto(req.Direction)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ListPaymentsReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -556,7 +556,7 @@ func (s *Server) ListPayments(ctx context.Context,
 		status, err = ConvertPaymentStatusFromProto(req.Status)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ListPaymentsReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -566,7 +566,7 @@ func (s *Server) ListPayments(ctx context.Context,
 		media, err = ConvertMediaFromProto(req.Media)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ListPaymentsReq, string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -575,7 +575,7 @@ func (s *Server) ListPayments(ctx context.Context,
 	payments, err := s.paymentsStore.ListPayments(asset, status, direction, media)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Tracef("command(%v), error: %v", getFunctionName(), err)
+		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(ListPaymentsReq, string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -585,7 +585,7 @@ func (s *Server) ListPayments(ctx context.Context,
 		protoPayment, err := convertPaymentToProto(payment)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Tracef("command(%v), error: %v", getFunctionName(), err)
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ListPaymentsReq, string(metrics.LowSeverity))
 			return nil, err
 		}
