@@ -187,9 +187,11 @@ func (c *Connector) Start() (err error) {
 			return errors.Errorf("hub net is '%v', but config net is '%v'",
 				c.cfg.Net, lndNet)
 		}
-	}
 
-	log.Infof("Init connector working with '%v' net", lndNet)
+		log.Infof("Init connector working with '%v' net", lndNet)
+	} else {
+		log.Info("Init connector working with 'mainnet' net")
+	}
 
 	c.nodeAddr = respInfo.IdentityPubkey
 	var invoiceSubscription lnrpc.Lightning_SubscribeInvoicesClient
