@@ -27,6 +27,10 @@ var (
 
 	// defaultAccount denotes default account of wallet.
 	defaultAccount = ""
+
+	// minimumFeeRate is the minimal satoshis which we should pay for one byte
+	//  of information in blockchain.
+	minimumFeeRate = decimal.NewFromFloat(1.0)
 )
 
 const (
@@ -1017,14 +1021,22 @@ func (c *Connector) getFeeRate() decimal.Decimal {
 			m.AddError(metrics.HighSeverity)
 		}
 
-		feeRateSatoshiPerByte = decimal.New(int64(c.cfg.FeePerByte), 0)
+		feeRateSatoshiPerByte = decimal.New(int64(c.cfg.FeePerByte), 0).Round(8)
+		if feeRateSatoshiPerByte.LessThan(minimumFeeRate) {
+			feeRateSatoshiPerByte = minimumFeeRate
+		}
+
 		c.log.Debug("Get fee rate(%v sat/byte) from config", feeRateSatoshiPerByte)
 
 	} else {
 		// Initial rate is return us BTC/Kb
 		bytesInKiloByte := decimal.NewFromFloat(1024)
 		feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
-		feeRateSatoshiPerByte = feeRateSatoshiPerKiloByte.Div(bytesInKiloByte)
+		feeRateSatoshiPerByte = feeRateSatoshiPerKiloByte.Div(bytesInKiloByte).Round(8)
+		if feeRateSatoshiPerByte.LessThan(minimumFeeRate) {
+			feeRateSatoshiPerByte = minimumFeeRate
+		}
+
 		c.log.Debug("Get fee rate(%v sat/byte) from daemon",
 			feeRateSatoshiPerByte)
 	}
