@@ -1010,21 +1010,26 @@ func (c *Connector) getFeeRate() decimal.Decimal {
 		}
 	}
 
+	var feeRateSatoshiPerByte decimal.Decimal
 	if respErr != nil {
 		if c.cfg.Net == "mainnet" {
 			c.log.Errorf("unable get fee rate: %v", respErr)
 			m.AddError(metrics.HighSeverity)
 		}
 
-		return decimal.New(int64(c.cfg.FeePerByte), 0)
+		feeRateSatoshiPerByte = decimal.New(int64(c.cfg.FeePerByte), 0)
+		c.log.Debug("Get fee rate(%v sat/byte) from config", feeRateSatoshiPerByte)
 
 	} else {
 		// Initial rate is return us BTC/Kb
 		bytesInKiloByte := decimal.NewFromFloat(1024)
 		feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
-		feeRateSatoshiPerByte := feeRateSatoshiPerKiloByte.Div(bytesInKiloByte)
-		return feeRateSatoshiPerByte
+		feeRateSatoshiPerByte = feeRateSatoshiPerKiloByte.Div(bytesInKiloByte)
+		c.log.Debug("Get fee rate(%v sat/byte) from daemon",
+			feeRateSatoshiPerByte)
 	}
+
+	return feeRateSatoshiPerByte
 }
 
 // reportMetrics is used to report necessary health metrics about internal
