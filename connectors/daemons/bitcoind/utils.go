@@ -33,8 +33,7 @@ func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 }
 
 func printAmount(a btcutil.Amount) string {
-	u := btcutil.AmountBTC
-	return strconv.FormatFloat(a.ToUnit(u), 'f', -int(u + 8), 64)
+	return decimal.NewFromFloat(a.ToBTC()).Round(8).String()
 }
 
 func isProperNet(desiredNet, actualNet string) bool {

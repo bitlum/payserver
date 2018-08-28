@@ -456,14 +456,15 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		return nil, errors.Errorf("unable to decode address: %v", err)
 	}
 
-	amt, err := decimal.NewFromString(amount)
+	amtInBtc, err := decimal.NewFromString(amount)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return nil, errors.Errorf("unable to decode amount: %v", err)
 	}
 
 	feeSatoshiPerByte := uint64(c.getFeeRate().IntPart())
-	tx, fee, err := c.craftTransaction(feeSatoshiPerByte, decAmount2Sat(amt), decodedAddress)
+	amtInSat := decAmount2Sat(amtInBtc)
+	tx, fee, err := c.craftTransaction(feeSatoshiPerByte, amtInSat, decodedAddress)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
@@ -497,7 +498,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		Receipt:   address,
 		Asset:     connectors.Asset(c.cfg.Asset),
 		Media:     connectors.Blockchain,
-		Amount:    amt,
+		Amount:    amtInBtc,
 		MediaFee:  sat2DecAmount(fee),
 		MediaID:   txID,
 		Detail: &connectors.GeneratedTxDetails{
@@ -549,14 +550,15 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		payment.Status = connectors.Failed
 		payment.UpdatedAt = connectors.NowInMilliSeconds()
 
-		if err = c.cfg.PaymentStore.SavePayment(payment); err != nil {
+		if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 			m.AddError(metrics.HighSeverity)
 			c.log.Errorf("unable update payment(%v) status to fail: %v",
 				paymentID, err)
 		}
 
 		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to send transaction: %v", err)
+		return nil, errors.Errorf("unable to send payment(%v): %v",
+			paymentID, err)
 	}
 
 	payment.Status = connectors.Pending

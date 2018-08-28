@@ -90,7 +90,7 @@ func (c *Connector) syncUnspent() error {
 // to at least 'numCoins' amount of satoshis. If necessary, a change address will
 // also be generated.
 func (c *Connector) craftTransaction(feeRatePerByte uint64,
-	amt btcutil.Amount, address btcutil.Address) (*wire.MsgTx,
+	amtSat btcutil.Amount, address btcutil.Address) (*wire.MsgTx,
 	btcutil.Amount, error) {
 
 	// We hold the coin select mutex while querying for outputs, and
@@ -99,8 +99,8 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	c.coinSelectMtx.Lock()
 	defer c.coinSelectMtx.Unlock()
 
-	c.log.Debugf("Performing coin selection using %v sat/byte as fee "+
-		"rate", feeRatePerByte)
+	c.log.Debugf("Performing coin selection fee rate(%v sat/byte), " +
+		"amount(%v)", feeRatePerByte, amtSat)
 
 	// TODO(andrew.shvv) what if send two consequent requests? The
 	// second one will be using the same outputs and it will lead to issue.
@@ -130,7 +130,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// requirements.
 	c.unspentSyncMtx.Lock()
 	selectedInputs, changeAmt, requiredFee, err := coinSelect(feeRatePerByte,
-		amt, c.unspent)
+		amtSat, c.unspent)
 	c.unspentSyncMtx.Unlock()
 
 	if err != nil {
@@ -138,7 +138,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	}
 
 	c.log.Debugf("Selected %v unspent inputs, amount(%v), change(%v), fee(%v)",
-		len(selectedInputs), printAmount(amt), printAmount(changeAmt),
+		len(selectedInputs), printAmount(amtSat), printAmount(changeAmt),
 		printAmount(requiredFee))
 
 	// Lock the selected coins. These coins are now "reserved", this
@@ -167,7 +167,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// Record any change output(s) generated as a result of the coin
 	// selection.
 	outputs := make(map[btcutil.Address]btcutil.Amount)
-	outputs[address] = amt
+	outputs[address] = amtSat
 	if changeAmt != 0 {
 		// Create loopback output with remaining amount which point out to the
 		// default account of the wallet.
@@ -197,11 +197,11 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 // change output to fund amt satoshis, adhering to the specified fee rate. The
 // specified fee rate should be expressed in sat/byte for coin selection to
 // function properly.
-func coinSelect(feeRatePerByte uint64, amt btcutil.Amount,
+func coinSelect(feeRatePerByte uint64, amtSat btcutil.Amount,
 	unspent map[string]btcjson.ListUnspentResult) ([]btcjson.ListUnspentResult,
 	btcutil.Amount, btcutil.Amount, error) {
 
-	amtNeeded := amt
+	amtNeeded := amtSat
 	for {
 		// First perform an initial round of coin selection to estimate
 		// the required fee.
@@ -227,7 +227,7 @@ func coinSelect(feeRatePerByte uint64, amt btcutil.Amount,
 		// The difference between the selected amount and the amount
 		// requested will be used to pay fees, and generate a change
 		// output with the remaining.
-		overShootAmt := totalSat - amt
+		overShootAmt := totalSat - amtSat
 
 		// Based on the estimated size and fee rate, if the excess
 		// amount isn't enough to pay fees, then increase the requested
@@ -236,7 +236,7 @@ func coinSelect(feeRatePerByte uint64, amt btcutil.Amount,
 		feeRatePerWeight := feeRatePerByte * blockchain.WitnessScaleFactor
 		requiredFee := btcutil.Amount(uint64(weightEstimate.Weight()) * feeRatePerWeight)
 		if overShootAmt < requiredFee {
-			amtNeeded = amt + requiredFee
+			amtNeeded = amtSat + requiredFee
 			continue
 		}
 
