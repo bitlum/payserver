@@ -549,8 +549,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		payment.Status = connectors.Failed
 		payment.UpdatedAt = connectors.NowInMilliSeconds()
 
-		err = c.cfg.PaymentStore.SavePayment(payment)
-		if err != nil {
+		if err = c.cfg.PaymentStore.SavePayment(payment); err != nil {
 			m.AddError(metrics.HighSeverity)
 			c.log.Errorf("unable update payment(%v) status to fail: %v",
 				paymentID, err)
