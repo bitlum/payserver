@@ -16,9 +16,10 @@ x-defaults:
 
   # Using syslog driver and set tag to container_name.
   logging:
-    driver: syslog
+    driver: "json-file"
     options:
-      tag: "connector-docker/{{ .Name }}"
+        max-size: "200m"
+        max-file: "10"
 
   # Using automatically assigned ip address from connect.simnet network.
   networks:
