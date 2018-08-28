@@ -3,8 +3,6 @@ package bitcoind
 import (
 	"math/big"
 
-	"strconv"
-
 	"github.com/btcsuite/btcutil"
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/connectors/assets/bitcoin"
@@ -22,9 +20,7 @@ func decAmount2Sat(amount decimal.Decimal) btcutil.Amount {
 	// If we would try to convert amount in float representation than it
 	// could lead to precious error, for that reason convert in manually rather
 	// than using btcutil.NewAmount().
-	amtStr := amount.Mul(satoshiPerBitcoin).String()
-	a, _ := strconv.ParseInt(amtStr, 10, 64)
-	return btcutil.Amount(a)
+	return btcutil.Amount(amount.Mul(satoshiPerBitcoin).IntPart())
 }
 
 func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
