@@ -707,10 +707,11 @@ func (c *Connector) proceedNextBlock() error {
 	}
 
 	// Update state of the block, such info as number of confirmations.
-	c.lastSyncedBlock, err = c.client.GetBlockVerbose(hash)
+	lastSyncedBlock, err := c.client.GetBlockVerbose(hash)
 	if err != nil {
 		return err
 	}
+	c.lastSyncedBlock = lastSyncedBlock
 
 	// If bitcoind returns negative confirmation number it means that
 	// blockchain re-organization happened and we should handle it properly by
