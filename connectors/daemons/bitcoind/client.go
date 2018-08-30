@@ -1026,7 +1026,8 @@ func (c *Connector) getFeeRate() decimal.Decimal {
 			feeRateSatoshiPerByte = minimumFeeRate
 		}
 
-		c.log.Debug("Get fee rate(%v sat/byte) from config", feeRateSatoshiPerByte)
+		c.log.Debugf("Get fee rate(%v sat/byte) from config",
+			feeRateSatoshiPerByte)
 
 	} else {
 		// Initial rate is return us BTC/Kb
@@ -1037,7 +1038,7 @@ func (c *Connector) getFeeRate() decimal.Decimal {
 			feeRateSatoshiPerByte = minimumFeeRate
 		}
 
-		c.log.Debug("Get fee rate(%v sat/byte) from daemon",
+		c.log.Debugf("Get fee rate(%v sat/byte) from daemon",
 			feeRateSatoshiPerByte)
 	}
 
