@@ -99,7 +99,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	c.coinSelectMtx.Lock()
 	defer c.coinSelectMtx.Unlock()
 
-	c.log.Debugf("Performing coin selection fee rate(%v sat/byte), " +
+	c.log.Debugf("Performing coin selection fee rate(%v sat/byte), "+
 		"amount(%v)", feeRatePerByte, amtSat)
 
 	// TODO(andrew.shvv) what if send two consequent requests? The
@@ -233,8 +233,9 @@ func coinSelect(feeRatePerByte uint64, amtSat btcutil.Amount,
 		// amount isn't enough to pay fees, then increase the requested
 		// coin amount by the estimate required fee, performing another
 		// round of coin selection.
-		feeRatePerWeight := feeRatePerByte * blockchain.WitnessScaleFactor
-		requiredFee := btcutil.Amount(uint64(weightEstimate.Weight()) * feeRatePerWeight)
+		size := uint64(weightEstimate.Weight() / blockchain.WitnessScaleFactor)
+		requiredFee := btcutil.Amount(size * feeRatePerByte)
+
 		if overShootAmt < requiredFee {
 			amtNeeded = amtSat + requiredFee
 			continue
