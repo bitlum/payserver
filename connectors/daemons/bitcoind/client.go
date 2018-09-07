@@ -274,6 +274,8 @@ func (c *Connector) Start() (err error) {
 			m.AddError(metrics.HighSeverity)
 			return errors.Errorf("unable to decode hash: %v", err)
 		}
+
+		c.log.Infof("Get last block hash(%v) from config", lastSyncedBlockHash)
 	} else {
 		lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
 		if err != nil {
@@ -281,9 +283,9 @@ func (c *Connector) Start() (err error) {
 			return errors.Errorf("unable to fetch last block synced "+
 				"hash: %v", err)
 		}
-	}
 
-	c.log.Infof("Last synced block hash(%v)", c.lastSyncedBlock.Hash)
+		c.log.Infof("Last synced block hash(%v)", lastSyncedBlockHash)
+	}
 
 	c.lastSyncedBlock, err = c.client.GetBlockVerbose(lastSyncedBlockHash)
 	if err != nil {
