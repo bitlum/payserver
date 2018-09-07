@@ -208,7 +208,7 @@ services:
       - /connector/ethereum.mainnet:/root/.ethereum
     ports:
       # P2P port
-      - "11333:11333"
+      - "30303:30303"
 
   litecoin.mainnet:
     << : *defaults

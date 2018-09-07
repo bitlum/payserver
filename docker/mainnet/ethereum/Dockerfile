@@ -20,7 +20,7 @@ EXPOSE 11332
 EXPOSE 11331
 
 # P2P port.
-EXPOSE 11333
+EXPOSE 30303
 
 # Copying required binaries from builder stage.
 COPY --from=builder /ethereum/build/bin/geth /usr/local/bin/
