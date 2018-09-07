@@ -42,5 +42,4 @@ exec geth \
 --verbosity=4 \
 --datadir $DATA_DIR \
 --config $CONFIG \
---cache 4096 \
 $EXTERNAL_IP_OPT
