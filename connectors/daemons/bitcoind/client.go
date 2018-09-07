@@ -18,6 +18,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/metrics"
+	"encoding/hex"
 )
 
 var (
@@ -282,13 +283,14 @@ func (c *Connector) Start() (err error) {
 		}
 	}
 
+	c.log.Infof("Last synced block hash(%v)", c.lastSyncedBlock.Hash)
+
 	c.lastSyncedBlock, err = c.client.GetBlockVerbose(lastSyncedBlockHash)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to fetch last synced block: %v", err)
+		return errors.Errorf("unable to fetch last synced block with hash("+
+			"%v): %v", lastSyncedBlockHash, err)
 	}
-
-	c.log.Infof("Last synced block hash(%v)", c.lastSyncedBlock.Hash)
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
@@ -830,7 +832,8 @@ func (c *Connector) proceedNextBlock() error {
 			}
 		}
 
-		err = c.cfg.StateStorage.PutLastSyncedHash(nextHash.CloneBytes())
+		encodedBlockHash := hex.EncodeToString(nextHash.CloneBytes())
+		err = c.cfg.StateStorage.PutLastSyncedHash([]byte(encodedBlockHash))
 		if err != nil {
 			return errors.Errorf("unable to put block hash in db: %v", err)
 		}
@@ -850,7 +853,12 @@ func (c *Connector) fetchLastSyncedBlockHash() (*chainhash.Hash, error) {
 	c.log.Info("Restore hash from database...")
 	data, _ := c.cfg.StateStorage.LastSyncedHash()
 	if data != nil {
-		lastHash, err := chainhash.NewHash(data)
+		decodedBlockHash, err := hex.DecodeString(string(data))
+		if err != nil {
+			return nil, errors.Errorf("unable decode block hash: %v", err)
+		}
+
+		lastHash, err := chainhash.NewHash(decodedBlockHash)
 		if err != nil {
 			return nil, errors.Errorf("unable initialize hash: %v", err)
 		}
@@ -865,7 +873,8 @@ func (c *Connector) fetchLastSyncedBlockHash() (*chainhash.Hash, error) {
 			"hash: %v", err)
 	}
 
-	err = c.cfg.StateStorage.PutLastSyncedHash(lastHash.CloneBytes())
+	encodedBlockHash := hex.EncodeToString(lastHash.CloneBytes())
+	err = c.cfg.StateStorage.PutLastSyncedHash([]byte(encodedBlockHash))
 	if err != nil {
 		return nil, errors.Errorf("unable to put block hash in db: %v", err)
 	}

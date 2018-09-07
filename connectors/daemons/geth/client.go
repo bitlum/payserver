@@ -232,6 +232,8 @@ func (c *Connector) Start() (err error) {
 	var lastSyncedBlockHash string
 	if c.cfg.LastSyncedBlockHash != "" {
 		lastSyncedBlockHash = c.cfg.LastSyncedBlockHash
+		c.log.Infof("Get synced block hash(%v) from config",
+			lastSyncedBlockHash)
 	} else {
 		lastSyncedBlockHash, err = c.fetchLastSyncedBlockHash()
 		if err != nil {
@@ -239,8 +241,10 @@ func (c *Connector) Start() (err error) {
 			return errors.Errorf("unable to fetch last block synced "+
 				"hash: %v", err)
 		}
+
+		c.log.Infof("Last synced block hash(%v)", lastSyncedBlockHash)
 	}
-	c.log.Infof("Last synced block hash(%v)", lastSyncedBlockHash)
+
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
