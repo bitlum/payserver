@@ -82,25 +82,34 @@ func getParams(asset connectors.Asset, network string) (*chaincfg.Params, error)
 	}
 }
 
-func accountToAlias(account string) string {
+func accountToAlias(account string) connectors.AccountAlias {
 	switch account {
 	case defaultAccount:
-		return "default"
+		return connectors.DefaultAccount
+
 	case allAccounts:
-		return "all"
+		return connectors.AllAccounts
+
 	default:
-		return account
+		return connectors.AccountAlias(account)
 	}
 }
 
-func aliasToAccount(alias string) string {
+func aliasToAccount(alias connectors.AccountAlias) string {
 	switch alias {
-	case "default":
-		return defaultAccount
-	case "all":
+	case connectors.SentAccount:
+		// In bitcoin-like asset you daemons is working in a way that you
+		// could use use all the money from all accounts.
 		return allAccounts
+
+	case connectors.DefaultAccount:
+		return defaultAccount
+
+	case connectors.AllAccounts:
+		return allAccounts
+
 	default:
-		return alias
+		return string(alias)
 	}
 }
 

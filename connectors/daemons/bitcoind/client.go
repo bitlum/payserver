@@ -382,12 +382,14 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 // AccountAddress return the deposit address of account.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) AccountAddress(accountAlias string) (string, error) {
+func (c *Connector) AccountAddress(accountAlias connectors.AccountAlias) (
+	string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodAccountAddress, c.cfg.Metrics)
 	defer m.Finish()
 
-	addresses, err := c.client.GetAddressesByAccount(aliasToAccount(accountAlias))
+	account := aliasToAccount(accountAlias)
+	addresses, err := c.client.GetAddressesByAccount(account)
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
 		return "", err
@@ -404,7 +406,7 @@ func (c *Connector) AccountAddress(accountAlias string) (string, error) {
 // CreateAddress is used to create deposit address.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreateAddress(accountAlias string) (string, error) {
+func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodCreateAddress, c.cfg.Metrics)
 	defer m.Finish()
@@ -422,7 +424,7 @@ func (c *Connector) CreateAddress(accountAlias string) (string, error) {
 // number lower the required by payment system.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingTransactions(account string) (
+func (c *Connector) PendingTransactions(accountAlias connectors.AccountAlias) (
 	[]*connectors.Payment, error) {
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
@@ -432,6 +434,7 @@ func (c *Connector) PendingTransactions(account string) (
 	// TODO(andrew.shvv) Use payment storage for getting pending transaction
 	// and remove pending map.
 
+	account := aliasToAccount(accountAlias)
 	transactions := make([]*connectors.Payment, len(c.pending[account]))
 	for i, tx := range c.pending[account] {
 		transactions[i] = tx
@@ -578,7 +581,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 // connector.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, error) {
+func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
 	account := aliasToAccount(accountAlias)
 	balance, err := c.client.GetBalanceMinConf(account, c.cfg.MinConfirmations)
 	if err != nil {
@@ -591,7 +594,7 @@ func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, erro
 // PendingBalance return the amount of funds waiting ro be confirmed.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingBalance(accountAlias string) (decimal.Decimal, error) {
+func (c *Connector) PendingBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
 	defer m.Finish()
@@ -600,14 +603,15 @@ func (c *Connector) PendingBalance(accountAlias string) (decimal.Decimal, error)
 	// calculation of pending balance.
 
 	var amount decimal.Decimal
-	if accountAlias == "all" {
+	account := aliasToAccount(accountAlias)
+	if account == allAccounts {
 		for _, pendingPayments := range c.pending {
 			for _, payment := range pendingPayments {
 				amount = amount.Add(payment.Amount)
 			}
 		}
 	} else {
-		for _, payment := range c.pending[accountAlias] {
+		for _, payment := range c.pending[account] {
 			amount = amount.Add(payment.Amount)
 		}
 	}
@@ -633,7 +637,7 @@ func (c *Connector) syncUnconfirmed() error {
 			Status:    connectors.Pending,
 			Receipt:   tx.Address,
 			Asset:     c.cfg.Asset,
-			Account:   accountToAlias(tx.Account),
+			Account:   tx.Account,
 			Media:     connectors.Blockchain,
 			Amount:    decimal.NewFromFloat(tx.Amount),
 			MediaFee:  decimal.Zero,
@@ -789,7 +793,7 @@ func (c *Connector) proceedNextBlock() error {
 					Status:    connectors.Completed,
 					Receipt:   detail.Address,
 					Asset:     c.cfg.Asset,
-					Account:   accountToAlias(detail.Account),
+					Account:   detail.Account,
 					Media:     connectors.Blockchain,
 					MediaID:   tx.TxID,
 				}

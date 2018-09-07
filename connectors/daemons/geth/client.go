@@ -30,6 +30,8 @@ var (
 	// so that later we could use only one transaction for all payments.
 	defaultAccount = "default"
 
+	allAccounts = "all"
+
 	// defaultTxGas is the number of gas in ethereum which is needed to
 	// propagate the transaction.
 	defaultTxGas = int64(21000)
@@ -309,24 +311,25 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 }
 
 // AccountAddress return the deposit address of account.
-func (c *Connector) AccountAddress(account string) (string, error) {
+func (c *Connector) AccountAddress(accountAlias connectors.AccountAlias) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodAccountAddress, c.cfg.Metrics)
 	defer m.Finish()
 
-	switch account {
+	switch accountAlias {
 	case "all", "*":
 		return "", errors.Errorf("name of account '%v' is "+
-			"reserved for internal usage", account)
+			"reserved for internal usage", accountAlias)
 	}
 
+	account := aliasToAccount(accountAlias)
 	return c.cfg.AccountStorage.GetLastAccountAddress(account)
 }
 
 // CreateAddress is used to create deposit address.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreateAddress(accountAlias string) (string, error) {
+func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodCreateAddress, c.cfg.Metrics)
 	defer m.Finish()
@@ -346,7 +349,8 @@ func (c *Connector) CreateAddress(accountAlias string) (string, error) {
 		return "", errors.Errorf("unable to create account: %v", err)
 	}
 
-	err = c.cfg.AccountStorage.AddAddressToAccount(address, accountAlias)
+	account := aliasToAccount(accountAlias)
+	err = c.cfg.AccountStorage.AddAddressToAccount(address, account)
 	if err != nil {
 		return "", err
 	}
@@ -358,7 +362,7 @@ func (c *Connector) CreateAddress(accountAlias string) (string, error) {
 // the required by payment system.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingTransactions(account string) (
+func (c *Connector) PendingTransactions(accountAlias connectors.AccountAlias) (
 	[]*connectors.Payment, error) {
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
@@ -367,6 +371,8 @@ func (c *Connector) PendingTransactions(account string) (
 
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
+
+	account := aliasToAccount(accountAlias)
 
 	var payments []*connectors.Payment
 	for _, tx := range c.memPoolTxs[account] {
@@ -543,7 +549,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 // connector.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, error) {
+func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodConfirmedBalance, c.cfg.Metrics)
 	defer m.Finish()
@@ -552,7 +558,9 @@ func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, erro
 	var addresses []string
 	var err error
 
-	if accountAlias == "all" {
+	account := aliasToAccount(accountAlias)
+
+	if account == allAccounts {
 		// Iterate over every accounts and later for every address
 		// belonging to this accounts, summing balances from all of them.
 		addresses, err = c.cfg.AccountStorage.AllAddresses()
@@ -561,7 +569,7 @@ func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, erro
 		}
 
 	} else {
-		addresses, err = c.cfg.AccountStorage.GetAddressesByAccount(accountAlias)
+		addresses, err = c.cfg.AccountStorage.GetAddressesByAccount(account)
 		if err != nil {
 			return decimal.Zero, err
 		}
@@ -583,7 +591,8 @@ func (c *Connector) ConfirmedBalance(accountAlias string) (decimal.Decimal, erro
 // PendingBalance return the amount of funds waiting to be confirmed.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
+func (c *Connector) PendingBalance(accountAlias connectors.AccountAlias) (decimal.Decimal,
+	error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodPendingBalance, c.cfg.Metrics)
 	defer m.Finish()
@@ -591,8 +600,10 @@ func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
 
+	account := aliasToAccount(accountAlias)
+
 	var amount decimal.Decimal
-	if account == "all" {
+	if account == allAccounts {
 		for _, accounts := range c.memPoolTxs {
 			for _, payment := range accounts {
 				amount = amount.Add(payment.Amount)
@@ -1055,14 +1066,14 @@ func (c *Connector) fetchLastSyncedBlockHash() (string, error) {
 
 // fetchDefaultAddress...
 func (c *Connector) fetchDefaultAddress() (string, error) {
-	defaultAddress, err := c.AccountAddress(defaultAccount)
+	defaultAddress, err := c.AccountAddress(connectors.DefaultAccount)
 	if err != nil && err != ErrAccountAddressNotFound {
 		return "", errors.Errorf("unable to get default address: %v", err)
 	}
 
 	if defaultAddress == "" {
 		c.log.Info("Unable to find default address in db, generating it...")
-		defaultAddress, err = c.CreateAddress(defaultAccount)
+		defaultAddress, err = c.CreateAddress(connectors.DefaultAccount)
 		if err != nil {
 			return "", errors.Errorf("unable to generate default address: %v", err)
 		}
@@ -1141,7 +1152,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 
 	// Check number of funds available and track this metric in metric
 	// backend for farther analysis.
-	balance, err := c.ConfirmedBalance(defaultAccount)
+	balance, err := c.ConfirmedBalance(connectors.DefaultAccount)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return lastSyncedBlockHash, errors.Errorf("unable to "+

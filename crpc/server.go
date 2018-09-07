@@ -74,7 +74,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			return nil, err
 		}
 
-		address, err := c.CreateAddress(defaultAccount)
+		address, err := c.CreateAddress(connectors.AccountAlias(defaultAccount))
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", getFunctionName(), err)
@@ -208,7 +208,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 		}
 
 		for asset, c := range cntrs {
-			available, err := c.ConfirmedBalance("all")
+			available, err := c.ConfirmedBalance(connectors.SentAccount)
 			if err != nil {
 				err := newErrInternal(err.Error())
 				log.Errorf("command(%v), error: %v", getFunctionName(), err)
@@ -216,7 +216,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 				return nil, err
 			}
 
-			pending, err := c.PendingBalance("all")
+			pending, err := c.PendingBalance(connectors.SentAccount)
 			if err != nil {
 				err := newErrInternal(err.Error())
 				log.Errorf("command(%v), error: %v", getFunctionName(), err)

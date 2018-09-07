@@ -13,26 +13,43 @@ type LightningInfo struct {
 	*lnrpc.GetInfoResponse
 }
 
+type AccountAlias string
+
+const (
+	// SentAccount is used to aggregate all money on it. Balance on this
+	// account denotes the number of funds which might be
+	// send from connector.
+	SentAccount AccountAlias = "sent_account"
+
+	//
+	// DefaultAccount is an account which corresponds to the connector itself.
+	DefaultAccount AccountAlias = "default_account"
+
+	// AllAccounts means that response should be returned by aggregating info
+	// form all accounts.
+	AllAccounts AccountAlias = "all_accounts"
+)
+
 // BlockchainConnector is an interface which describes the blockchain service
 // which is able to connect to blockchain daemon of particular currency and
 // operate with transactions, addresses, and also  able to notify other
 // subsystems when transaction passes required number of confirmations.
 type BlockchainConnector interface {
 	// CreateAddress is used to create deposit address.
-	CreateAddress(account string) (string, error)
+	CreateAddress(account AccountAlias) (string, error)
 
 	// AccountAddress return the deposit address of account.
-	AccountAddress(account string) (string, error)
+	AccountAddress(accountAlias AccountAlias) (string, error)
 
 	// ConfirmedBalance return the amount of confirmed funds available for account.
-	ConfirmedBalance(account string) (decimal.Decimal, error)
+	ConfirmedBalance(accountAlias AccountAlias) (decimal.Decimal, error)
 
 	// PendingBalance return the amount of funds waiting to be confirmed.
-	PendingBalance(account string) (decimal.Decimal, error)
+	PendingBalance(accountAlias AccountAlias) (decimal.Decimal, error)
 
 	// PendingTransactions return the transactions which has confirmation
 	// number lower the required by payment system.
-	PendingTransactions(account string) ([]*Payment, error)
+	PendingTransactions(accountAlias AccountAlias) ([]*Payment, error)
 
 	// CreatePayment generates the payment, but not sends it,
 	// instead returns the payment id and waits for it to be approved.
