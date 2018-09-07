@@ -74,14 +74,15 @@ func backendMain() error {
 	// pending transaction user have and also to withdraw money from exchange.
 	if !loadedConfig.BitcoinCash.Disabled {
 		blockchainConnectors[connectors.BCH], err = bitcoind.NewConnector(&bitcoind.Config{
-			Net:              loadedConfig.Network,
-			MinConfirmations: loadedConfig.BitcoinCash.MinConfirmations,
-			SyncLoopDelay:    loadedConfig.BitcoinCash.SyncDelay,
-			Asset:            connectors.BCH,
-			Logger:           mainLog,
-			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     paymentsStore,
-			StateStorage:     sqlite.NewConnectorStateStorage(connectors.BCH, db),
+			Net:                 loadedConfig.Network,
+			MinConfirmations:    loadedConfig.BitcoinCash.MinConfirmations,
+			SyncLoopDelay:       loadedConfig.BitcoinCash.SyncDelay,
+			Asset:               connectors.BCH,
+			Logger:              mainLog,
+			Metrics:             cryptoMetricsBackend,
+			LastSyncedBlockHash: loadedConfig.BitcoinCash.ForceLastHash,
+			PaymentStore:        paymentsStore,
+			StateStorage:        sqlite.NewConnectorStateStorage(connectors.BCH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -99,14 +100,15 @@ func backendMain() error {
 
 	if !loadedConfig.Bitcoin.Disabled {
 		blockchainConnectors[connectors.BTC], err = bitcoind.NewConnector(&bitcoind.Config{
-			Net:              loadedConfig.Network,
-			MinConfirmations: loadedConfig.Bitcoin.MinConfirmations,
-			SyncLoopDelay:    loadedConfig.Bitcoin.SyncDelay,
-			Asset:            connectors.BTC,
-			Logger:           mainLog,
-			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     paymentsStore,
-			StateStorage:     sqlite.NewConnectorStateStorage(connectors.BTC, db),
+			Net:                 loadedConfig.Network,
+			MinConfirmations:    loadedConfig.Bitcoin.MinConfirmations,
+			SyncLoopDelay:       loadedConfig.Bitcoin.SyncDelay,
+			Asset:               connectors.BTC,
+			Logger:              mainLog,
+			Metrics:             cryptoMetricsBackend,
+			LastSyncedBlockHash: loadedConfig.Bitcoin.ForceLastHash,
+			PaymentStore:        paymentsStore,
+			StateStorage:        sqlite.NewConnectorStateStorage(connectors.BTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -124,14 +126,15 @@ func backendMain() error {
 
 	if !loadedConfig.Dash.Disabled {
 		blockchainConnectors[connectors.DASH], err = bitcoind.NewConnector(&bitcoind.Config{
-			Net:              loadedConfig.Network,
-			MinConfirmations: loadedConfig.Dash.MinConfirmations,
-			SyncLoopDelay:    loadedConfig.Dash.SyncDelay,
-			Asset:            connectors.DASH,
-			Logger:           mainLog,
-			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     paymentsStore,
-			StateStorage:     sqlite.NewConnectorStateStorage(connectors.DASH, db),
+			Net:                 loadedConfig.Network,
+			MinConfirmations:    loadedConfig.Dash.MinConfirmations,
+			SyncLoopDelay:       loadedConfig.Dash.SyncDelay,
+			Asset:               connectors.DASH,
+			Logger:              mainLog,
+			Metrics:             cryptoMetricsBackend,
+			LastSyncedBlockHash: loadedConfig.Dash.ForceLastHash,
+			PaymentStore:        paymentsStore,
+			StateStorage:        sqlite.NewConnectorStateStorage(connectors.DASH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Dash.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -149,14 +152,15 @@ func backendMain() error {
 
 	if !loadedConfig.Litecoin.Disabled {
 		blockchainConnectors[connectors.LTC], err = bitcoind.NewConnector(&bitcoind.Config{
-			Net:              loadedConfig.Network,
-			MinConfirmations: loadedConfig.Litecoin.MinConfirmations,
-			SyncLoopDelay:    loadedConfig.Litecoin.SyncDelay,
-			Asset:            connectors.LTC,
-			Logger:           mainLog,
-			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     paymentsStore,
-			StateStorage:     sqlite.NewConnectorStateStorage(connectors.LTC, db),
+			Net:                 loadedConfig.Network,
+			MinConfirmations:    loadedConfig.Litecoin.MinConfirmations,
+			SyncLoopDelay:       loadedConfig.Litecoin.SyncDelay,
+			Asset:               connectors.LTC,
+			Logger:              mainLog,
+			Metrics:             cryptoMetricsBackend,
+			LastSyncedBlockHash: loadedConfig.Litecoin.ForceLastHash,
+			PaymentStore:        paymentsStore,
+			StateStorage:        sqlite.NewConnectorStateStorage(connectors.LTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Litecoin.FeePerUnit,
 			DaemonCfg: &bitcoind.DaemonConfig{
@@ -174,15 +178,16 @@ func backendMain() error {
 
 	if !loadedConfig.Ethereum.Disabled {
 		blockchainConnectors[connectors.ETH], err = geth.NewConnector(&geth.Config{
-			Net:              loadedConfig.Network,
-			MinConfirmations: loadedConfig.Ethereum.MinConfirmations,
-			SyncTickDelay:    loadedConfig.Ethereum.SyncDelay,
-			Asset:            connectors.ETH,
-			Logger:           mainLog,
-			Metrics:          cryptoMetricsBackend,
-			PaymentStorage:   paymentsStore,
-			StateStorage:     sqlite.NewConnectorStateStorage(connectors.ETH, db),
-			AccountStorage:   sqlite.NewGethAccountsStorage(db),
+			Net:                 loadedConfig.Network,
+			MinConfirmations:    loadedConfig.Ethereum.MinConfirmations,
+			SyncTickDelay:       loadedConfig.Ethereum.SyncDelay,
+			Asset:               connectors.ETH,
+			Logger:              mainLog,
+			Metrics:             cryptoMetricsBackend,
+			LastSyncedBlockHash: loadedConfig.Ethereum.ForceLastHash,
+			PaymentStorage:      paymentsStore,
+			StateStorage:        sqlite.NewConnectorStateStorage(connectors.ETH, db),
+			AccountStorage:      sqlite.NewGethAccountsStorage(db),
 			DaemonCfg: &geth.DaemonConfig{
 				Name:       "geth",
 				ServerHost: loadedConfig.Ethereum.Host,

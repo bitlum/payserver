@@ -94,6 +94,7 @@ type LndConfig struct {
 
 type GethConfig struct {
 	Disabled         bool   `long:"disable" description:"Disable work with this daemon"`
+	ForceLastHash  string `long:"forcelasthash" description:"Denotes that connector should substitute last sync block hash with specified one"`
 	MinConfirmations int    `long:"minconfirmations" description:"Minimum number of block on top of the one where transaction appeared, before we consider transaction as confirmed."`
 	SyncDelay        int    `long:"syncdelay" description:"For how long processing loop should sleep before start syncing pending, confirmed and mempool transactions."`
 	Host             string `long:"host" description:"The host of the lnd daemon"`
@@ -104,6 +105,7 @@ type GethConfig struct {
 
 type BitcoindConfig struct {
 	Disabled         bool   `long:"disable" description:"Disable work with this daemon"`
+	ForceLastHash  string `long:"forcelasthash" description:"Denotes that connector should substitute last sync block hash with specified one"`
 	MinConfirmations int    `long:"minconfirmations" description:"Minimum number of block on top of the one where transaction appeared, before we consider transaction as confirmed."`
 	SyncDelay        int    `long:"syncdelay" description:"For how long processing loop should sleep before start syncing pending, confirmed and mempool transactions."`
 	FeePerUnit       int    `long:"feeperunit" description:"Fee for every unit of information needed to put it in the blockchain"`
