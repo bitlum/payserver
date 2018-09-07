@@ -36,4 +36,4 @@ exec connector --config /root/.connector/connector.conf \
 --litecoin.user=$LITECOIN_RPC_USER \
 --litecoin.password=$LITECOIN_RPC_PASSWORD \
 --litecoin.forcelasthash=$CONNECTOR_LITECOIN_FORCE_HASH \
---etheruem.forcelasthash=$CONNECTOR_ETHEREUM_FORCE_HASH
+--ethereum.forcelasthash=$CONNECTOR_ETHEREUM_FORCE_HASH
