@@ -924,7 +924,7 @@ func (c *Connector) sync() error {
 		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
 	}
 
-	balance, err := c.ConfirmedBalance("all")
+	balance, err := c.ConfirmedBalance(connectors.SentAccount)
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
 		return errors.Errorf("unable to get available funds: %v", err)
