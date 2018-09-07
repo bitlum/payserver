@@ -1071,22 +1071,6 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	return defaultAddress, nil
 }
 
-// FundsAvailable returns number of funds available under control of
-// connector.
-//
-// NOTE: Part of the connectors.Connector interface.
-func (c *Connector) FundsAvailable() (decimal.Decimal, error) {
-	// TODO(andrew.shvv) Because of the call directly to daemon there is
-	// range within sync time of time when pending still shows pending amount
-	// but it actually already confirmed. Need to fix.
-	balance, err := c.client.EthGetBalance(c.defaultAddress, "latest")
-	if err != nil {
-		return decimal.Zero, err
-	}
-
-	return decimal.NewFromBigInt(&balance, 0).Div(weiInEth).Round(8), nil
-}
-
 func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSync, c.cfg.Metrics)
@@ -1157,7 +1141,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 
 	// Check number of funds available and track this metric in metric
 	// backend for farther analysis.
-	balance, err := c.FundsAvailable()
+	balance, err := c.ConfirmedBalance("all")
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return lastSyncedBlockHash, errors.Errorf("unable to "+
