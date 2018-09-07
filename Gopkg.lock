@@ -285,7 +285,7 @@
 [[projects]]
   name = "github.com/onrik/ethrpc"
   packages = ["."]
-  revision = "832e2ac7365078c74ae80ea39fb7a95b8e884002"
+  revision = "fb60240e3032c3239e678557566528abbd51289d"
   source = "github.com/bitlum/ethrpc"
 
 [[projects]]
@@ -468,6 +468,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6ff084372646ec4b273f34bfd6d48eec82ad1daf051cd823cc73fc88496b75c2"
+  inputs-digest = "ad830e31a7707ce3cb16bfd223cc3e57854132dc61faf37c28875f92d2e007f2"
   solver-name = "gps-cdcl"
   solver-version = 1

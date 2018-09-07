@@ -47,7 +47,7 @@
 [[constraint]]
   name = "github.com/onrik/ethrpc"
   source = "github.com/bitlum/ethrpc"
-  revision = "832e2ac7365078c74ae80ea39fb7a95b8e884002"
+  revision = "fb60240e3032c3239e678557566528abbd51289d"
 
 [[constraint]]
   name = "github.com/davecgh/go-spew"
