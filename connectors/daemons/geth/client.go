@@ -1141,7 +1141,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 
 	// Check number of funds available and track this metric in metric
 	// backend for farther analysis.
-	balance, err := c.ConfirmedBalance("all")
+	balance, err := c.ConfirmedBalance(defaultAccount)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return lastSyncedBlockHash, errors.Errorf("unable to "+

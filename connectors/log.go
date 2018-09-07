@@ -106,7 +106,7 @@ func (l *NamedLogger) Error(v ...interface{}) {
 	var k []interface{}
 	k = append(k, fmt.Sprintf("(%v)", l.Name))
 	k = append(k, v...)
-	l.Logger.Error(v...)
+	l.Logger.Error(k...)
 }
 
 // Critical formats message using the default formats for its operands
@@ -115,5 +115,5 @@ func (l *NamedLogger) Critical(v ...interface{}) {
 	var k []interface{}
 	k = append(k, fmt.Sprintf("(%v)", l.Name))
 	k = append(k, v...)
-	l.Logger.Critical(v...)
+	l.Logger.Critical(k...)
 }
