@@ -29,7 +29,6 @@
   revision = "e232a94bee37413aeca1cb8caa64b10283e9aea6"
 
 [[projects]]
-  branch = "master"
   name = "github.com/btcsuite/btcd"
   packages = [
     "addrmgr",
@@ -40,12 +39,13 @@
     "chaincfg/chainhash",
     "connmgr",
     "database",
+    "integration/rpctest",
     "peer",
     "rpcclient",
     "txscript",
     "wire"
   ]
-  revision = "f899737d7f2764dc13e4d01ff00108ec58f766a9"
+  revision = "79e00513b1011888b1e675157ab89f527f901cae"
 
 [[projects]]
   name = "github.com/btcsuite/btclog"
@@ -84,7 +84,7 @@
     "walletdb",
     "wtxmgr"
   ]
-  revision = "5fb94231d0c814f02ffc3110eee588278151b4e1"
+  revision = "f4ae41ce5f5834eb67ab64cdeed74c74fc95638c"
 
 [[projects]]
   branch = "master"
@@ -141,8 +141,8 @@
     "crypto/sha3",
     "params"
   ]
-  revision = "225171a4bfcc16bd12a1906b1e0d43d0b18c353b"
-  version = "v1.8.13"
+  revision = "89451f7c382ad2185987ee369f16416f89c28a7d"
+  version = "v1.8.15"
 
 [[projects]]
   name = "github.com/go-errors/errors"
@@ -211,11 +211,13 @@
   name = "github.com/lightninglabs/neutrino"
   packages = [
     ".",
+    "cache",
+    "cache/lru",
     "filterdb",
     "headerfs",
     "headerlist"
   ]
-  revision = "0d0ce901538af81e234c1b2376babf20fe976b09"
+  revision = "07e32eee63e2a6f16acbc8df85c6530972015a44"
 
 [[projects]]
   name = "github.com/lightningnetwork/lightning-onion"
@@ -244,7 +246,7 @@
     "tor",
     "zpay32"
   ]
-  revision = "625b210f441ece841c76b81377dd96e8d09aba8e"
+  revision = "d4fdc41c8c087d7c6759792af2ad02b130dec30d"
   source = "github.com/bitlum/lnd"
 
 [[projects]]
@@ -393,7 +395,7 @@
     "cpu",
     "unix"
   ]
-  revision = "3b58ed4ad3395d483fc92d5d14123ce2c3581fec"
+  revision = "917fdcba135dcbaccd57425db91723541b4427c8"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -464,10 +466,11 @@
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
+  version = "v2.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ad830e31a7707ce3cb16bfd223cc3e57854132dc61faf37c28875f92d2e007f2"
+  inputs-digest = "6b1ea61da3bc2b9ea4104dfca487bdb9b9bc3c91cb38fa4927433db6d989da77"
   solver-name = "gps-cdcl"
   solver-version = 1

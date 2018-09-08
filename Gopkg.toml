@@ -41,6 +41,10 @@
   revision = "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c"
 
 [[constraint]]
+  name = "github.com/btcsuite/btcd"
+  revision = "79e00513b1011888b1e675157ab89f527f901cae"
+
+[[constraint]]
   name = "github.com/btcsuite/btclog"
   revision = "84c8d2346e9fc8c7b947e243b9c24e6df9fd206a"
 
@@ -70,7 +74,7 @@
   # Use bitlum source for lnd as a temporary fork till pull requests will be
   # merged
   source = "github.com/bitlum/lnd"
-  revision = "625b210f441ece841c76b81377dd96e8d09aba8e"
+  revision = "d4fdc41c8c087d7c6759792af2ad02b130dec30d"
 
 [[constraint]]
   name = "github.com/pkg/errors"
