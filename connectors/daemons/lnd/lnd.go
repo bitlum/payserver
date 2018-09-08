@@ -359,10 +359,12 @@ func (c *Connector) CreateInvoice(account, amount, description string) (string,
 		return "", err
 	}
 
+	expirationTime := time.Minute * 5
 	invoice := &lnrpc.Invoice{
 		Receipt: []byte(account),
 		Value:   satoshis,
 		Memo:    description,
+		Expiry:  int64(expirationTime.Seconds()),
 	}
 
 	invoiceResp, err := c.client.AddInvoice(context.Background(), invoice)
