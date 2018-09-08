@@ -373,6 +373,11 @@ func TestValidate(t *testing.T) {
 			args:    args{"LTC", "simnet", "ScgVirScTF4ZeAUiNN8yHx7NWqS21eLuzo"},
 			wantErr: true,
 		},
+		{
+			name:    "LTC mainnet LTC mainnet address",
+			args:    args{"LTC", "mainnet", "MChanwU89p5TUubkdi1pM5MTFF5dNerEgB"},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
