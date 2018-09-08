@@ -34,7 +34,7 @@ var (
 
 	// defaultTxGas is the number of gas in ethereum which is needed to
 	// propagate the transaction.
-	defaultTxGas = int64(21000)
+	defaultTxGas = int64(90000)
 )
 
 const (
