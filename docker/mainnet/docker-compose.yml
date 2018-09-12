@@ -19,12 +19,14 @@ x-defaults:
   networks:
     connector.mainnet:
 
-  # Using syslog driver and set tag to container_name.
+  # Sent logs on fluentd container and later move them on elasticsearch
   logging:
-    driver: "json-file"
+    driver: fluentd
     options:
-        max-size: "200m"
-        max-file: "10"
+      fluentd-async-connect: "true"
+      # With specified fluentd port logging is not working, have no idea why.
+      fluentd-address: "fluentd.mainnet"
+      tag: "docker.{{.Name}}"
 
   # Restart on exit.
   restart: always
@@ -233,3 +235,28 @@ services:
     ports:
       # P2P port
       - "12333:12333"
+
+  # ######################################################################
+  # Parser and sender for logs and metrics
+  # ######################################################################
+  fluentd.mainnet:
+    container_name: fluentd.mainnet
+    image: fluentd.mainnet
+    build:
+      context: ./fluentd
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "20"
+    # Using automatically assigned ip address from connect.mainnet network.
+    networks:
+      connector.mainnet:
+
+    # Restart on exit.
+    restart: always
+    ports:
+      - "24224:24224"
+
+    # Wait for one minute for gracefull shutdown
+    stop_grace_period: 1m
