@@ -19,7 +19,7 @@ import (
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/metrics"
 	"encoding/hex"
-	"github.com/AndrewSamokhvalov/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var (
