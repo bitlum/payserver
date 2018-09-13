@@ -25,10 +25,15 @@ cp $DEFAULTS_DIR/connector.conf $CONFIG
 exec connector --config /root/.connector/connector.conf \
 --bitcoin.user=$BITCOIN_RPC_USER \
 --bitcoin.password=$BITCOIN_RPC_PASSWORD \
+--bitcoin.forcelasthash=$CONNECTOR_BITCOIN_FORCE_HASH \
 --bitcoincash.user=$BITCOIN_CASH_RPC_USER \
 --bitcoincash.password=$BITCOIN_CASH_RPC_PASSWORD \
+--bitcoincash.forcelasthash=$CONNECTOR_BITCOIN_CASH_FORCE_HASH \
 --dash.user=$DASH_RPC_USER \
 --dash.password=$DASH_RPC_PASSWORD \
+--dash.forcelasthash=$CONNECTOR_DASH_FORCE_HASH \
 --ethereum.password=$ETHEREUM_ACCOUNT_PASSWORD \
 --litecoin.user=$LITECOIN_RPC_USER \
---litecoin.password=$LITECOIN_RPC_PASSWORD
+--litecoin.password=$LITECOIN_RPC_PASSWORD \
+--litecoin.forcelasthash=$CONNECTOR_LITECOIN_FORCE_HASH \
+--ethereum.forcelasthash=$CONNECTOR_ETHEREUM_FORCE_HASH
