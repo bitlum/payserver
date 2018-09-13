@@ -359,7 +359,7 @@ func (c *Connector) CreateInvoice(account, amount, description string) (string,
 		return "", err
 	}
 
-	expirationTime := time.Minute * 5
+	expirationTime := time.Minute * 15
 	invoice := &lnrpc.Invoice{
 		Receipt: []byte(account),
 		Value:   satoshis,
