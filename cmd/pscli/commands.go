@@ -337,6 +337,12 @@ var estimateFeeCommand = cli.Command{
 			Usage: "(optional) Amount is the amount which will be sent by" +
 				" service.",
 		},
+		cli.StringFlag{
+			Name: "receipt",
+			Usage: "(optional) Receipt represent either blockchains address" +
+				" or lightning network invoice. If receipt is specified the " +
+				"number are more accurate for lightning network media",
+		},
 	},
 	Action: estimateFee,
 }
