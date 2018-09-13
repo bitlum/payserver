@@ -1,15 +1,17 @@
 FROM golang:1.10.3 AS builder
 
-ARG CONNECTOR_REVISION
+
 
 RUN go get -u github.com/golang/dep/cmd/dep
 
 WORKDIR $GOPATH/src/github.com/bitlum/connector/
 
+ARG CONNECTOR_REVISION
+
 RUN curl -L https://github.com/bitlum/connector/archive/$CONNECTOR_REVISION.tar.gz \
 | tar xz --strip 1
 
-RUN dep ensure -v
+RUN dep ensure -vendor-only -v
 
 RUN go install . ./cmd/...
 
