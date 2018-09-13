@@ -19,6 +19,7 @@ import (
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/metrics"
 	"encoding/hex"
+	"github.com/AndrewSamokhvalov/go-spew/spew"
 )
 
 var (
@@ -515,6 +516,8 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		return nil, errors.Errorf("unable add payment in store: %v", err)
 	}
 
+	c.log.Infof("Create payment %v", spew.Sdump(payment))
+
 	return payment, nil
 }
 
@@ -573,6 +576,8 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		c.log.Errorf("unable update payment(%v) status to pending: %v",
 			paymentID, err)
 	}
+
+	c.log.Infof("Send payment %v", spew.Sdump(payment))
 
 	return payment, nil
 }
@@ -830,6 +835,8 @@ func (c *Connector) proceedNextBlock() error {
 					payment.MediaFee = decimal.NewFromFloat(tx.Fee).Abs()
 					payment.Direction = connectors.Outgoing
 				}
+
+				c.log.Infof("Receive payment %v", spew.Sdump(payment))
 
 				if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 					return errors.Errorf("unable to save payment(%v): %v",

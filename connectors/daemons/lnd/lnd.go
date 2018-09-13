@@ -22,6 +22,7 @@ import (
 	"github.com/bitlum/connector/connectors/assets/bitcoin"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/lightningnetwork/lnd/lnwire"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -320,6 +321,8 @@ func (c *Connector) Start() (err error) {
 				log.Errorf("unable to add payment to storage: %v",
 					payment.PaymentID)
 			}
+
+			log.Infof("Received payment %v", spew.Sdump(payment))
 		}
 	}()
 
@@ -453,6 +456,8 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable add payment in store: %v", err)
 	}
+
+	log.Infof("Send payment %v", spew.Sdump(payment))
 
 	return payment, nil
 }
