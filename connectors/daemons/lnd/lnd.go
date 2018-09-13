@@ -21,7 +21,6 @@ import (
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/connectors/assets/bitcoin"
 	"github.com/lightningnetwork/lnd/zpay32"
-	"github.com/lightningnetwork/lnd/lnwire"
 	"github.com/davecgh/go-spew/spew"
 )
 
