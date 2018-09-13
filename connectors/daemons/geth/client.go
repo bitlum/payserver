@@ -555,27 +555,17 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	payment.Status = connectors.Pending
 	payment.UpdatedAt = connectors.NowInMilliSeconds()
 
-	err = c.cfg.PaymentStorage.SavePayment(payment)
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		c.log.Errorf("unable update payment(%v) status: %v", paymentID, err)
-	}
+	// Only if transaction is going from our default address we need increase
+	// default nonce counter.
+	if payment.Direction == connectors.Outgoing {
+		err = c.cfg.PaymentStorage.SavePayment(payment)
+		if err != nil {
+			m.AddError(metrics.HighSeverity)
+			c.log.Errorf("unable update payment(%v) status: %v", paymentID, err)
+		}
 
-	// Increase transaction nonce only after transaction is sent.
-	// TODO(andrew.shvv) what if multi-thread access to rpc send payment?
-	nonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to get default nonce: %v", err)
+		c.log.Infof("Send payment %v", spew.Sdump(payment))
 	}
-
-	err = c.cfg.AccountStorage.PutDefaultAddressNonce(nonce + 1)
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to get default nonce: %v", err)
-	}
-
-	c.log.Infof("Send payment %v", spew.Sdump(payment))
 
 	return payment, nil
 }
