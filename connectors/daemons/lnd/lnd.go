@@ -305,7 +305,7 @@ func (c *Connector) Start() (err error) {
 
 			paymentHash := hex.EncodeToString(invoiceUpdate.RHash)
 			invoice := invoiceUpdate.PaymentRequest
-			amount := lnwire.MilliSatoshi(invoiceUpdate.AmtPaid).ToBTC()
+			amount := btcutil.Amount(invoiceUpdate.AmtPaid).ToBTC()
 
 			payment := &connectors.Payment{
 				PaymentID: generatePaymentID(invoice, paymentHash),
