@@ -256,6 +256,20 @@ func (c *Connector) Start() (err error) {
 	c.log.Infof("Default address: %v", defaultAddress)
 	c.defaultAddress = defaultAddress
 
+	// Initialise default address nonce by asking ethereum about it.
+	txCount, err := c.client.EthGetTransactionCount(c.defaultAddress, "pending")
+	if err != nil {
+		return errors.Errorf("unable to get default transactions count: %v",
+			err)
+	}
+
+	if err := c.cfg.AccountStorage.PutDefaultAddressNonce(txCount); err != nil {
+		return errors.Errorf("unable to put default account "+
+			"nonce in db: %v", err)
+	}
+
+	c.log.Infof("Default address nonce is: %v", defaultAddress)
+
 	c.wg.Add(1)
 	go func() {
 		delay := time.Duration(c.cfg.SyncTickDelay) * time.Second
@@ -401,8 +415,16 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 		return nil, errors.Errorf("unable parse amount: %v", err)
 	}
 
+	// If we send transaction too frequently ethereum transaction counter
+	// for that reason we use internal nonce counter.
+	nonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable to get default nonce: %v", err)
+	}
+
 	details, fee, err := c.generateTransaction(c.defaultAddress, toAddress,
-		amount, false)
+		amount, false, nonce)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, err
@@ -428,11 +450,14 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 			payment.PaymentID, err)
 	}
 
+	c.log.Infof("Create payment %v", spew.Sdump(payment))
+
 	return payment, err
 }
 
 func (c *Connector) generateTransaction(fromAddress, toAddress string,
-	amount decimal.Decimal, includeFee bool) (*connectors.GeneratedTxDetails,
+	amount decimal.Decimal, includeFee bool,
+	nonce int) (*connectors.GeneratedTxDetails,
 	decimal.Decimal, error) {
 
 	// Fetch suggested by the daemon gas price.
@@ -467,12 +492,6 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 		return nil, decimal.Zero, errors.Errorf("unable to unlock sender account: %v", err)
 	}
 
-	// Transaction count is used as a nonce to avoid transaction collision.
-	txCount, err := c.client.EthGetTransactionCount(fromAddress, "pending")
-	if err != nil {
-		return nil, decimal.Zero, errors.Errorf("unable to get transactions count: %v", err)
-	}
-
 	tx, rawTxStr, err := c.client.EthSignTransaction(ethrpc.T{
 		From:     fromAddress,
 		To:       toAddress,
@@ -480,7 +499,7 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 		GasPrice: gasPrice,
 		Value:    txAmount,
 		Data:     "",
-		Nonce:    txCount,
+		Nonce:    nonce,
 	})
 	if err != nil {
 		return nil, decimal.Zero, errors.Errorf("unable to sign tx: %v", err)
@@ -541,6 +560,22 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		m.AddError(metrics.HighSeverity)
 		c.log.Errorf("unable update payment(%v) status: %v", paymentID, err)
 	}
+
+	// Increase transaction nonce only after transaction is sent.
+	// TODO(andrew.shvv) what if multi-thread access to rpc send payment?
+	nonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable to get default nonce: %v", err)
+	}
+
+	err = c.cfg.AccountStorage.PutDefaultAddressNonce(nonce + 1)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable to get default nonce: %v", err)
+	}
+
+	c.log.Infof("Send payment %v", spew.Sdump(payment))
 
 	return payment, nil
 }
@@ -995,11 +1030,17 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 	// TODO(andrew.shvv) use persistence task queue on
 	// case if fails.
 
+	// Transaction count is used as a nonce to avoid transaction collision.
+	txCount, err := c.client.EthGetTransactionCount(initialAddress, "pending")
+	if err != nil {
+		return errors.Errorf("unable to get transactions count: %v", err)
+	}
+
 	// Generate aggregate transaction which sends money from receive
 	// address on default account.
 	// TODO(andrew.shvv) What if fee is greater than sending amount?
 	aggregateTx, fee, err := c.generateTransaction(initialAddress, c.defaultAddress,
-		amount, true)
+		amount, true, txCount)
 	if err != nil {
 		return errors.Errorf("unable to generate transfer tx(%v): %v", err)
 	}

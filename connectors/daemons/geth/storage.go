@@ -21,4 +21,16 @@ type AccountsStorage interface {
 
 	// AllAddresses returns all created addresses.
 	AllAddresses() ([]string, error)
+
+	// PutDefaultAddressNonce puts returns default address transaction nonce.
+	// This method is needed because if we send transaction too frequently
+	// ethereum transaction counter couldn't keep up and transaction fails,
+	// because of replacement error.
+	PutDefaultAddressNonce(nonce int) error
+
+	// DefaultAddressNonce returns default address transaction nonce.
+	// This method is needed because if we send transaction too frequently
+	// ethereum transaction counter couldn't keep up and transaction fails,
+	// because of replacement error.
+	DefaultAddressNonce() (int, error)
 }
