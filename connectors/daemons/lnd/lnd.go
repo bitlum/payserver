@@ -128,6 +128,10 @@ type Connector struct {
 
 	conn     *grpc.ClientConn
 	nodeAddr string
+
+	// averageFee is an average fee which connectors pays to lightning
+	// network for routing the payment.
+	averageFee decimal.Decimal
 }
 
 // Runtime check to ensure that Connector implements connectors.LightningConnector
@@ -416,6 +420,11 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 	// Send payment to the recipient and wait for it to be received.
 	req := &lnrpc.SendRequest{
 		PaymentRequest: invoiceStr,
+		FeeLimit: &lnrpc.FeeLimit{
+			Limit: &lnrpc.FeeLimit_Percent{
+				Percent: 3,
+			},
+		},
 	}
 
 	// TODO(andrew.shvv) Use async version and return waiting payment after
@@ -438,6 +447,9 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 			amount, err)
 	}
 
+	mediaFee := sat2DecAmount(btcutil.Amount(resp.PaymentRoute.TotalFees))
+	c.averageFee = c.averageFee.Add(mediaFee).Div(decimal.NewFromFloat(2.0))
+
 	paymentHash := hex.EncodeToString(invoice.PaymentHash[:])
 	payment := &connectors.Payment{
 		PaymentID: generatePaymentID(invoiceStr, paymentHash),
@@ -448,7 +460,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		Asset:     connectors.BTC,
 		Media:     connectors.Lightning,
 		Amount:    paymentAmt,
-		MediaFee:  sat2DecAmount(btcutil.Amount(resp.PaymentRoute.TotalFees)),
+		MediaFee:  mediaFee,
 		MediaID:   paymentHash,
 	}
 
@@ -657,4 +669,71 @@ func (c *Connector) reportMetrics() error {
 		asset, overallSentF, asset, overallFeeF, asset)
 
 	return nil
+}
+
+// EstimateFee estimate fee for the transaction with the given sending
+// amount.
+//
+// NOTE: Part of the connectors.Connector interface.
+func (c *Connector) EstimateFee(amountStr, invoiceStr string) (decimal.Decimal,
+	error) {
+	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodSendTo, c.cfg.Metrics)
+	defer m.Finish()
+
+	if invoiceStr == "" {
+		// If invoice is not specified that we unable to understand where
+		// payment is going, for that reason estimate fee based on
+		// previous payment experience.
+		return c.averageFee.Round(8), nil
+
+	} else {
+		netParams, err := bitcoin.GetParams(c.cfg.Net)
+		if err != nil {
+			m.AddError(metrics.HighSeverity)
+			return decimal.Zero, err
+		}
+
+		amount, err := btcToSatoshi(amountStr)
+		if err != nil {
+			m.AddError(metrics.LowSeverity)
+			return decimal.Zero, err
+		}
+
+		invoice, err := zpay32.Decode(invoiceStr, netParams)
+		if err != nil {
+			m.AddError(metrics.LowSeverity)
+			return decimal.Zero, err
+		}
+
+		pubKey := hex.EncodeToString(invoice.Destination.SerializeCompressed())
+		req := &lnrpc.QueryRoutesRequest{
+			PubKey: pubKey,
+			Amt:    amount,
+			FeeLimit: &lnrpc.FeeLimit{
+				Limit: &lnrpc.FeeLimit_Percent{
+					Percent: 3,
+				},
+			},
+			NumRoutes: 10,
+		}
+
+		resp, err := c.client.QueryRoutes(context.Background(), req)
+		if err != nil {
+			m.AddError(metrics.LowSeverity)
+			return decimal.Zero, err
+		}
+
+		// Calculate average route fee from received routes
+		var averageFee decimal.Decimal
+		for _, route := range resp.Routes {
+			averageFee.Add(decimal.New(route.TotalFees, 0))
+		}
+		averageFee = averageFee.Div(decimal.New(int64(len(resp.Routes)), 0))
+
+		// Convert satoshis to bitcoin
+		averageFee.Div(satoshiPerBitcoin)
+		return averageFee.Round(8), nil
+	}
+
+	return decimal.Zero, nil
 }

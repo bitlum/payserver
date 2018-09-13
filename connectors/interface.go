@@ -97,4 +97,8 @@ type LightningConnector interface {
 	// ValidateInvoice takes the encoded lightning network invoice and ensure
 	// its valid.
 	ValidateInvoice(invoice, amount string) error
+
+	// EstimateFee estimate fee for the payment with the given sending
+	// amount, to the given node.
+	EstimateFee(amount, invoice string) (decimal.Decimal, error)
 }
