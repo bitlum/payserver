@@ -250,8 +250,8 @@ var balanceCommand = cli.Command{
 	Usage:    "Return asset balance.",
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name:  "(optional) asset",
-			Usage: "Asset is an acronym of the crypto currency",
+			Name:  "asset",
+			Usage: "(optional) Asset is an acronym of the crypto currency",
 		},
 		cli.StringFlag{
 			Name: "media",
