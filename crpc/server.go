@@ -362,10 +362,6 @@ func (s *Server) EstimateFee(ctx context.Context,
 			MediaFee: fee.String(),
 		}
 
-		log.Errorf("command(%v), error: %v", getFunctionName(), err)
-		s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
-		return nil, err
-
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
 		s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
