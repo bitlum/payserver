@@ -352,9 +352,10 @@ func estimateFee(ctx *cli.Context) error {
 	defer cleanUp()
 
 	var (
-		media  crpc.Media
-		asset  crpc.Asset
-		amount string
+		media   crpc.Media
+		asset   crpc.Asset
+		amount  string
+		receipt string
 	)
 
 	switch {
@@ -399,11 +400,16 @@ func estimateFee(ctx *cli.Context) error {
 		amount = ctx.String("amount")
 	}
 
+	if ctx.IsSet("receipt") {
+		receipt = ctx.String("receipt")
+	}
+
 	ctxb := context.Background()
 	resp, err := client.EstimateFee(ctxb, &crpc.EstimateFeeRequest{
-		Asset:  asset,
-		Media:  media,
-		Amount: amount,
+		Asset:   asset,
+		Media:   media,
+		Amount:  amount,
+		Receipt: receipt,
 	})
 	if err != nil {
 		return err
