@@ -350,7 +350,7 @@ func (s *Server) EstimateFee(ctx context.Context,
 			return nil, err
 		}
 
-		fee, err := c.EstimateFee(req.Amount, req.Receipt)
+		fee, err := c.EstimateFee(req.Receipt)
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", getFunctionName(), err)

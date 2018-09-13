@@ -34,6 +34,7 @@ const (
 	MethodValidateInvoice  = "ValidateInvoice"
 	MethodConfirmedBalance = "ConfirmedBalance"
 	MethodPendingBalance   = "PendingBalance"
+	MethodEstimateFee      = "EstimateFee"
 )
 
 // Config is a connector config.
@@ -674,9 +675,9 @@ func (c *Connector) reportMetrics() error {
 // amount.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) EstimateFee(amountStr, invoiceStr string) (decimal.Decimal,
+func (c *Connector) EstimateFee(invoiceStr string) (decimal.Decimal,
 	error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodSendTo, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodEstimateFee, c.cfg.Metrics)
 	defer m.Finish()
 
 	if invoiceStr == "" {
@@ -692,22 +693,17 @@ func (c *Connector) EstimateFee(amountStr, invoiceStr string) (decimal.Decimal,
 			return decimal.Zero, err
 		}
 
-		amount, err := btcToSatoshi(amountStr)
-		if err != nil {
-			m.AddError(metrics.LowSeverity)
-			return decimal.Zero, err
-		}
-
 		invoice, err := zpay32.Decode(invoiceStr, netParams)
 		if err != nil {
 			m.AddError(metrics.LowSeverity)
-			return decimal.Zero, err
+			return decimal.Zero, errors.Errorf("unable decode invoice: %v",
+				err)
 		}
 
 		pubKey := hex.EncodeToString(invoice.Destination.SerializeCompressed())
 		req := &lnrpc.QueryRoutesRequest{
 			PubKey: pubKey,
-			Amt:    amount,
+			Amt:    int64(invoice.MilliSat.ToSatoshis()),
 			FeeLimit: &lnrpc.FeeLimit{
 				Limit: &lnrpc.FeeLimit_Percent{
 					Percent: 3,
@@ -725,14 +721,12 @@ func (c *Connector) EstimateFee(amountStr, invoiceStr string) (decimal.Decimal,
 		// Calculate average route fee from received routes
 		var averageFee decimal.Decimal
 		for _, route := range resp.Routes {
-			averageFee.Add(decimal.New(route.TotalFees, 0))
+			averageFee = averageFee.Add(decimal.New(route.TotalFees, 0))
 		}
 		averageFee = averageFee.Div(decimal.New(int64(len(resp.Routes)), 0))
 
 		// Convert satoshis to bitcoin
-		averageFee.Div(satoshiPerBitcoin)
+		averageFee = averageFee.Div(satoshiPerBitcoin)
 		return averageFee.Round(8), nil
 	}
-
-	return decimal.Zero, nil
 }

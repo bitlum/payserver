@@ -100,5 +100,5 @@ type LightningConnector interface {
 
 	// EstimateFee estimate fee for the payment with the given sending
 	// amount, to the given node.
-	EstimateFee(amount, invoice string) (decimal.Decimal, error)
+	EstimateFee(invoice string) (decimal.Decimal, error)
 }
