@@ -342,7 +342,26 @@ func (s *Server) EstimateFee(ctx context.Context,
 		}
 
 	case Media_LIGHTNING:
-		err := errors.New("fee estimation for lightning is not supported")
+		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
+		if !ok {
+			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
+			s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
+			return nil, err
+		}
+
+		fee, err := c.EstimateFee(req.Amount, req.Receipt)
+		if err != nil {
+			err := newErrInternal(err.Error())
+			log.Errorf("command(%v), error: %v", getFunctionName(), err)
+			s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
+			return nil, err
+		}
+
+		resp = &EstimateFeeResponse{
+			MediaFee: fee.String(),
+		}
+
 		log.Errorf("command(%v), error: %v", getFunctionName(), err)
 		s.metrics.AddError(EstimateFeeReq, string(metrics.LowSeverity))
 		return nil, err

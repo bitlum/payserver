@@ -149,8 +149,15 @@ message EstimateFeeRequest {
     Media media = 2;
 
     //
-    // Amount is number of money which should be given to the another entity.
+    // (optional) Amount is number of money which should be given to the
+    // another entity.
     string amount = 3;
+
+    //
+    // (optional) Receipt represent either blockchains address or lightning
+    // network invoice. If receipt is specified the number are more accurate
+    // for lightning network payment.
+    string receipt = 4;
 }
 
 message EstimateFeeResponse {
