@@ -6,6 +6,10 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+type EthereumState struct {
+	DefaultAddressNonce int
+}
+
 type EthereumAddress struct {
 	CreatedAt time.Time
 
@@ -113,4 +117,29 @@ func (s *GethAccountsStorage) AllAddresses() ([]string, error) {
 	}
 
 	return addresses, nil
+}
+
+// PutDefaultAddressNonce puts returns default address transaction nonce.
+// This method is needed because if we send transaction too frequently
+// ethereum transaction counter couldn't keep up and transaction fails,
+// because of replacement error.
+//
+// NOTE: Part of the geth.AccountsStorage interface.
+func (s *GethAccountsStorage) PutDefaultAddressNonce(nonce int) error {
+	return s.db.Save(&EthereumState{
+		DefaultAddressNonce: nonce,
+	}).Error
+}
+
+// DefaultAddressNonce returns default address transaction nonce.
+// This method is needed because if we send transaction too frequently
+// ethereum transaction counter couldn't keep up and transaction fails,
+// because of replacement error.
+func (s *GethAccountsStorage) DefaultAddressNonce() (int, error) {
+	state := &EthereumState{}
+	if err := s.db.Find(state).Error; err != nil {
+		return 0, err
+	}
+
+	return state.DefaultAddressNonce, nil
 }

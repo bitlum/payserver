@@ -30,6 +30,7 @@ func Open(dbPath string, dbName string) (*DB, error) {
 	}
 
 	err = gdb.AutoMigrate(
+		&EthereumState{},
 		&ConnectorState{},
 		&EthereumAddress{},
 		&Payment{},

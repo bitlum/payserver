@@ -74,3 +74,25 @@ func TestAccountsStorage(t *testing.T) {
 		t.Fatalf("wrong address")
 	}
 }
+
+func TestEthereumState(t *testing.T) {
+	db, clear, err := MakeTestDB()
+	if err != nil {
+		t.Fatalf("unable to create test database: %v", err)
+	}
+	defer clear()
+
+	s := NewGethAccountsStorage(db)
+
+	if err := s.PutDefaultAddressNonce(10); err != nil {
+		t.Fatalf("unable to put default address nonce: %v", err)
+	}
+
+	if nonce, err := s.DefaultAddressNonce(); err != nil {
+		t.Fatalf("unable to put default address nonce: %v", err)
+	} else {
+		if nonce != 10 {
+			t.Fatalf("wrong nonce")
+		}
+	}
+}
