@@ -268,7 +268,7 @@ func (c *Connector) Start() (err error) {
 			"nonce in db: %v", err)
 	}
 
-	c.log.Infof("Default address nonce is: %v", defaultAddress)
+	c.log.Infof("Default address nonce is: %v", txCount)
 
 	c.wg.Add(1)
 	go func() {
@@ -558,14 +558,29 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	// Only if transaction is going from our default address we need increase
 	// default nonce counter.
 	if payment.Direction == connectors.Outgoing {
-		err = c.cfg.PaymentStorage.SavePayment(payment)
+		nonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
-			c.log.Errorf("unable update payment(%v) status: %v", paymentID, err)
+			return nil, errors.Errorf("unable to get default nonce: %v", err)
 		}
 
-		c.log.Infof("Send payment %v", spew.Sdump(payment))
+		err = c.cfg.AccountStorage.PutDefaultAddressNonce(nonce + 1)
+		if err != nil {
+			m.AddError(metrics.HighSeverity)
+			return nil, errors.Errorf("unable to get default nonce: %v", err)
+		}
+
+		c.log.Infof("Payment is sent made and default address nonce is"+
+			" increased to %v", nonce)
 	}
+
+	err = c.cfg.PaymentStorage.SavePayment(payment)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		c.log.Errorf("unable update payment(%v) status: %v", paymentID, err)
+	}
+
+	c.log.Infof("Send payment %v", spew.Sdump(payment))
 
 	return payment, nil
 }
