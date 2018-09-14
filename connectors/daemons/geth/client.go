@@ -476,6 +476,11 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 	gas := big.NewInt(defaultTxGas)
 	txFee := new(big.Int).Mul(gas, gasPrice)
 
+	c.log.Tracef("Generate transaction gas(%v), gas price(%v), "+
+		"includeFee(%v), tx fee(%v), amount(%v), from(%v), "+
+		"to(%v), nonce(%v)", gas, gasPrice, includeFee, txFee, amount,
+		fromAddress, toAddress, nonce)
+
 	// Ensure that we are not trying to send negative amount.
 	if includeFee && txFee.Cmp(txAmount) > 0 {
 		return nil, decimal.Zero, errors.New("fee is greater than amount")
