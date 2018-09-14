@@ -84,7 +84,7 @@
     "walletdb",
     "wtxmgr"
   ]
-  revision = "f4ae41ce5f5834eb67ab64cdeed74c74fc95638c"
+  revision = "421298df22601db0fe4adb8f4be71b7014324ba9"
 
 [[projects]]
   branch = "master"
@@ -176,7 +176,7 @@
     ".",
     "dialects/sqlite"
   ]
-  revision = "32455088f24d6b1e9a502fb8e40fdc16139dbea8"
+  revision = "5be9bd34135805e0332b993378864b159784d8a8"
 
 [[projects]]
   branch = "master"
@@ -217,7 +217,7 @@
     "headerfs",
     "headerlist"
   ]
-  revision = "07e32eee63e2a6f16acbc8df85c6530972015a44"
+  revision = "bee0ed11601a4ad0c3b23d462cd71089fc11f2cd"
 
 [[projects]]
   name = "github.com/lightningnetwork/lightning-onion"
@@ -246,7 +246,7 @@
     "tor",
     "zpay32"
   ]
-  revision = "d4fdc41c8c087d7c6759792af2ad02b130dec30d"
+  revision = "48d016bc78e9f338742b10d936e52e7655fd8770"
   source = "github.com/bitlum/lnd"
 
 [[projects]]
@@ -395,7 +395,7 @@
     "cpu",
     "unix"
   ]
-  revision = "917fdcba135dcbaccd57425db91723541b4427c8"
+  revision = "d0be0721c37eeb5299f245a996a483160fc36940"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -471,6 +471,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6b1ea61da3bc2b9ea4104dfca487bdb9b9bc3c91cb38fa4927433db6d989da77"
+  inputs-digest = "8069617a9da19c0931b7eafabc1f08c572ad4fdb34d0ddad54abb9819aa522b8"
   solver-name = "gps-cdcl"
   solver-version = 1
