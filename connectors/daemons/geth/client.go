@@ -938,9 +938,15 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 
 			c.log.Infof("Handling %v transaction(%v)", d, confirmedTx.Hash)
 
+			receipt, err := c.client.EthGetTransactionReceipt(confirmedTx.Hash)
+			if err != nil {
+				return nil, errors.Errorf("unable to get " +
+					"transaction receipt for tx(%v): %v", confirmedTx.Hash, err)
+			}
+
 			// Convert amount from wei representation to Ethereum.
 			amount := decimal.NewFromBigInt(&confirmedTx.Value, 0).Div(weiInEth)
-			gas := decimal.New(int64(confirmedTx.Gas), 0)
+			gas := decimal.New(int64(receipt.GasUsed), 0)
 			gasPrice := decimal.NewFromBigInt(&confirmedTx.GasPrice, 0)
 			fee := gas.Mul(gasPrice).Div(weiInEth)
 
