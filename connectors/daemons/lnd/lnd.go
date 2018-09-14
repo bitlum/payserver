@@ -305,7 +305,7 @@ func (c *Connector) Start() (err error) {
 
 			paymentHash := hex.EncodeToString(invoiceUpdate.RHash)
 			invoice := invoiceUpdate.PaymentRequest
-			amount := btcutil.Amount(invoiceUpdate.AmtPaid).ToBTC()
+			amount := sat2DecAmount(btcutil.Amount(invoiceUpdate.Value))
 
 			payment := &connectors.Payment{
 				PaymentID: generatePaymentID(invoice, paymentHash),
@@ -317,7 +317,7 @@ func (c *Connector) Start() (err error) {
 				Asset:     connectors.BTC,
 				Media:     connectors.Lightning,
 				MediaID:   paymentHash,
-				Amount:    decimal.NewFromFloat(amount),
+				Amount:    amount,
 				MediaFee:  decimal.Zero,
 			}
 
