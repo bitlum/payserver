@@ -476,11 +476,6 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 	gas := big.NewInt(defaultTxGas)
 	txFee := new(big.Int).Mul(gas, gasPrice)
 
-	c.log.Tracef("Generate transaction gas(%v), gas price(%v), "+
-		"includeFee(%v), tx fee(%v), amount(%v), from(%v), "+
-		"to(%v), nonce(%v)", gas, gasPrice, includeFee, txFee, amount,
-		fromAddress, toAddress, nonce)
-
 	// Ensure that we are not trying to send negative amount.
 	if includeFee && txFee.Cmp(txAmount) > 0 {
 		return nil, decimal.Zero, errors.New("fee is greater than amount")
@@ -824,6 +819,8 @@ func (c *Connector) syncPending() (pendingMap, error) {
 // and fail if notification listener haven't been initialized.
 func (c *Connector) syncConfirmed(bestBlockNumber int,
 	lastSyncedBlock *ethrpc.Block) (*ethrpc.Block, error) {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		MethodSync, c.cfg.Metrics)
 
 	for {
 		select {
@@ -940,7 +937,7 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 
 			receipt, err := c.client.EthGetTransactionReceipt(confirmedTx.Hash)
 			if err != nil {
-				return nil, errors.Errorf("unable to get " +
+				return nil, errors.Errorf("unable to get "+
 					"transaction receipt for tx(%v): %v", confirmedTx.Hash, err)
 			}
 
@@ -1017,8 +1014,9 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 					c.log.Infof("Make redirect of payment("+
 						"%v)", incomingPayment.PaymentID)
 					if err := c.makeRedirect(confirmedTx.To, amount); err != nil {
-						return nil, errors.Errorf("unable to make payment(%v) "+
-							"redirection: %v", incomingPayment.PaymentID, err)
+						c.log.Errorf("unable to make payment(%v) "+
+							"redirection: %v", spew.Sdump(incomingPayment), err)
+						m.AddError(metrics.HighSeverity)
 					}
 				}
 			}
@@ -1036,6 +1034,9 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 		// After transaction has been consumed by other subsystem
 		// overwrite cache.
 		c.log.Infof("Process block hash(%v), number(%v)", block.Hash, block.Number)
+
+		// Report last synchronised block number from daemon point of view.
+		m.BlockNumber(int64(lastSyncedBlock.Number))
 	}
 }
 
@@ -1164,9 +1165,6 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 		return lastSyncedBlockHash, errors.Errorf("unable to process blocks: %v", err)
 	}
 	lastSyncedBlockHash = lastSyncedBlock.Hash
-
-	// Report last synchronised block number from daemon point of view.
-	m.BlockNumber(int64(lastSyncedBlock.Number))
 
 	// Sync block above minimum confirmation threshold and
 	// populate unconfirmed pending map with transactions.
