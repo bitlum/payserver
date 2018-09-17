@@ -285,9 +285,10 @@
   revision = "f84df45a6b88974a98d1473e9f0de0eac859a3d9"
 
 [[projects]]
+  branch = "master"
   name = "github.com/onrik/ethrpc"
   packages = ["."]
-  revision = "fb60240e3032c3239e678557566528abbd51289d"
+  revision = "e3bae3ab5be14830aa6ae073cd998db3e284fbca"
   source = "github.com/bitlum/ethrpc"
 
 [[projects]]
@@ -466,11 +467,10 @@
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
-  version = "v2.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8069617a9da19c0931b7eafabc1f08c572ad4fdb34d0ddad54abb9819aa522b8"
+  inputs-digest = "3f2fb425f36930a32222a634aa0f5c4590aefd57ed8b4d5ca128bbf271f6603b"
   solver-name = "gps-cdcl"
   solver-version = 1
