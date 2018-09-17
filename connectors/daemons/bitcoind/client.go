@@ -502,7 +502,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		Receipt:   address,
 		Asset:     connectors.Asset(c.cfg.Asset),
 		Media:     connectors.Blockchain,
-		Amount:    amtInBtc,
+		Amount:    amtInBtc.Round(8),
 		MediaFee:  sat2DecAmount(fee),
 		MediaID:   txID,
 		Detail: &connectors.GeneratedTxDetails{

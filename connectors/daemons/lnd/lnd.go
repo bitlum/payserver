@@ -459,7 +459,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		Receipt:   invoiceStr,
 		Asset:     connectors.BTC,
 		Media:     connectors.Lightning,
-		Amount:    paymentAmt,
+		Amount:    paymentAmt.Round(8),
 		MediaFee:  mediaFee,
 		MediaID:   paymentHash,
 	}

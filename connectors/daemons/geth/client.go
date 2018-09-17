@@ -438,7 +438,7 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 		Receipt:   toAddress,
 		Asset:     connectors.Asset(c.cfg.Asset),
 		Media:     connectors.Blockchain,
-		Amount:    amount,
+		Amount:    amount.Round(8),
 		MediaFee:  fee,
 		MediaID:   details.TxID,
 		Detail:    details,
