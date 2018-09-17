@@ -39,8 +39,9 @@ func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 	return amt.Div(satoshiPerBitcoin)
 }
 
-func generatePaymentID(invoiceStr, paymentHash string) string {
-	return connectors.GeneratePaymentID(invoiceStr, paymentHash)
+func generatePaymentID(invoiceStr string,
+	direction connectors.PaymentDirection) string {
+	return connectors.GeneratePaymentID(invoiceStr, string(direction))
 }
 
 // getClient return lightning network grpc client.

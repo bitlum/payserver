@@ -134,7 +134,8 @@ type Connector struct {
 	averageFee decimal.Decimal
 }
 
-// Runtime check to ensure that Connector implements connectors.LightningConnector
+// Runtime check to ensure that Connector implements connectors.
+// LightningConnector
 // interface.
 var _ connectors.LightningConnector = (*Connector)(nil)
 
@@ -308,7 +309,7 @@ func (c *Connector) Start() (err error) {
 			amount := sat2DecAmount(btcutil.Amount(invoiceUpdate.Value))
 
 			payment := &connectors.Payment{
-				PaymentID: generatePaymentID(invoice, paymentHash),
+				PaymentID: generatePaymentID(invoice, connectors.Incoming),
 				UpdatedAt: connectors.NowInMilliSeconds(),
 				Status:    connectors.Completed,
 				Direction: connectors.Incoming,
@@ -412,32 +413,13 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		return nil, err
 	}
 
-	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
-		m.AddError(metrics.LowSeverity)
-		return nil, errors.Errorf("wrong amount")
-	}
-
-	// Send payment to the recipient and wait for it to be received.
-	req := &lnrpc.SendRequest{
-		PaymentRequest: invoiceStr,
-		FeeLimit: &lnrpc.FeeLimit{
-			Limit: &lnrpc.FeeLimit_Percent{
-				Percent: 3,
-			},
-		},
-	}
-
-	// TODO(andrew.shvv) Use async version and return waiting payment after
-	// 3-5 seconds.
-	resp, err := c.client.SendPaymentSync(context.Background(), req)
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to send payment: %v", err)
-	}
-
-	if resp.PaymentError != "" {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to send payment: %v", resp.PaymentError)
+	// If amount wasn't specified during invoice creation that amount field
+	// will be equal to nil.
+	if invoice.MilliSat != nil {
+		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+			m.AddError(metrics.LowSeverity)
+			return nil, errors.Errorf("wrong amount")
+		}
 	}
 
 	paymentAmt, err := decimal.NewFromString(amountStr)
@@ -447,15 +429,64 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 			amount, err)
 	}
 
-	mediaFee := sat2DecAmount(btcutil.Amount(resp.PaymentRoute.TotalFees))
+	if paymentAmt == decimal.Zero {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable send payment " +
+			"with zero amount")
+	}
+
+	// If we try to send payment to ourselves, than lightning network daemon
+	// will fail, for that reason we handle this and pretend as if payment
+	// was made.
+	var mediaFee decimal.Decimal
+	var paymentID string
+	var direction connectors.PaymentDirection
+
+	receiverNodeAddr := hex.EncodeToString(invoice.Destination.
+		SerializeCompressed())
+
+	if receiverNodeAddr == c.nodeAddr {
+		paymentID = generatePaymentID(invoiceStr, connectors.Internal)
+		direction = connectors.Internal
+
+	} else {
+		paymentID = generatePaymentID(invoiceStr, connectors.Outgoing)
+		direction = connectors.Outgoing
+
+		// Send payment to the recipient and wait for it to be received.
+		req := &lnrpc.SendRequest{
+			PaymentRequest: invoiceStr,
+			FeeLimit: &lnrpc.FeeLimit{
+				Limit: &lnrpc.FeeLimit_Percent{
+					Percent: 3,
+				},
+			},
+		}
+
+		// TODO(andrew.shvv) Use async version and return waiting payment after
+		// 3-5 seconds.
+		resp, err := c.client.SendPaymentSync(context.Background(), req)
+		if err != nil {
+			m.AddError(metrics.HighSeverity)
+			return nil, errors.Errorf("unable to send payment: %v", err)
+		}
+
+		if resp.PaymentError != "" {
+			m.AddError(metrics.HighSeverity)
+			return nil, errors.Errorf("unable to send payment: %v", resp.PaymentError)
+		}
+
+		mediaFee = sat2DecAmount(btcutil.Amount(resp.PaymentRoute.TotalFees))
+	}
+
 	c.averageFee = c.averageFee.Add(mediaFee).Div(decimal.NewFromFloat(2.0))
 
 	paymentHash := hex.EncodeToString(invoice.PaymentHash[:])
 	payment := &connectors.Payment{
-		PaymentID: generatePaymentID(invoiceStr, paymentHash),
+		PaymentID: paymentID,
 		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Completed,
-		Direction: connectors.Outgoing,
+		Direction: direction,
 		Receipt:   invoiceStr,
 		Asset:     connectors.BTC,
 		Media:     connectors.Lightning,
