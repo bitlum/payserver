@@ -401,7 +401,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		return nil, err
 	}
 
-	amount, err := btcToSatoshi(amountStr)
+	amountSat, err := btcToSatoshi(amountStr)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return nil, err
@@ -416,9 +416,11 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 	// If amount wasn't specified during invoice creation that amount field
 	// will be equal to nil.
 	if invoice.MilliSat != nil {
-		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amountSat) {
 			m.AddError(metrics.LowSeverity)
-			return nil, errors.Errorf("wrong amount")
+			return nil, errors.Errorf("wrong amount invoice(%v), "+
+				"expected(%v)", invoice.MilliSat.ToSatoshis(),
+				btcutil.Amount(amountSat))
 		}
 	}
 
@@ -426,7 +428,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to parse amount(%v): %v",
-			amount, err)
+			amountSat, err)
 	}
 
 	if paymentAmt == decimal.Zero {
