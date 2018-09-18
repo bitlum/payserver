@@ -437,24 +437,33 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 			"with zero amount")
 	}
 
-	// If we try to send payment to ourselves, than lightning network daemon
-	// will fail, for that reason we handle this and pretend as if payment
-	// was made.
 	var mediaFee decimal.Decimal
-	var paymentID string
-	var direction connectors.PaymentDirection
-
+	paymentHash := hex.EncodeToString(invoice.PaymentHash[:])
 	receiverNodeAddr := hex.EncodeToString(invoice.Destination.
 		SerializeCompressed())
 
 	if receiverNodeAddr == c.nodeAddr {
-		paymentID = generatePaymentID(invoiceStr, connectors.Internal)
-		direction = connectors.Internal
+		// If we try to send payment to ourselves, than lightning network daemon
+		// will fail, for that reason we handle this and pretend as if payment
+		// was actually has been made.
+		payment := &connectors.Payment{
+			PaymentID: generatePaymentID(invoiceStr, connectors.Incoming),
+			UpdatedAt: connectors.NowInMilliSeconds(),
+			Status:    connectors.Completed,
+			Direction: connectors.Incoming,
+			Receipt:   invoiceStr,
+			Asset:     connectors.BTC,
+			Media:     connectors.Lightning,
+			Amount:    paymentAmt.Round(8),
+			MediaFee:  mediaFee,
+			MediaID:   paymentHash,
+		}
 
+		if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+			m.AddError(metrics.HighSeverity)
+			return nil, errors.Errorf("unable add payment in store: %v", err)
+		}
 	} else {
-		paymentID = generatePaymentID(invoiceStr, connectors.Outgoing)
-		direction = connectors.Outgoing
-
 		// Send payment to the recipient and wait for it to be received.
 		req := &lnrpc.SendRequest{
 			PaymentRequest: invoiceStr,
@@ -479,16 +488,14 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		}
 
 		mediaFee = sat2DecAmount(btcutil.Amount(resp.PaymentRoute.TotalFees))
+		c.averageFee = c.averageFee.Add(mediaFee).Div(decimal.NewFromFloat(2.0))
 	}
 
-	c.averageFee = c.averageFee.Add(mediaFee).Div(decimal.NewFromFloat(2.0))
-
-	paymentHash := hex.EncodeToString(invoice.PaymentHash[:])
 	payment := &connectors.Payment{
-		PaymentID: paymentID,
+		PaymentID: generatePaymentID(invoiceStr, connectors.Outgoing),
 		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Completed,
-		Direction: direction,
+		Direction: connectors.Outgoing,
 		Receipt:   invoiceStr,
 		Asset:     connectors.BTC,
 		Media:     connectors.Lightning,
