@@ -614,9 +614,11 @@ func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
 		return errors.Errorf("unable decode invoice: %v", err)
 	}
 
-	if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
-		m.AddError(metrics.LowSeverity)
-		return errors.Errorf("wrong amount")
+	if invoice.MilliSat != nil {
+		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+			m.AddError(metrics.LowSeverity)
+			return errors.Errorf("wrong amount")
+		}
 	}
 
 	return nil
