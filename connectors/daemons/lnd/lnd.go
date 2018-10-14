@@ -464,8 +464,17 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 			return nil, errors.Errorf("unable add payment in store: %v", err)
 		}
 	} else {
+		var paymentAmount int64
+
+		// If payment request / invoice don't have amount inside, than we
+		// should specify it.
+		if invoice.MilliSat == nil {
+			paymentAmount = amountSat
+		}
+
 		// Send payment to the recipient and wait for it to be received.
 		req := &lnrpc.SendRequest{
+			Amt:            paymentAmount,
 			PaymentRequest: invoiceStr,
 			FeeLimit: &lnrpc.FeeLimit{
 				Limit: &lnrpc.FeeLimit_Percent{
