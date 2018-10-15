@@ -626,7 +626,9 @@ func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
 	if invoice.MilliSat != nil {
 		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
 			m.AddError(metrics.LowSeverity)
-			return errors.Errorf("wrong amount")
+			return errors.Errorf("wrong amount received(%v) and in invoice(" +
+				"%v)", sat2DecAmount(btcutil.Amount(amount)).Round(8),
+				sat2DecAmount(invoice.MilliSat.ToSatoshis()).Round(8))
 		}
 	}
 
