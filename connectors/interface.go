@@ -3,6 +3,7 @@ package connectors
 import (
 	"github.com/shopspring/decimal"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/zpay32"
 )
 
 type LightningInfo struct {
@@ -96,7 +97,7 @@ type LightningConnector interface {
 
 	// ValidateInvoice takes the encoded lightning network invoice and ensure
 	// its valid.
-	ValidateInvoice(invoice, amount string) error
+	ValidateInvoice(invoice, amount string) (*zpay32.Invoice, error)
 
 	// EstimateFee estimate fee for the payment with the given sending
 	// amount, to the given node.

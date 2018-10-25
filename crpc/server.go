@@ -6,6 +6,7 @@ import (
 	"github.com/bitlum/connector/connectors"
 	"github.com/go-errors/errors"
 	"github.com/bitlum/connector/metrics"
+	"encoding/hex"
 )
 
 // defaultAccount default account which will be used for all request until
@@ -127,9 +128,11 @@ func (s *Server) CreateReceipt(ctx context.Context,
 //
 // ValidateReceipt is used to validate receipt for given asset and media.
 func (s *Server) ValidateReceipt(ctx context.Context,
-	req *ValidateReceiptRequest) (*EmptyResponse, error) {
+	req *ValidateReceiptRequest) (*ValidateReceiptResponse, error) {
 	log.Tracef("command(%v), request(%v)", getFunctionName(),
 		convertProtoMessage(req))
+
+	var data isValidateReceiptResponse_Data
 
 	switch req.Media {
 	case Media_BLOCKCHAIN:
@@ -159,10 +162,31 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 			req.Amount = "0"
 		}
 
-		if err := c.ValidateInvoice(req.Receipt, req.Amount); err != nil {
+		invoice, err := c.ValidateInvoice(req.Receipt, req.Amount)
+		if err != nil {
 			log.Errorf("command(%v), error: %v", getFunctionName(), err)
 			s.metrics.AddError(ValidateReceiptReq, string(metrics.LowSeverity))
 			return nil, err
+		}
+
+		var description string
+		if invoice.Description != nil {
+			description = *invoice.Description
+		}
+
+		invoiceAmount := sat2DecAmount(invoice.MilliSat.ToSatoshis())
+		paymentDestination := hex.EncodeToString(invoice.Destination.SerializeCompressed())
+
+		connectors.NowInMilliSeconds()
+		data = &ValidateReceiptResponse_Invoice{
+			Invoice: &Invoice{
+				Memo:         description,
+				Value:        invoiceAmount.Round(8).String(),
+				CreationDate: connectors.ConvertTimeToMilliSeconds(invoice.Timestamp),
+				Expiry:       connectors.ConvertDurationToMilliSeconds(invoice.Expiry()),
+				FallbackAddr: invoice.FallbackAddr.String(),
+				Destination:  paymentDestination,
+			},
 		}
 
 	default:
@@ -172,7 +196,10 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		return nil, err
 	}
 
-	resp := &EmptyResponse{}
+	resp := &ValidateReceiptResponse{
+		Data: data,
+	}
+
 	log.Tracef("command(%v), response(%v)", getFunctionName(),
 		convertProtoMessage(resp))
 

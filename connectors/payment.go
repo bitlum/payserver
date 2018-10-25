@@ -150,3 +150,10 @@ func GeneratePaymentID(parts ...string) string {
 func NowInMilliSeconds() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
 }
+
+func ConvertTimeToMilliSeconds(t time.Time) int64 {
+	return t.UnixNano() / int64(time.Millisecond)
+}
+func ConvertDurationToMilliSeconds(t time.Duration) int64 {
+	return t.Nanoseconds() / int64(time.Millisecond)
+}

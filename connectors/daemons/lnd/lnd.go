@@ -601,38 +601,40 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 // its valid.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ValidateInvoice(invoiceStr, amountStr string) error {
+func (c *Connector) ValidateInvoice(invoiceStr,
+	amountStr string) (*zpay32.Invoice, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodValidateInvoice, c.cfg.Metrics)
 	defer m.Finish()
 
 	netParams, err := bitcoin.GetParams(c.cfg.Net)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable load network params: %v", err)
+		return nil, errors.Errorf("unable load network params: %v", err)
 	}
 
 	amount, err := btcToSatoshi(amountStr)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
-		return errors.Errorf("unable convert amount: %v", err)
+		return nil, errors.Errorf("unable convert amount: %v", err)
 	}
 
 	invoice, err := zpay32.Decode(invoiceStr, netParams)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
-		return errors.Errorf("unable decode invoice: %v", err)
+		return nil, errors.Errorf("unable decode invoice: %v", err)
 	}
 
 	if invoice.MilliSat != nil {
 		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
 			m.AddError(metrics.LowSeverity)
-			return errors.Errorf("wrong amount received(%v) and in invoice(" +
+			return nil, errors.Errorf("wrong amount received(" +
+				"%v) and in invoice(" +
 				"%v)", sat2DecAmount(btcutil.Amount(amount)).Round(8),
 				sat2DecAmount(invoice.MilliSat.ToSatoshis()).Round(8))
 		}
 	}
 
-	return nil
+	return invoice, nil
 }
 
 // ConfirmedBalance return the amount of confirmed funds available for account.
