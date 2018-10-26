@@ -602,7 +602,7 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateInvoice(invoiceStr,
-	amountStr string) (*zpay32.Invoice, error) {
+amountStr string) (*zpay32.Invoice, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodValidateInvoice, c.cfg.Metrics)
 	defer m.Finish()
 
@@ -624,13 +624,18 @@ func (c *Connector) ValidateInvoice(invoiceStr,
 		return nil, errors.Errorf("unable decode invoice: %v", err)
 	}
 
-	if invoice.MilliSat != nil {
-		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
-			m.AddError(metrics.LowSeverity)
-			return nil, errors.Errorf("wrong amount received(" +
-				"%v) and in invoice(" +
-				"%v)", sat2DecAmount(btcutil.Amount(amount)).Round(8),
-				sat2DecAmount(invoice.MilliSat.ToSatoshis()).Round(8))
+	// Only if amount is specified we need to check that it is the same as in
+	// invoice. This is needed in case of wallet would like to decode
+	// invoice, without checking amount.
+	if amount != 0 {
+		if invoice.MilliSat != nil {
+			if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amount) {
+				m.AddError(metrics.LowSeverity)
+				return nil, errors.Errorf("wrong amount received("+
+					"%v) and in invoice("+
+					"%v)", sat2DecAmount(btcutil.Amount(amount)).Round(8),
+					sat2DecAmount(invoice.MilliSat.ToSatoshis()).Round(8))
+			}
 		}
 	}
 
