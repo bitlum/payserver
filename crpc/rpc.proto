@@ -74,9 +74,19 @@ message CreateReceiptRequest {
 
 message CreateReceiptResponse {
     //
+    // When this invoice was created.
+    // NOTE: Only returns for lightning network media.
+    int64 creation_date = 1;
+
+    //
     // Receipt represent either blockchains address or lightning network invoice,
     // depending on the type of the request.
     string receipt = 2;
+
+    //
+    // Invoice expiry time in seconds. Default is 3600 (1 hour).
+    // NOTE: Only returns for lightning network media.
+    int64 expiry = 3;
 }
 
 message BalanceRequest {
@@ -122,24 +132,30 @@ message ValidateReceiptResponse {
 }
 
 message Invoice {
+    //
     // An optional memo to attach along with the invoice. Used for record keeping
     // purposes for the invoice's creator, and will also be set in the
     // description field of the encoded payment request if the
     // description_hash field is not being used.
     string memo = 1;
 
+    //
     // The value of this invoice in bitcoins.
     string value = 2;
 
+    //
     // When this invoice was created.
     int64 creation_date = 3;
 
+    //
     // Invoice expiry time in seconds. Default is 3600 (1 hour).
     int64 expiry = 4;
 
+    //
     // Fallback on-chain address in case of lightning network payment fail.
     string fallback_addr = 5;
 
+    //
     // Lightning Network public key of receiving node.
     string destination = 6;
 }

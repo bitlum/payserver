@@ -102,7 +102,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			req.Amount = "0"
 		}
 
-		invoice, err := c.CreateInvoice(defaultAccount, req.Amount, req.Description)
+		paymentRequest, invoice, err := c.CreateInvoice(defaultAccount,
+			req.Amount, req.Description)
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", getFunctionName(), err)
@@ -111,8 +112,11 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		}
 
 		resp = &CreateReceiptResponse{
-			Receipt: invoice,
+			CreationDate: connectors.ConvertTimeToMilliSeconds(invoice.Timestamp),
+			Expiry:       connectors.ConvertDurationToMilliSeconds(invoice.Expiry()),
+			Receipt:      paymentRequest,
 		}
+
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
 		log.Errorf("command(%v), error: %v", getFunctionName(), err)

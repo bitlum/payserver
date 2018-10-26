@@ -356,32 +356,46 @@ func (c *Connector) Stop(reason string) error {
 // CreateInvoice is used to create lightning network invoice.
 //
 // NOTE: Part of the connectors.LightningConnector interface.
-func (c *Connector) CreateInvoice(account, amount, description string) (string,
-	error) {
+func (c *Connector) CreateInvoice(account, amount,
+description string) (string, *zpay32.Invoice, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodCreateInvoice, c.cfg.Metrics)
 	defer m.Finish()
 
 	satoshis, err := btcToSatoshi(amount)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
-		return "", err
+		return "", nil, err
 	}
 
 	expirationTime := time.Minute * 15
-	invoice := &lnrpc.Invoice{
+	invoiceReq := &lnrpc.Invoice{
 		Receipt: []byte(account),
 		Value:   satoshis,
 		Memo:    description,
 		Expiry:  int64(expirationTime.Seconds()),
 	}
 
-	invoiceResp, err := c.client.AddInvoice(context.Background(), invoice)
+	invoiceResp, err := c.client.AddInvoice(context.Background(), invoiceReq)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return "", err
+		return "", nil, err
 	}
 
-	return invoiceResp.PaymentRequest, nil
+	// Check that invoice is valid, and that amount which we are sending is
+	// corresponding to what we expect.
+	netParams, err := bitcoin.GetParams(c.cfg.Net)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return "", nil, err
+	}
+
+	invoice, err := zpay32.Decode(invoiceResp.PaymentRequest, netParams)
+	if err != nil {
+		m.AddError(metrics.LowSeverity)
+		return "", nil, err
+	}
+
+	return invoiceResp.PaymentRequest, invoice, nil
 }
 
 // SendTo is used to send specific amount of money to address within this

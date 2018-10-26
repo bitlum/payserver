@@ -77,7 +77,8 @@ type LightningConnector interface {
 	Info() (*LightningInfo, error)
 
 	// CreateInvoice is used to create lightning network invoice.
-	CreateInvoice(account, amount, description string) (string, error)
+	CreateInvoice(account, amount, description string) (string,
+		*zpay32.Invoice, error)
 
 	// SendTo is used to send specific amount of money to address within this
 	// payment system.
