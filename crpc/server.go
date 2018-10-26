@@ -180,7 +180,15 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 			invoiceAmount = sat2DecAmount(invoice.MilliSat.ToSatoshis())
 		}
 
-		paymentDestination := hex.EncodeToString(invoice.Destination.SerializeCompressed())
+		var fallbackAddress string
+		if invoice.FallbackAddr != nil {
+			fallbackAddress = invoice.FallbackAddr.String()
+		}
+
+		var destination string
+		if invoice.Destination != nil {
+			destination = hex.EncodeToString(invoice.Destination.SerializeCompressed())
+		}
 
 		connectors.NowInMilliSeconds()
 		data = &ValidateReceiptResponse_Invoice{
@@ -189,8 +197,8 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 				Value:        invoiceAmount.Round(8).String(),
 				CreationDate: connectors.ConvertTimeToMilliSeconds(invoice.Timestamp),
 				Expiry:       connectors.ConvertDurationToMilliSeconds(invoice.Expiry()),
-				FallbackAddr: invoice.FallbackAddr.String(),
-				Destination:  paymentDestination,
+				FallbackAddr: fallbackAddress,
+				Destination:  destination,
 			},
 		}
 
