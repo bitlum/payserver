@@ -471,7 +471,7 @@ type Invoice struct {
 	// description field of the encoded payment request if the
 	// description_hash field is not being used.
 	Memo string `protobuf:"bytes,1,opt,name=memo" json:"memo,omitempty"`
-	// The value of this invoice in satoshis.
+	// The value of this invoice in bitcoins.
 	Value string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
 	// When this invoice was created.
 	CreationDate int64 `protobuf:"varint,3,opt,name=creation_date,json=creationDate" json:"creation_date,omitempty"`

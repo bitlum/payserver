@@ -128,7 +128,7 @@ message Invoice {
     // description_hash field is not being used.
     string memo = 1;
 
-    // The value of this invoice in satoshis.
+    // The value of this invoice in bitcoins.
     string value = 2;
 
     // When this invoice was created.

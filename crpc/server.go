@@ -7,6 +7,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/bitlum/connector/metrics"
 	"encoding/hex"
+	"github.com/shopspring/decimal"
 )
 
 // defaultAccount default account which will be used for all request until
@@ -174,7 +175,11 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 			description = *invoice.Description
 		}
 
-		invoiceAmount := sat2DecAmount(invoice.MilliSat.ToSatoshis())
+		var invoiceAmount decimal.Decimal
+		if invoice.MilliSat != nil {
+			invoiceAmount = sat2DecAmount(invoice.MilliSat.ToSatoshis())
+		}
+
 		paymentDestination := hex.EncodeToString(invoice.Destination.SerializeCompressed())
 
 		connectors.NowInMilliSeconds()
