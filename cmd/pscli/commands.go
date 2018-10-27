@@ -435,7 +435,7 @@ var sendPaymentCommand = cli.Command{
 		},
 		cli.StringFlag{
 			Name: "amount",
-			Usage: "Amount is the amount which will be sent by" +
+			Usage: "(optional) Amount is the amount which will be sent by" +
 				" service.",
 		},
 		cli.StringFlag{
@@ -498,7 +498,10 @@ func sendPayment(ctx *cli.Context) error {
 
 	if ctx.IsSet("amount") {
 		amount = ctx.String("amount")
-	} else {
+	} else if media == crpc.Media_BLOCKCHAIN {
+		// In case of blockchain we always should specify amount.
+		// In case of lighnting we might not do that if it specified in the
+		// invoice.g
 		return errors.Errorf("amount argument is missing")
 	}
 
