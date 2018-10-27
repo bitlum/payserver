@@ -306,7 +306,7 @@ func (c *Connector) Start() (err error) {
 
 			paymentHash := hex.EncodeToString(invoiceUpdate.RHash)
 			invoice := invoiceUpdate.PaymentRequest
-			amount := sat2DecAmount(btcutil.Amount(invoiceUpdate.Value))
+			amount := sat2DecAmount(btcutil.Amount(invoiceUpdate.AmtPaidSat))
 
 			payment := &connectors.Payment{
 				PaymentID: generatePaymentID(invoice, connectors.Incoming),
