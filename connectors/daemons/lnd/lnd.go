@@ -774,10 +774,19 @@ func (c *Connector) EstimateFee(invoiceStr string) (decimal.Decimal,
 				err)
 		}
 
+		// If amount is not specified than we unable to understand what
+		// fee we should expect, for that reason return the average one.
+		var amount int64
+		if invoice.MilliSat == nil {
+			return c.averageFee.Round(8), nil
+		} else {
+			amount = int64(invoice.MilliSat.ToSatoshis())
+		}
+
 		pubKey := hex.EncodeToString(invoice.Destination.SerializeCompressed())
 		req := &lnrpc.QueryRoutesRequest{
 			PubKey: pubKey,
-			Amt:    int64(invoice.MilliSat.ToSatoshis()),
+			Amt:    amount,
 			FeeLimit: &lnrpc.FeeLimit{
 				Limit: &lnrpc.FeeLimit_Percent{
 					Percent: 3,
