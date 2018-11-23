@@ -41,6 +41,10 @@
   revision = "99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c"
 
 [[constraint]]
+  name = "github.com/btcsuite/btcwallet"
+  revision = "421298df22601db0fe4adb8f4be71b7014324ba9"
+
+[[constraint]]
   name = "github.com/btcsuite/btcd"
   revision = "79e00513b1011888b1e675157ab89f527f901cae"
 

@@ -24,6 +24,39 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/bitlum/btcd"
+  packages = [
+    "blockchain",
+    "btcec",
+    "chaincfg",
+    "chaincfg/chainhash",
+    "database",
+    "txscript",
+    "wire"
+  ]
+  revision = "072770c03d1d3b9bc18e2a4a39384bb9fdb409c4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/bitlum/btcutil"
+  packages = [
+    ".",
+    "base58",
+    "bech32"
+  ]
+  revision = "ff69c1bdcd79a3d2687b553361283bc7d04a25a3"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/bitlum/go-bitcoind-rpc"
+  packages = [
+    "btcjson",
+    "rpcclient"
+  ]
+  revision = "5503508ef0452ac5248fd67a9a02fc51c003eb93"
+
+[[projects]]
+  branch = "master"
   name = "github.com/bitlum/graphql-go"
   packages = ["errors"]
   revision = "e232a94bee37413aeca1cb8caa64b10283e9aea6"
@@ -141,8 +174,8 @@
     "crypto/sha3",
     "params"
   ]
-  revision = "89451f7c382ad2185987ee369f16416f89c28a7d"
-  version = "v1.8.15"
+  revision = "58632d44021bf095b43a1bb2443e6e3690a94739"
+  version = "v1.8.18"
 
 [[projects]]
   name = "github.com/go-errors/errors"
@@ -176,7 +209,7 @@
     ".",
     "dialects/sqlite"
   ]
-  revision = "5be9bd34135805e0332b993378864b159784d8a8"
+  revision = "472c70caa40267cb89fd8facb07fe6454b578626"
 
 [[projects]]
   branch = "master"
@@ -199,7 +232,7 @@
   branch = "master"
   name = "github.com/kkdai/bstream"
   packages = ["."]
-  revision = "f71540b9dfdcfe64dbf2818e9b66423c6aafcacd"
+  revision = "b3251f7901ec4dd4ec66b3210e8f4bd5c0f1c5a3"
 
 [[projects]]
   branch = "master"
@@ -256,13 +289,13 @@
     "chaincfg/chainhash",
     "wire"
   ]
-  revision = "cdab10132e8c6e4a3ffd112dba54791946d28906"
+  revision = "01737289d815e0e32c91e55593ba2fbd8d090b2c"
 
 [[projects]]
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
-  revision = "25ecb14adfc7543176f7d85291ec7dba82c6f7e4"
-  version = "v1.9.0"
+  revision = "c7c4067b79cc51e6dfdcef5c702e74b1e0fa7c75"
+  version = "v1.10.0"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -279,10 +312,10 @@
   revision = "79bfde677fa81ff8d27c4330c35bda075d360641"
 
 [[projects]]
-  branch = "master"
   name = "github.com/mr-tron/base58"
   packages = ["base58"]
-  revision = "f84df45a6b88974a98d1473e9f0de0eac859a3d9"
+  revision = "89529c6904fcd077434931b4eac8b4b2f0991baf"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -319,7 +352,7 @@
     "internal/bitbucket.org/ww/goautoneg",
     "model"
   ]
-  revision = "c7de2306084e37d54b8be01f3541a8464345e9a5"
+  revision = "aeab699e26f4d4089dba5e522e5d9babd2adbaf7"
 
 [[projects]]
   branch = "master"
@@ -330,7 +363,7 @@
     "nfs",
     "xfs"
   ]
-  revision = "05ee40e3a273f7245e8777337fc7b46e533a9a92"
+  revision = "185b4288413d2a0dd0806f78c90dde719829e5ae"
 
 [[projects]]
   branch = "master"
@@ -396,7 +429,7 @@
     "cpu",
     "unix"
   ]
-  revision = "d0be0721c37eeb5299f245a996a483160fc36940"
+  revision = "62eef0e2fa9b2c385f7b2778e763486da6880d37"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -467,10 +500,11 @@
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
+  version = "v2.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3f2fb425f36930a32222a634aa0f5c4590aefd57ed8b4d5ca128bbf271f6603b"
+  inputs-digest = "783a6c4d0283d1590c25ba86f4e599151b1a6e3d975bc98e51ec476ebe78018f"
   solver-name = "gps-cdcl"
   solver-version = 1
