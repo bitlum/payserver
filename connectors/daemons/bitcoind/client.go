@@ -315,15 +315,43 @@ func (c *Connector) Start() (err error) {
 			c.wg.Done()
 		}()
 
+		syncUnspentTicker := time.NewTicker(time.Second *
+			time.Duration(c.cfg.SyncUnspentLoopDelay))
+		defer syncUnspentTicker.Stop()
+
 		for {
-
-			if err := c.syncUnspent(); err != nil {
-				m.AddError(metrics.MiddleSeverity)
-				c.log.Errorf("unable to main sync unspent: %v", err)
-			}
-
 			select {
-			case <-time.After(time.Minute):
+			case <-syncUnspentTicker.C:
+				if err := c.syncUnspent(); err != nil {
+					m.AddError(metrics.MiddleSeverity)
+					c.log.Errorf("unable to main sync unspent: %v", err)
+					continue
+				}
+			case <-c.quit:
+				return
+			}
+		}
+	}()
+
+	c.wg.Add(1)
+	go func() {
+		defer func() {
+			c.log.Info("Quit reorganisation goroutine")
+			c.wg.Done()
+		}()
+
+		reorgInputsTicker := time.NewTicker(time.Second *
+			time.Duration(c.cfg.InputReorgLoopDelay))
+		defer reorgInputsTicker.Stop()
+
+		for {
+			select {
+			case <-reorgInputsTicker.C:
+				if err := c.reorgLargeInputs(); err != nil {
+					m.AddError(metrics.MiddleSeverity)
+					c.log.Errorf("unable to reorganise utxo: %v", err)
+					continue
+				}
 			case <-c.quit:
 				return
 			}
@@ -1040,6 +1068,121 @@ func (c *Connector) reportMetrics() error {
 	c.log.Infof("Metrics reported, overall received(%v %v), "+
 		"overall sent(%v %v), overall fee(%v %v)", overallReceivedF,
 		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF, c.cfg.Asset)
+
+	return nil
+}
+
+// reorgLargeInputs takes large inputs and split them smaller one,
+// by making loopback transaction. Value of optimal utxo was calculated based
+// on optimisation of reducing fees and increasing payment success rate.
+func (c *Connector) reorgLargeInputs() error {
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
+	defer m.Finish()
+
+	c.unspentSyncMtx.Lock()
+	defer c.unspentSyncMtx.Unlock()
+
+	largeUTXO := make([]rpc.UnspentInput, 0)
+	overallAmount := btcutil.Amount(0)
+	for _, utxo := range c.unspent {
+		utxoAmount, err := btcutil.NewAmount(utxo.Amount)
+		if err != nil {
+			return errors.Errorf("unable convert utxo amount: %v", err)
+		}
+
+		// Avoid split if will be created less than two outputs. That is done
+		// in order to reduce a lot of reorganisation i.e. paying more fees.
+		if utxoAmount > (2 * optimalUTXOValue) {
+			largeUTXO = append(largeUTXO, utxo)
+			overallAmount += utxoAmount
+		}
+	}
+
+	if len(largeUTXO) == 0 {
+		c.log.Debug("Wasn't able found large enough utxo, skip re-balancing")
+		return nil
+	}
+
+	// Create list of output amounts based on large inputs.
+	feeSatoshiPerByte := uint64(c.getFeeRate().IntPart())
+	outputAmounts, _, err := c.createReorganisationOutputs(
+		feeSatoshiPerByte, largeUTXO)
+	if err != nil {
+		return errors.Errorf("unable calculate output amounts: %v", err)
+	}
+
+	outputs := make(map[btcutil.Address]btcutil.Amount)
+	for _, outputAmount := range outputAmounts {
+		// Create loopback address which point out to the default account
+		// of the wallet.
+		loopBackAddr, err := c.client.GetNewAddress(defaultAccount)
+		if err != nil {
+			return errors.Errorf("unable create loopback address: %v", err)
+		}
+
+		outputs[loopBackAddr] = outputAmount
+	}
+
+	tx, err := c.client.CreateRawTransaction(largeUTXO, outputs)
+	if err != nil {
+		return errors.Errorf("unable to create raw reorganisation tx: %v", err)
+	}
+
+	c.log.Infof("Take %v inputs, with overall amount %v and create "+
+		"%v outputs with optimal value %v", len(tx.TxIn), overallAmount,
+		len(tx.TxOut), optimalUTXOValue)
+
+	// Signed reorganisation transaction.
+	signedTx, err := c.client.SignRawTransaction(tx)
+	if err != nil {
+		return errors.Errorf("unable to sign generated transaction: %v", err)
+	}
+
+	//txID := tx.TxHash().String()
+	//for loopBackAddress, amountSat := range outputs {
+	//	payment := &connectors.Payment{
+	//		PaymentID: generatePaymentID(txID, loopBackAddress.String(),
+	//			connectors.Outgoing),
+	//		UpdatedAt: connectors.NowInMilliSeconds(),
+	//		Status:    connectors.Waiting,
+	//		Direction: connectors.Outgoing,
+	//		Receipt:   loopBackAddress.String(),
+	//		Asset:     connectors.Asset(c.cfg.Asset),
+	//		Media:     connectors.Blockchain,
+	//		Amount:    sat2DecAmount(amountSat),
+	//		MediaFee:  sat2DecAmount(txFee / btcutil.Amount(len(outputs))),
+	//		MediaID:   txID,
+	//	}
+	//
+	//}
+
+	// TODO(andrew.shvv) for overall create internal payment
+	// TODO(andrew.shvv) for every output create internal payment
+	//
+
+	if err := c.client.SendRawTransaction(signedTx); err != nil {
+		//payment.Status = connectors.Failed
+		//payment.UpdatedAt = connectors.NowInMilliSeconds()
+		//
+		//if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+		//	m.AddError(metrics.HighSeverity)
+		//	c.log.Errorf("unable update payment(%v) status to fail: %v",
+		//		paymentID, err)
+		//}
+		//
+		//m.AddError(metrics.HighSeverity)
+		//return nil, errors.Errorf("unable to send payment(%v): %v",
+		//	paymentID, err)
+		return err
+	}
+
+	// Remove unspent utxo from local cache, otherwise inputs might be re-used
+	// which cause tx error on send. If transaction will fail, than inputs
+	// will be returned on next cache sync.
+	for _, input := range largeUTXO {
+		delete(c.unspent, input.TxID)
+	}
 
 	return nil
 }

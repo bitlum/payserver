@@ -219,3 +219,115 @@ func coinSelect(feeRatePerByte uint64, amtSat btcutil.Amount,
 		return selectedUtxos, changeAmt, requiredFee, nil
 	}
 }
+
+// createReorganisationOutputs creates list of optimal outputs by diving
+// large inputs and taking into consideration transaction fee as well as dust
+// limits in order to avoid tx failure.
+func (c *Connector) createReorganisationOutputs(feeRatePerByte uint64,
+	largeInputs []rpc.UnspentInput) ([]btcutil.Amount,
+	btcutil.Amount, error) {
+
+	// Try to get unspent outputs from local cache, if it is not initialized
+	// than sync it.
+	if c.unspent == nil {
+		if err := c.syncUnspent(); err != nil {
+			return nil, 0, errors.Errorf("unable to sync unspent: %v", err)
+		}
+	}
+
+	// Calculate number of optimal outgoing outputs.
+	overallAmount := btcutil.Amount(0)
+	var outputsAmounts []btcutil.Amount
+	for i := 0; i < len(largeInputs); i++ {
+		amount, err := btcutil.NewAmount(largeInputs[i].Amount)
+		if err != nil {
+			return nil, 0, err
+		}
+		overallAmount += amount
+	}
+
+	if overallAmount <= optimalUTXOValue {
+		return nil, 0, errors.Errorf("overall amount of inputs " +
+			"less or equal than optimal UTXO value")
+	}
+
+	numOptimalOutputs := int(overallAmount / optimalUTXOValue)
+	for i := 0; i < numOptimalOutputs; i++ {
+		outputsAmounts = append(outputsAmounts, optimalUTXOValue)
+	}
+
+	remainingValue := overallAmount - btcutil.Amount(numOptimalOutputs)*optimalUTXOValue
+	if remainingValue != 0 {
+		outputsAmounts = append(outputsAmounts, remainingValue)
+	}
+
+	paidFee := btcutil.Amount(0)
+	requiredFee := btcutil.Amount(0)
+
+	for {
+		// Check is needed to prevent situation when optimal UTXO value is
+		// less than required tx miner fee.
+		if len(outputsAmounts) <= 1 {
+			return nil, 0, errors.Errorf("number of outputs less than one")
+		}
+
+		var weightEstimate TxWeightEstimator
+
+		// Increase size of transaction on weight of inputs.
+		for i := 0; i < len(largeInputs); i++ {
+			weightEstimate.AddP2PKHInput()
+		}
+
+		// Increase size of transaction on weight of outputs.
+		for i := 0; i < len(outputsAmounts); i++ {
+			weightEstimate.AddP2PKHOutput()
+		}
+
+		size := uint64(weightEstimate.Weight() / txsize.WitnessScaleFactor)
+		requiredFee = btcutil.Amount(size * feeRatePerByte)
+
+		// We are paying paying tx fee by decreasing value of last output,
+		// and if not enough remove it and recalculate fee.
+		last := len(outputsAmounts) - 1
+		if (requiredFee - paidFee) > outputsAmounts[last] {
+			// Removing output because it doesn't have enough value,
+			// by removing output we paying fee to miners.
+			// And than repeat tx size calculation without output.
+			paidFee += outputsAmounts[last]
+			outputsAmounts = outputsAmounts[last-1:]
+			continue
+		} else {
+			// In this case output has enough value. Decrease output value on
+			// number of required fee, but take in consideration previously
+			// removed outputs.
+			//
+			// NOTE: If required fee is less than previously removed outputs
+			// amount, than last output amount will be increased,
+			// and it is normal.
+			outputsAmounts[last] -= requiredFee - paidFee
+
+			// Check that resulted output is greater that dust limit.
+			if outputsAmounts[last] <= DefaultDustLimit() {
+				// Remove output, otherwise such transaction will be rejected
+				// by miners.
+				outputsAmounts = outputsAmounts[last-1:]
+			}
+		}
+
+		// Theoretically this might happen only if resulted output was less
+		// than dust.
+		if len(outputsAmounts) <= 1 {
+			return nil, 0, errors.Errorf("number of outputs less than one")
+		}
+
+		break
+	}
+
+	return outputsAmounts, requiredFee, nil
+}
+
+// DefaultDustLimit is used to calculate the dust HTLC amount which will be
+// send to other node during funding process.
+func DefaultDustLimit() btcutil.Amount {
+	return txrules.GetDustThreshold(P2PKHOutputSize, txrules.DefaultRelayFeePerKb)
+}
