@@ -45,6 +45,22 @@ type MetricsBackend interface {
 	AddRequestDuration(daemon, asset, request string, dur time.Duration)
 }
 
+// DisabledBackend metric backend which does nothing.
+var DisabledBackend = &MockBackend{}
+
+type MockBackend struct{}
+var _ MetricsBackend = (*MockBackend)(nil)
+
+func (b *MockBackend) OverallSent(daemon, asset string, amount float64)                    {}
+func (b *MockBackend) OverallReceived(daemon, asset string, amount float64)                {}
+func (b *MockBackend) OverallFee(daemon, asset string, amount float64)                     {}
+func (b *MockBackend) CurrentFunds(daemon, asset string, amount float64)                   {}
+func (b *MockBackend) BlockNumber(daemon, asset string, blockNumber int64)                 {}
+func (b *MockBackend) AddRequest(daemon, asset, request string)                            {}
+func (b *MockBackend) AddError(daemon, asset, request, severity string)                    {}
+func (b *MockBackend) AddPanic(daemon, asset, request string)                              {}
+func (b *MockBackend) AddRequestDuration(daemon, asset, request string, dur time.Duration) {}
+
 // PrometheusBackend is the main subsystem metrics implementation. Uses
 // prometheus metrics singletons defined above.
 //
