@@ -5,13 +5,13 @@ import (
 
 	"github.com/btcsuite/btcutil"
 	"github.com/shopspring/decimal"
-	"github.com/bitlum/connector/connectors/assets/bitcoin"
-	"github.com/bitlum/connector/connectors/assets/litecoin"
-	"github.com/bitlum/connector/connectors/assets/bitcoincash"
-	"github.com/bitlum/connector/connectors/assets/dash"
 	"github.com/go-errors/errors"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/rpc/bitcoin"
+	"github.com/bitlum/connector/connectors/rpc/litecoin"
+	"github.com/bitlum/connector/connectors/rpc/bitcoincash"
+	"github.com/bitlum/connector/connectors/rpc/dash"
 )
 
 var satoshiPerBitcoin = decimal.New(btcutil.SatoshiPerBitcoin, 0)

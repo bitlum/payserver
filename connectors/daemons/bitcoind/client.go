@@ -2,7 +2,6 @@ package bitcoind
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,8 +9,6 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
-	"github.com/bitlum/connector/connectors/daemons/bitcoind/rpcclient"
 	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/btcsuite/btclog"
 	"github.com/go-errors/errors"
@@ -20,6 +17,9 @@ import (
 	"github.com/bitlum/connector/metrics"
 	"encoding/hex"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/btcsuite/btcutil"
+	"github.com/bitlum/connector/connectors/rpc"
+	"github.com/bitlum/connector/common"
 )
 
 var (
@@ -33,29 +33,12 @@ var (
 	// minimumFeeRate is the minimal satoshis which we should pay for one byte
 	//  of information in blockchain.
 	minimumFeeRate = decimal.NewFromFloat(1.0)
-)
 
-const (
-	MethodStart               = "Start"
-	MethodAccountAddress      = "AccountAddress"
-	MethodCreateAddress       = "CreateAddress"
-	MethodPendingTransactions = "PendingTransactions"
-	MethodCreatePayment       = "CreatePayment"
-	MethodSendPayment         = "MethodSendPayment"
-	MethodPendingBalance      = "PendingBalance"
-	MethodSync                = "Sync"
-	MethodValidate            = "Validate"
-	EstimateFee               = "EstimateFee"
-	GetFeeRate                = "GetFeeRate"
+	// This value is calculated as being optimal by running emulation of
+	// activity on payserver on 18 Nov 2018. This value is optimised to have
+	// spent less fee, at the same time having high success payment  rate.
+	optimalUTXOValue = btcutil.Amount(806451)
 )
-
-type DaemonConfig struct {
-	Name       string
-	ServerHost string
-	ServerPort int
-	User       string
-	Password   string
-}
 
 // Config is a bitcoind config.
 type Config struct {
@@ -66,18 +49,25 @@ type Config struct {
 	// to treat transaction as confirmed.
 	MinConfirmations int
 
-	// SyncLoopDelay is how much processing loop should sleep before
-	// trying to update the information about
+	// SyncLoopDelay is used to tweak delay of syncing block processing
+	// loop (in seconds).
 	SyncLoopDelay int
+
+	// InputReorgLoopDelay is used to tweak delay of large inputa
+	// reorganisations proceeding loop (in seconds).
+	InputReorgLoopDelay int
+
+	// SyncUnspentLoopDelay is used to tweak delay of sync unspent proceesing
+	// loop (in seconds).
+	SyncUnspentLoopDelay int
 
 	// LastSyncedBlockHash is the hash of block which were proceeded last.
 	// In this field is specified than, hash will be initialized form it,
 	// rather than from database.
 	LastSyncedBlockHash string
 
-	// DaemonCfg holds the information about how to connect to the daemon
-	// which interact with the payment system network.
-	DaemonCfg *DaemonConfig
+	// RPCClient...
+	RPCClient rpc.Client
 
 	// Asset is an asset with which this connector is working.
 	Asset connectors.Asset
@@ -113,8 +103,8 @@ func (c *Config) validate() error {
 			" zero")
 	}
 
-	if c.DaemonCfg == nil {
-		return errors.New("daemon config should be specified")
+	if c.RPCClient == nil {
+		return errors.New("rpc client is not specified")
 	}
 
 	if c.Logger == nil {
@@ -123,6 +113,14 @@ func (c *Config) validate() error {
 
 	if c.SyncLoopDelay == 0 {
 		c.SyncLoopDelay = 5
+	}
+
+	if c.InputReorgLoopDelay == 0 {
+		c.InputReorgLoopDelay = 5
+	}
+
+	if c.SyncUnspentLoopDelay == 0 {
+		c.SyncUnspentLoopDelay = 5
 	}
 
 	if c.Asset == "" {
@@ -153,23 +151,21 @@ type Connector struct {
 	quit     chan struct{}
 
 	cfg    *Config
-	client *ExtendedRPCClient
+	client rpc.Client
 
 	// pending is a map of blockhain pending payments,
 	// which hasn't been confirmed from connector point of view.
 	// TODO(andrew.shvv) Remove because now we could use storage directly
 	pending map[string][]*connectors.Payment
 
-	lastSyncedBlock *btcjson.GetBlockVerboseResult
+	lastSyncedBlock *rpc.BlockVerboseResp
 
 	netParams *chaincfg.Params
-	log       *connectors.NamedLogger
-
-	coinSelectMtx sync.Mutex
+	log       *common.NamedLogger
 
 	// unspent is used to store btc uxto set locally, in order to craft
 	// transactions faster.
-	unspent map[string]btcjson.ListUnspentResult
+	unspent map[string]rpc.UnspentInput
 
 	// unspentSyncMtx is used to lock the utxo local map during is
 	// usage/population.
@@ -186,9 +182,10 @@ func NewConnector(cfg *Config) (*Connector, error) {
 	}
 
 	return &Connector{
-		cfg:  cfg,
-		quit: make(chan struct{}),
-		log: &connectors.NamedLogger{
+		cfg:    cfg,
+		quit:   make(chan struct{}),
+		client: cfg.RPCClient,
+		log: &common.NamedLogger{
 			Name:   string(cfg.Asset),
 			Logger: cfg.Logger,
 		},
@@ -203,64 +200,30 @@ func (c *Connector) Start() (err error) {
 
 	defer func() {
 		// If start has failed than, we should oll back mark that
-		// service has started.
+		// service has started, so that we could start server again if needed.
 		if err != nil {
 			atomic.SwapInt32(&c.started, 0)
 		}
 	}()
 
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodStart, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
-	host := fmt.Sprintf("%v:%v", c.cfg.DaemonCfg.ServerHost,
-		c.cfg.DaemonCfg.ServerPort)
-	cfg := &rpcclient.ConnConfig{
-		Host:         host,
-		User:         c.cfg.DaemonCfg.User,
-		Pass:         c.cfg.DaemonCfg.Password,
-		DisableTLS:   true, // TODO(andrew.shvv) switch on production
-		HTTPPostMode: true,
-	}
-
-	// Create RPC client in order to talk with cryptocurrency daemon.
-	c.log.Info("Creating RPC client...")
-	client, err := rpcclient.New(cfg, nil)
+	resp, err := c.client.GetBlockChainInfo()
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to create RPC client: %v", err)
-	}
-	c.client = &ExtendedRPCClient{
-		Client: client,
+		return errors.Errorf("unable to get type of network: %v", err)
 	}
 
-	var chain string
-	if c.cfg.Asset == connectors.DASH {
-		// Dash blockchain info response is different from standard bitcoin
-		// blockchain info.
-		resp, err := c.client.GetDashBlockChainInfo()
-		if err != nil {
-			m.AddError(metrics.HighSeverity)
-			return errors.Errorf("unable to get type of network: %v", err)
-		}
-		chain = resp.Chain
-	} else {
-		resp, err := c.client.GetBlockChainInfo()
-		if err != nil {
-			m.AddError(metrics.HighSeverity)
-			return errors.Errorf("unable to get type of network: %v", err)
-		}
-		chain = resp.Chain
-	}
-
-	if !isProperNet(c.cfg.Net, chain) {
+	if !isProperNet(c.cfg.Net, resp.Chain) {
 		return errors.Errorf("networks are different, desired: %v, "+
-			"actual: %v", c.cfg.Net, chain)
+			"actual: %v", c.cfg.Net, resp.Chain)
 	}
 
 	c.log.Infof("Init connector working with '%v' net", c.cfg.Net)
 
-	c.netParams, err = getParams(c.cfg.Asset, chain)
+	c.netParams, err = getParams(c.cfg.Asset, resp.Chain)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("failed to get net params: %v", err)
@@ -284,16 +247,17 @@ func (c *Connector) Start() (err error) {
 			return errors.Errorf("unable to fetch last block synced "+
 				"hash: %v", err)
 		}
-
-		c.log.Infof("Last synced block hash(%v)", lastSyncedBlockHash)
 	}
 
-	c.lastSyncedBlock, err = c.client.GetBlockVerbose(lastSyncedBlockHash)
+	c.lastSyncedBlock, err = c.client.GetBlockVerboseByHash(lastSyncedBlockHash)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return errors.Errorf("unable to fetch last synced block with hash("+
 			"%v): %v", lastSyncedBlockHash, err)
 	}
+
+	c.log.Infof("Last synced block, hash(%v), heigh(%v)",
+		lastSyncedBlockHash, c.lastSyncedBlock.Height)
 
 	defaultAddress, err := c.fetchDefaultAddress()
 	if err != nil {
@@ -301,6 +265,13 @@ func (c *Connector) Start() (err error) {
 		return errors.Errorf("unable to fetch default address: %v", err)
 	}
 	c.log.Infof("Default address %v", defaultAddress)
+
+	// First of all unlock all unspent outputs, to exclude the situation where
+	// we accidentally locked inputs and server crashed.
+	c.log.Debugf("Unlocking unspent inputs...")
+	if err := c.client.UnlockUnspent(); err != nil {
+		return errors.Errorf("unable to unlock unspent outputs")
+	}
 
 	c.wg.Add(1)
 	go func() {
@@ -385,12 +356,12 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) AccountAddress(accountAlias connectors.AccountAlias) (
 	string, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodAccountAddress, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	account := aliasToAccount(accountAlias)
-	addresses, err := c.client.GetAddressesByAccount(account)
+	addresses, err := c.client.GetAddressesByLabel(account)
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
 		return "", err
@@ -400,16 +371,15 @@ func (c *Connector) AccountAddress(accountAlias connectors.AccountAlias) (
 		return "", nil
 	}
 
-	address := addresses[0].String()
-	return address, nil
+	return addresses[0].String(), nil
 }
 
 // CreateAddress is used to create deposit address.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodCreateAddress, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	address, err := c.client.GetNewAddress(aliasToAccount(accountAlias))
@@ -428,8 +398,8 @@ func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string,
 func (c *Connector) PendingTransactions(accountAlias connectors.AccountAlias) (
 	[]*connectors.Payment, error) {
 
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodPendingTransactions, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	// TODO(andrew.shvv) Use payment storage for getting pending transaction
@@ -450,8 +420,8 @@ func (c *Connector) PendingTransactions(accountAlias connectors.AccountAlias) (
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) CreatePayment(address string, amount string) (*connectors.Payment,
 	error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodCreatePayment, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	decodedAddress, err := decodeAddress(c.cfg.Asset, address, c.netParams.Name)
@@ -474,16 +444,10 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
 	}
 
-	signedTx, isSigned, err := c.client.SignRawTransaction(tx)
+	signedTx, err := c.client.SignRawTransaction(tx)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to sign generated transaction: %v", err)
-	}
-
-	if !isSigned {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to sign all generated transaction"+
-			" inputs: %v", err)
 	}
 
 	var rawTx bytes.Buffer
@@ -526,8 +490,8 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSendPayment, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	payment, err := c.cfg.PaymentStore.PaymentByID(paymentID)
@@ -551,8 +515,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		return nil, errors.Errorf("unable to deserialize raw tx: %v", err)
 	}
 
-	_, err = c.client.SendRawTransaction(wireTx, true)
-	if err != nil {
+	if err = c.client.SendRawTransaction(wireTx); err != nil {
 		payment.Status = connectors.Failed
 		payment.UpdatedAt = connectors.NowInMilliSeconds()
 
@@ -588,7 +551,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
 	account := aliasToAccount(accountAlias)
-	balance, err := c.client.GetBalanceMinConf(account, c.cfg.MinConfirmations)
+	balance, err := c.client.GetBalanceByLabel(account, c.cfg.MinConfirmations)
 	if err != nil {
 		return decimal.Zero, err
 	}
@@ -600,8 +563,8 @@ func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (deci
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) PendingBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodPendingBalance, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	// TODO(andrew.shvv) Use storage for getting pending transaction and
@@ -685,8 +648,8 @@ func (c *Connector) syncUnconfirmed() error {
 
 // findForkBlock is used to find block on which fork has happened,
 // at return it, so that syncing could continue.
-func (c *Connector) findForkBlock(orphanBlock *btcjson.GetBlockVerboseResult) (
-	*btcjson.GetBlockVerboseResult, error) {
+func (c *Connector) findForkBlock(orphanBlock *rpc.BlockVerboseResp) (
+	*rpc.BlockVerboseResp, error) {
 	for orphanBlock.Confirmations == -1 {
 		prevHash, err := chainhash.NewHashFromStr(orphanBlock.PreviousHash)
 		if err != nil {
@@ -694,7 +657,7 @@ func (c *Connector) findForkBlock(orphanBlock *btcjson.GetBlockVerboseResult) (
 				"orphan block: %v", err)
 		}
 
-		orphanBlock, err = c.client.GetBlockVerbose(prevHash)
+		orphanBlock, err = c.client.GetBlockVerboseByHash(prevHash)
 		if err != nil {
 			return nil, errors.Errorf("unable to prev last sync block "+
 				"from daemon: %v", err)
@@ -716,7 +679,7 @@ func (c *Connector) proceedNextBlock() error {
 	}
 
 	// Update state of the block, such info as number of confirmations.
-	lastSyncedBlock, err := c.client.GetBlockVerbose(hash)
+	lastSyncedBlock, err := c.client.GetBlockVerboseByHash(hash)
 	if err != nil {
 		return err
 	}
@@ -766,7 +729,7 @@ func (c *Connector) proceedNextBlock() error {
 			return err
 		}
 
-		proceededBlock, err := c.client.GetBlockVerbose(nextHash)
+		proceededBlock, err := c.client.GetBlockVerboseByHash(nextHash)
 		if err != nil {
 			return err
 		}
@@ -914,14 +877,13 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 }
 
 func (c *Connector) sync() error {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSync, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	if err := c.proceedNextBlock(); err != nil {
 		m.AddError(metrics.MiddleSeverity)
 		return errors.Errorf("unable to process blocks: %v", err)
-
 	}
 
 	// As far as pending transaction may occur at any time,
@@ -951,8 +913,8 @@ func (c *Connector) sync() error {
 
 // DecodeAddress takes the blockchain address and ensure its validity.
 func (c *Connector) ValidateAddress(address string) error {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodValidate, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	_, err := decodeAddress(c.cfg.Asset, address, c.netParams.Name)
@@ -970,8 +932,8 @@ func (c *Connector) ValidateAddress(address string) error {
 // NOTE: Fee depends on amount because of the number amount of inputs
 // which has to be used to construct the transaction.
 func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		EstimateFee, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	// Estimate fee for the median transaction size of 225 bytes.
@@ -992,77 +954,44 @@ func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 // NOTE: Uses virtual transaction size as defined in BIP 141
 // (witness data is discounted).
 func (c *Connector) getFeeRate() decimal.Decimal {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		GetFeeRate, c.cfg.Metrics)
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
-	var feeRateBtcPerKiloByte decimal.Decimal
-	var respErr error
-
-	switch c.cfg.Asset {
-	case connectors.BCH, connectors.DASH:
-		// Bitcoin Cash removed estimatesmartfee in 17.2 version of their client,
-		// for that reason we need to have different behaviour for Bitcoin Cash
-		// asset, and use original estimatefee method.
-		res, err := c.client.EstimateFee(2)
-		if err != nil {
-			respErr = err
-			break
-		}
-
-		feeRateBtcPerKiloByte = decimal.NewFromFloat(**res)
-		if feeRateBtcPerKiloByte.LessThanOrEqual(decimal.Zero) {
-			respErr = errors.New("not enough data to make an estimation")
-			break
-		}
-
-	default:
-		res, err := c.client.EstimateSmartFeeWithMode(2,
-			btcjson.ConservativeEstimateMode)
-		if err != nil {
-			respErr = err
-			break
-		}
-
-		if res.Errors != nil {
-			respErr = errors.New((*res.Errors)[0])
-			break
-		}
-
-		feeRateBtcPerKiloByte = decimal.NewFromFloat(*res.FeeRate)
-		if feeRateBtcPerKiloByte.LessThanOrEqual(decimal.Zero) {
-			respErr = errors.New("not enough data to make an estimation")
-			break
-		}
-	}
-
-	var feeRateSatoshiPerByte decimal.Decimal
-	if respErr != nil {
+	feeRate, err := c.client.EstimateFee()
+	if err != nil {
 		if c.cfg.Net == "mainnet" {
-			c.log.Errorf("unable get fee rate: %v", respErr)
+			// In case of mainnet such situation happens rarely for that
+			// reason we should notify about that. But in testnet and simnet
+			// usually not enough data to make fee proper fee estimation.
+			c.log.Errorf("unable get fee rate: %v", err)
 			m.AddError(metrics.HighSeverity)
 		}
 
-		feeRateSatoshiPerByte = decimal.New(int64(c.cfg.FeePerByte), 0).Round(8)
+		// Take fee rate from config, which was initialised on the start of
+		// payserver.
+		feeRateSatoshiPerByte := decimal.New(int64(c.cfg.FeePerByte), 0).Round(8)
 		if feeRateSatoshiPerByte.LessThan(minimumFeeRate) {
 			feeRateSatoshiPerByte = minimumFeeRate
 		}
 
-		c.log.Debugf("Get fee rate(%v sat/byte) from config",
-			feeRateSatoshiPerByte)
-
-	} else {
-		// Initial rate is return us BTC/Kb
-		bytesInKiloByte := decimal.NewFromFloat(1024)
-		feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
-		feeRateSatoshiPerByte = feeRateSatoshiPerKiloByte.Div(bytesInKiloByte).Round(8)
-		if feeRateSatoshiPerByte.LessThan(minimumFeeRate) {
-			feeRateSatoshiPerByte = minimumFeeRate
-		}
-
-		c.log.Debugf("Get fee rate(%v sat/byte) from daemon",
-			feeRateSatoshiPerByte)
+		c.log.Debugf("Get fee rate(%v sat/byte) from config", feeRateSatoshiPerByte)
+		return feeRateSatoshiPerByte
 	}
+
+	// Initially rate is returned as BTC/Kb, for convience we convert it
+	// to sat/byte.
+	feeRateBtcPerKiloByte := decimal.NewFromFloat(feeRate)
+	bytesInKiloByte := decimal.NewFromFloat(1024)
+	feeRateSatoshiPerKiloByte := feeRateBtcPerKiloByte.Mul(satoshiPerBitcoin)
+	feeRateSatoshiPerByte := feeRateSatoshiPerKiloByte.Div(bytesInKiloByte).Round(8)
+
+	if feeRateSatoshiPerByte.LessThan(minimumFeeRate) {
+		feeRateSatoshiPerByte = minimumFeeRate
+	}
+
+	c.log.Debugf("Get fee rate(%v sat/byte) from daemon",
+		feeRateSatoshiPerByte)
 
 	return feeRateSatoshiPerByte
 }
@@ -1070,7 +999,7 @@ func (c *Connector) getFeeRate() decimal.Decimal {
 // reportMetrics is used to report necessary health metrics about internal
 // state of the connector.
 func (c *Connector) reportMetrics() error {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
 		"ReportMetrics", c.cfg.Metrics)
 	defer m.Finish()
 

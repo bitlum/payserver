@@ -5,13 +5,14 @@ import (
 
 	"math"
 
-	"github.com/bitlum/connector/connectors/daemons/bitcoind/btcjson"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
-	"github.com/btcsuite/btcd/blockchain"
+
+	"github.com/btcsuite/btcwallet/wallet/txrules"
+	"github.com/bitlum/connector/connectors/rpc"
+	txsize "github.com/bitlum/btcd/blockchain"
 )
 
 // ErrInsufficientFunds is a type matching the error interface which is
@@ -35,10 +36,10 @@ func (e *ErrInsufficientFunds) Error() string {
 // TODO(andrew.shvv) Develop hierstic algorithm of choosing the outputs
 // efficiently.
 func selectInputs(amt btcutil.Amount,
-	inputsMap map[string]btcjson.ListUnspentResult) (btcutil.Amount,
-	[]btcjson.ListUnspentResult, error) {
+	inputsMap map[string]rpc.UnspentInput) (btcutil.Amount,
+	[]rpc.UnspentInput, error) {
 
-	var inputs []btcjson.ListUnspentResult
+	var inputs []rpc.UnspentInput
 	satSelected := btcutil.Amount(0)
 	for _, input := range inputsMap {
 		amount, err := btcutil.NewAmount(input.Amount)
@@ -59,9 +60,6 @@ func selectInputs(amt btcutil.Amount,
 // so that later we could construct transaction in a fast manner.
 // Otherwise construction of transaction might take couple of seconds.
 func (c *Connector) syncUnspent() error {
-	c.unspentSyncMtx.Lock()
-	defer c.unspentSyncMtx.Unlock()
-
 	// Find all unlocked unspent outputs with greater than minimum confirmation.
 	minConf := int(c.cfg.MinConfirmations)
 	maxConf := int(math.MaxInt32)
@@ -73,12 +71,16 @@ func (c *Connector) syncUnspent() error {
 	}
 
 	var amount decimal.Decimal
-	c.unspent = make(map[string]btcjson.ListUnspentResult, len(unspent))
+	localUnspent := make(map[string]rpc.UnspentInput, len(unspent))
 	for _, u := range unspent {
-		c.unspent[u.TxID] = u
+		localUnspent[u.TxID] = u
 		a := decimal.NewFromFloat(u.Amount)
 		amount = amount.Add(a)
 	}
+
+	c.unspentSyncMtx.Lock()
+	c.unspent = localUnspent
+	c.unspentSyncMtx.Unlock()
 
 	c.log.Debugf("Sync %v unspent inputs, with overall %v %v amount",
 		len(unspent), amount.String(), c.cfg.Asset)
@@ -93,45 +95,28 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	amtSat btcutil.Amount, address btcutil.Address) (*wire.MsgTx,
 	btcutil.Amount, error) {
 
-	// We hold the coin select mutex while querying for outputs, and
-	// performing coin selection in order to avoid inadvertent double
-	// spends.
-	c.coinSelectMtx.Lock()
-	defer c.coinSelectMtx.Unlock()
-
 	c.log.Debugf("Performing coin selection fee rate(%v sat/byte), "+
 		"amount(%v)", feeRatePerByte, amtSat)
 
-	// TODO(andrew.shvv) what if send two consequent requests? The
-	// second one will be using the same outputs and it will lead to issue.
-
-	// First of all unlock all unspent outputs, to exclude the situation where
-	// we accidentally locked inputs and server crashed or just forget to
-	// unlock them.
-	c.log.Debugf("Unlocking unspent inputs...")
-	if err := c.client.LockUnspent(true, nil); err != nil {
-		return nil, 0, errors.Errorf("unable to unlock unspent outputs")
-	}
-
 	// Try to get unspent outputs from local cache,
 	// if it is not initialized than sync it.
-	c.unspentSyncMtx.Lock()
 	if c.unspent == nil {
-		c.unspentSyncMtx.Unlock()
-
 		if err := c.syncUnspent(); err != nil {
 			return nil, 0, errors.Errorf("unable to sync unspent: %v", err)
 		}
 	}
-	c.unspentSyncMtx.Unlock()
+
+	// We hold the coin select mutex while querying for outputs, and
+	// performing coin selection in order to avoid inadvertent double
+	// spends.
+	c.unspentSyncMtx.Lock()
+	defer c.unspentSyncMtx.Unlock()
 
 	// Perform coin selection over our available, unlocked unspent outputs
 	// in order to find enough coins to meet the funding amount
 	// requirements.
-	c.unspentSyncMtx.Lock()
 	selectedInputs, changeAmt, requiredFee, err := coinSelect(feeRatePerByte,
 		amtSat, c.unspent)
-	c.unspentSyncMtx.Unlock()
 
 	if err != nil {
 		return nil, 0, errors.Errorf("unable to select inputs: %v", err)
@@ -144,23 +129,9 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// Lock the selected coins. These coins are now "reserved", this
 	// prevents concurrent funding requests from referring to and this
 	// double-spending the same set of coins.
-	inputs := make([]btcjson.TransactionInput, len(selectedInputs))
-
-	for i, input := range selectedInputs {
-		txid, err := chainhash.NewHashFromStr(input.TxID)
-		if err != nil {
+	for _, input := range selectedInputs {
+		if err = c.client.LockUnspent(input); err != nil {
 			return nil, 0, err
-		}
-
-		outpoint := wire.NewOutPoint(txid, input.Vout)
-		err = c.client.LockUnspent(false, []*wire.OutPoint{outpoint})
-		if err != nil {
-			return nil, 0, err
-		}
-
-		inputs[i] = btcjson.TransactionInput{
-			Txid: input.TxID,
-			Vout: input.Vout,
 		}
 	}
 
@@ -178,17 +149,17 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 		outputs[changeAddr] = changeAmt
 	}
 
-	lockTime := int64(0)
-	tx, err := c.client.CreateRawTransaction(inputs, outputs, &lockTime)
+	tx, err := c.client.CreateRawTransaction(selectedInputs, outputs)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	c.unspentSyncMtx.Lock()
+	// Remove unspent utxo from local cache. Otherwise it will be updated only
+	// on next cache sync, which might cause inputs re-usage. If transaction
+	// will fail, than inputs will be returned on next cache sync.
 	for _, input := range selectedInputs {
 		delete(c.unspent, input.TxID)
 	}
-	c.unspentSyncMtx.Unlock()
 
 	return tx, requiredFee, nil
 }
@@ -198,7 +169,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 // specified fee rate should be expressed in sat/byte for coin selection to
 // function properly.
 func coinSelect(feeRatePerByte uint64, amtSat btcutil.Amount,
-	unspent map[string]btcjson.ListUnspentResult) ([]btcjson.ListUnspentResult,
+	unspent map[string]rpc.UnspentInput) ([]rpc.UnspentInput,
 	btcutil.Amount, btcutil.Amount, error) {
 
 	amtNeeded := amtSat
@@ -233,7 +204,7 @@ func coinSelect(feeRatePerByte uint64, amtSat btcutil.Amount,
 		// amount isn't enough to pay fees, then increase the requested
 		// coin amount by the estimate required fee, performing another
 		// round of coin selection.
-		size := uint64(weightEstimate.Weight() / blockchain.WitnessScaleFactor)
+		size := uint64(weightEstimate.Weight() / txsize.WitnessScaleFactor)
 		requiredFee := btcutil.Amount(size * feeRatePerByte)
 
 		if overShootAmt < requiredFee {
