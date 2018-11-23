@@ -23,6 +23,11 @@ import (
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/db/sqlite"
 	"time"
+	"github.com/bitlum/connector/connectors/rpc/bitcoin"
+	"github.com/bitlum/connector/connectors/rpc/bitcoincash"
+	"github.com/bitlum/connector/connectors/rpc/dash"
+	"github.com/bitlum/connector/connectors/rpc/litecoin"
+	"math"
 )
 
 var (
@@ -69,6 +74,58 @@ func backendMain() error {
 
 	paymentsStore := &sqlite.PaymentsStore{DB: db}
 
+	bitcoinRPCClient, err := bitcoin.NewClient(bitcoin.ClientConfig{
+		Name:     "bitcoind",
+		Logger:   rpcLog,
+		Asset:    connectors.BTC,
+		RPCHost:  loadedConfig.Bitcoin.Host,
+		RPCPort:  loadedConfig.Bitcoin.Port,
+		User:     loadedConfig.Bitcoin.User,
+		Password: loadedConfig.Bitcoin.Password,
+	})
+	if err != nil {
+		return errors.Errorf("unable to create bitcoin rpc client: %v")
+	}
+
+	bitcoincashRPCClient, err := bitcoincash.NewClient(bitcoincash.ClientConfig{
+		Name:     "bitcoinabc",
+		Logger:   rpcLog,
+		Asset:    connectors.BCH,
+		RPCHost:  loadedConfig.BitcoinCash.Host,
+		RPCPort:  loadedConfig.BitcoinCash.Port,
+		User:     loadedConfig.BitcoinCash.User,
+		Password: loadedConfig.BitcoinCash.Password,
+	})
+	if err != nil {
+		return errors.Errorf("unable to create bitcoin cash rpc client: %v")
+	}
+
+	dashRPCClient, err := dash.NewClient(dash.ClientConfig{
+		Name:     "dashd",
+		Logger:   rpcLog,
+		Asset:    connectors.DASH,
+		RPCHost:  loadedConfig.Dash.Host,
+		RPCPort:  loadedConfig.Dash.Port,
+		User:     loadedConfig.Dash.User,
+		Password: loadedConfig.Dash.Password,
+	})
+	if err != nil {
+		return errors.Errorf("unable to create dash rpc client: %v")
+	}
+
+	litecoinRPCClient, err := litecoin.NewClient(litecoin.ClientConfig{
+		Name:     "litecoind",
+		Logger:   rpcLog,
+		Asset:    connectors.LTC,
+		RPCHost:  loadedConfig.Litecoin.Host,
+		RPCPort:  loadedConfig.Litecoin.Port,
+		User:     loadedConfig.Litecoin.User,
+		Password: loadedConfig.Litecoin.Password,
+	})
+	if err != nil {
+		return errors.Errorf("unable to create dash rpc client: %v")
+	}
+
 	// Create blockchain connectors in order to be able to listen for incoming
 	// transaction, be able to answer on the question how many
 	// pending transaction user have and also to withdraw money from exchange.
@@ -77,6 +134,7 @@ func backendMain() error {
 			Net:                 loadedConfig.Network,
 			MinConfirmations:    loadedConfig.BitcoinCash.MinConfirmations,
 			SyncLoopDelay:       loadedConfig.BitcoinCash.SyncDelay,
+			InputReorgLoopDelay: math.MaxInt16,
 			Asset:               connectors.BCH,
 			Logger:              mainLog,
 			Metrics:             cryptoMetricsBackend,
@@ -85,13 +143,7 @@ func backendMain() error {
 			StateStorage:        sqlite.NewConnectorStateStorage(connectors.BCH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
-			DaemonCfg: &bitcoind.DaemonConfig{
-				Name:       "bitcoinabc",
-				ServerHost: loadedConfig.BitcoinCash.Host,
-				ServerPort: loadedConfig.BitcoinCash.Port,
-				User:       loadedConfig.BitcoinCash.User,
-				Password:   loadedConfig.BitcoinCash.Password,
-			},
+			RPCClient:  bitcoincashRPCClient,
 		})
 		if err != nil {
 			return errors.Errorf("unable to create bitcoin cash connector: %v", err)
@@ -103,6 +155,7 @@ func backendMain() error {
 			Net:                 loadedConfig.Network,
 			MinConfirmations:    loadedConfig.Bitcoin.MinConfirmations,
 			SyncLoopDelay:       loadedConfig.Bitcoin.SyncDelay,
+			InputReorgLoopDelay: math.MaxInt16,
 			Asset:               connectors.BTC,
 			Logger:              mainLog,
 			Metrics:             cryptoMetricsBackend,
@@ -111,13 +164,7 @@ func backendMain() error {
 			StateStorage:        sqlite.NewConnectorStateStorage(connectors.BTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
-			DaemonCfg: &bitcoind.DaemonConfig{
-				Name:       "bitcoind",
-				ServerHost: loadedConfig.Bitcoin.Host,
-				ServerPort: loadedConfig.Bitcoin.Port,
-				User:       loadedConfig.Bitcoin.User,
-				Password:   loadedConfig.Bitcoin.Password,
-			},
+			RPCClient:  bitcoinRPCClient,
 		})
 		if err != nil {
 			return errors.Errorf("unable to create bitcoin connector: %v", err)
@@ -129,6 +176,7 @@ func backendMain() error {
 			Net:                 loadedConfig.Network,
 			MinConfirmations:    loadedConfig.Dash.MinConfirmations,
 			SyncLoopDelay:       loadedConfig.Dash.SyncDelay,
+			InputReorgLoopDelay: math.MaxInt16,
 			Asset:               connectors.DASH,
 			Logger:              mainLog,
 			Metrics:             cryptoMetricsBackend,
@@ -137,13 +185,7 @@ func backendMain() error {
 			StateStorage:        sqlite.NewConnectorStateStorage(connectors.DASH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Dash.FeePerUnit,
-			DaemonCfg: &bitcoind.DaemonConfig{
-				Name:       "dashd",
-				ServerHost: loadedConfig.Dash.Host,
-				ServerPort: loadedConfig.Dash.Port,
-				User:       loadedConfig.Dash.User,
-				Password:   loadedConfig.Dash.Password,
-			},
+			RPCClient:  dashRPCClient,
 		})
 		if err != nil {
 			return errors.Errorf("unable to create dash connector: %v", err)
@@ -155,6 +197,7 @@ func backendMain() error {
 			Net:                 loadedConfig.Network,
 			MinConfirmations:    loadedConfig.Litecoin.MinConfirmations,
 			SyncLoopDelay:       loadedConfig.Litecoin.SyncDelay,
+			InputReorgLoopDelay: math.MaxInt16,
 			Asset:               connectors.LTC,
 			Logger:              mainLog,
 			Metrics:             cryptoMetricsBackend,
@@ -163,13 +206,7 @@ func backendMain() error {
 			StateStorage:        sqlite.NewConnectorStateStorage(connectors.LTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Litecoin.FeePerUnit,
-			DaemonCfg: &bitcoind.DaemonConfig{
-				Name:       "litecoind",
-				ServerHost: loadedConfig.Litecoin.Host,
-				ServerPort: loadedConfig.Litecoin.Port,
-				User:       loadedConfig.Litecoin.User,
-				Password:   loadedConfig.Litecoin.Password,
-			},
+			RPCClient:  litecoinRPCClient,
 		})
 		if err != nil {
 			return errors.Errorf("unable to create litecoin connector: %v", err)
@@ -264,7 +301,7 @@ func backendMain() error {
 
 						select {
 						case <-time.After(5 * time.Second):
-							mainLog.Infof("Retrying start lightning BTC connector")
+							mainLog.Infof("Retrying start %v connector", asset)
 							continue
 						case <-quit:
 							return
