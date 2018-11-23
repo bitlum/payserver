@@ -17,8 +17,9 @@ import (
 	"github.com/onrik/ethrpc"
 	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/connectors"
-	"github.com/bitlum/connector/connectors/assets/ethereum"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/bitlum/connector/connectors/rpc/ethereum"
+	"github.com/bitlum/connector/common"
 )
 
 var (
@@ -171,7 +172,7 @@ type Connector struct {
 	unconfirmedTxs pendingMap
 	pendingLock    sync.Mutex
 
-	log *connectors.NamedLogger
+	log *common.NamedLogger
 }
 
 // A compile time check to ensure Connector implements the BlockchainConnector
@@ -188,7 +189,7 @@ func NewConnector(cfg *Config) (*Connector, error) {
 		quit:           make(chan struct{}),
 		memPoolTxs:     make(pendingMap),
 		unconfirmedTxs: make(pendingMap),
-		log: &connectors.NamedLogger{
+		log: &common.NamedLogger{
 			Name:   string(cfg.Asset),
 			Logger: cfg.Logger,
 		},
