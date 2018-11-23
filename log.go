@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/bitlum/connector/crpc"
-	"github.com/bitlum/connector/connectors/daemons/lnd"
 	"github.com/bitlum/connector/metrics"
 	"github.com/btcsuite/btclog"
 	"github.com/jrick/logrotate/rotator"
+	"github.com/bitlum/connector/connectors/rpc"
+	"github.com/bitlum/connector/connectors/daemons/lnd"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -48,27 +49,28 @@ var (
 	// It is written to by the Write method of the logWriter type.
 	logRotatorPipe *io.PipeWriter
 
-	metricsLog   = backendLog.Logger("METRICS")
-	mainLog      = backendLog.Logger("MAIN")
-	rpcLog       = backendLog.Logger("RPC")
-	lndLog       = backendLog.Logger("LND")
-	estimatorLog = backendLog.Logger("EST")
+	metricsLog = backendLog.Logger("METRICS")
+	mainLog    = backendLog.Logger("MAIN")
+	crpcLog    = backendLog.Logger("CONNECTOR_RPC")
+	rpcLog     = backendLog.Logger("BLOCKCHAIN_RPC")
+	lndLog     = backendLog.Logger("LND")
 )
 
 // Initialize package-global logger variables.
 func init() {
 	metrics.UseLogger(metricsLog)
+	crpc.UseLogger(crpcLog)
+	rpc.UseLogger(rpcLog)
 	lnd.UseLogger(lndLog)
-	crpc.UseLogger(rpcLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
 var subsystemLoggers = map[string]btclog.Logger{
-	"MAIN":    mainLog,
-	"METRICS": metricsLog,
-	"LND":     lndLog,
-	"RPC":     rpcLog,
-	"EST":     estimatorLog,
+	"MAIN":           mainLog,
+	"METRICS":        metricsLog,
+	"LND":            lndLog,
+	"BLOCKCHAIN_RPC": rpcLog,
+	"CONNECTOR_RPC":  crpcLog,
 }
 
 // initLogRotator initializes the logging rotator to write logs to logFile and
