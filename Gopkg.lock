@@ -488,6 +488,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "gopkg.in/gormigrate.v1"
+  packages = ["."]
+  revision = "dcfb424b8448715735468fa2f573cce5caca178b"
+  version = "v1.2.1"
+
+[[projects]]
   name = "gopkg.in/macaroon-bakery.v2"
   packages = [
     "bakery",
@@ -500,11 +506,10 @@
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
-  version = "v2.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "783a6c4d0283d1590c25ba86f4e599151b1a6e3d975bc98e51ec476ebe78018f"
+  inputs-digest = "bff23567cff9eaed338d163c64547365707032f65584b4a8957de6e67715e443"
   solver-name = "gps-cdcl"
   solver-version = 1

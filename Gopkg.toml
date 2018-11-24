@@ -114,3 +114,7 @@
 [[prune.project]]
   name = "github.com/ethereum/go-ethereum"
   unused-packages = false
+
+[[constraint]]
+  name = "gopkg.in/gormigrate.v1"
+  version = "1.2.1"
