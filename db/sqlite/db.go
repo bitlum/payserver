@@ -2,9 +2,9 @@ package sqlite
 
 import (
 	"github.com/jinzhu/gorm"
-	"path/filepath"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"os"
+	"path/filepath"
 )
 
 // DB is the primary datastore.
@@ -39,12 +39,14 @@ func Open(dbPath string, dbName string) (*DB, error) {
 		return nil, err
 	}
 
-	db := &DB{
-		DB:     gdb,
-		dbPath: dbPath,
+	if err := migrate(gdb); err != nil {
+		return nil, err
 	}
 
-	return db, nil
+	return &DB{
+		DB:     gdb,
+		dbPath: dbPath,
+	}, nil
 }
 
 // fileExists returns true if the file exists, and false otherwise.

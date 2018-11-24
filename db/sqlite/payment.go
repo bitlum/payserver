@@ -23,8 +23,13 @@ type Payment struct {
 	// Status denotes the stage of the processing the payment.
 	Status string
 
-	// Direction denotes the direction of the payment.
+	// Direction denotes the direction of the payment, whether payment is
+	// going form us to someone else, or form someone else to us.
 	Direction string
+
+	// System denotes is that payment belongs to business logic of payment
+	// server or it was originated by user / third-party service.
+	System string
 
 	// Receipt is a string which identifies the receiver of the
 	// payment. It is address in case of the blockchain media,
@@ -115,10 +120,11 @@ func (s *PaymentsStore) SavePayment(payment *connectors.Payment) error {
 
 // ListPayments return list of all payments.
 //
-// NOTE: Part of the connectors.PaymentsStore interface.¬
+// NOTE: Part of the connectors.PaymentsStore interface.
 func (s *PaymentsStore) ListPayments(asset connectors.Asset,
 	status connectors.PaymentStatus, direction connectors.PaymentDirection,
-	media connectors.PaymentMedia) ([]*connectors.Payment, error) {
+	media connectors.PaymentMedia, system connectors.PaymentSystem) (
+	[]*connectors.Payment, error) {
 
 	db := s.DB.DB
 
@@ -136,6 +142,10 @@ func (s *PaymentsStore) ListPayments(asset connectors.Asset,
 
 	if media != "" {
 		db = db.Where("media = ?", media)
+	}
+
+	if system != "" {
+		db = db.Where("system = ?", system)
 	}
 
 	var dbPayments []*Payment
@@ -188,6 +198,7 @@ func convertPaymentTo(payment *connectors.Payment) (*Payment, error) {
 		UpdatedAt:  payment.UpdatedAt,
 		Status:     string(payment.Status),
 		Direction:  string(payment.Direction),
+		System:     string(payment.System),
 		Receipt:    payment.Receipt,
 		Asset:      string(payment.Asset),
 		Account:    payment.Account,
@@ -236,6 +247,7 @@ func convertPaymentFrom(dbPayment *Payment) (*connectors.Payment, error) {
 		UpdatedAt: dbPayment.UpdatedAt,
 		Status:    connectors.PaymentStatus(dbPayment.Status),
 		Direction: connectors.PaymentDirection(dbPayment.Direction),
+		System:    connectors.PaymentSystem(dbPayment.System),
 		Receipt:   dbPayment.Receipt,
 		Asset:     connectors.Asset(dbPayment.Asset),
 		Account:   dbPayment.Account,
