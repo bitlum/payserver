@@ -1,14 +1,14 @@
 package crpc
 
 import (
-	"github.com/bitlum/connector/metrics/rpc"
-	"golang.org/x/net/context"
-	"github.com/bitlum/connector/connectors"
-	"github.com/go-errors/errors"
-	"github.com/bitlum/connector/metrics"
 	"encoding/hex"
-	"github.com/shopspring/decimal"
 	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/metrics"
+	"github.com/bitlum/connector/metrics/rpc"
+	"github.com/go-errors/errors"
+	"github.com/shopspring/decimal"
+	"golang.org/x/net/context"
 )
 
 // defaultAccount default account which will be used for all request until
@@ -579,6 +579,7 @@ func (s *Server) ListPayments(ctx context.Context,
 		status    connectors.PaymentStatus
 		direction connectors.PaymentDirection
 		media     connectors.PaymentMedia
+		system    connectors.PaymentSystem
 		err       error
 	)
 
@@ -594,6 +595,16 @@ func (s *Server) ListPayments(ctx context.Context,
 
 	if req.Direction != PaymentDirection_DIRECTION_NONE {
 		direction, err = ConvertPaymentDirectionFromProto(req.Direction)
+		if err != nil {
+			err := newErrInternal(err.Error())
+			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
+			return nil, err
+		}
+	}
+
+	if req.System != PaymentSystem_SYSTEM_NONE {
+		system, err = ConvertPaymentSystemFromProto(req.System)
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -622,7 +633,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		}
 	}
 
-	payments, err := s.paymentsStore.ListPayments(asset, status, direction, media)
+	payments, err := s.paymentsStore.ListPayments(asset, status, direction,
+		media, system)
 	if err != nil {
 		err := newErrInternal(err.Error())
 		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)

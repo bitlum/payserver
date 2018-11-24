@@ -1,11 +1,11 @@
 package crpc
 
 import (
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"fmt"
 	"github.com/bitlum/connector/connectors"
 	"github.com/go-errors/errors"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 )
 
 func convertProtoMessage(resp proto.Message) string {
@@ -71,14 +71,28 @@ func convertPaymentDirectionToProto(direction connectors.PaymentDirection) (Paym
 		protoDirection = PaymentDirection_OUTGOING
 	case connectors.Incoming:
 		protoDirection = PaymentDirection_INCOMING
-	case connectors.Internal:
-		protoDirection = PaymentDirection_INTERNAL
 	default:
 		return protoDirection, errors.Errorf("unable convert unknown direction: %v",
 			direction)
 	}
 
 	return protoDirection, nil
+}
+
+func convertPaymentSystemToProto(system connectors.PaymentSystem) (
+	PaymentSystem, error) {
+	var protoSystem PaymentSystem
+	switch system {
+	case connectors.Internal:
+		protoSystem = PaymentSystem_INTERNAL
+	case connectors.External:
+		protoSystem = PaymentSystem_EXTERNAL
+	default:
+		return protoSystem, errors.Errorf("unable convert unknown system: %v",
+			system)
+	}
+
+	return protoSystem, nil
 }
 
 func convertMediaToProto(media connectors.PaymentMedia) (Media, error) {
@@ -117,11 +131,17 @@ func convertPaymentToProto(payment *connectors.Payment) (*Payment, error) {
 		return nil, err
 	}
 
+	system, err := convertPaymentSystemToProto(payment.System)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Payment{
 		PaymentId: payment.PaymentID,
 		UpdatedAt: payment.UpdatedAt,
 		Status:    status,
 		Direction: direction,
+		System:    system,
 		Asset:     asset,
 		Media:     media,
 		Receipt:   payment.Receipt,
@@ -180,14 +200,28 @@ func ConvertPaymentDirectionFromProto(protoDirection PaymentDirection) (
 		direction = connectors.Outgoing
 	case PaymentDirection_INCOMING:
 		direction = connectors.Incoming
-	case PaymentDirection_INTERNAL:
-		direction = connectors.Internal
 	default:
 		return direction, errors.Errorf("unable convert unknown direction: %v",
 			protoDirection)
 	}
 
 	return direction, nil
+}
+
+func ConvertPaymentSystemFromProto(protoSystem PaymentSystem) (
+	connectors.PaymentSystem, error) {
+	var system connectors.PaymentSystem
+	switch protoSystem {
+	case PaymentSystem_INTERNAL:
+		system = connectors.Internal
+	case PaymentSystem_EXTERNAL:
+		system = connectors.External
+	default:
+		return system, errors.Errorf("unable convert unknown system: %v",
+			protoSystem)
+	}
+
+	return system, nil
 }
 
 func ConvertMediaFromProto(protoMedia Media) (connectors.PaymentMedia, error) {

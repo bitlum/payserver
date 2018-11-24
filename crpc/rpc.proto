@@ -270,6 +270,12 @@ message ListPaymentsRequest {
     // (optional) Media is a type of technology which is used to transport
     // value of underlying asset.
     Media media = 4;
+
+    //
+    // (optional) PaymentSystem denotes is that payment belongs to business
+    // logic of payment server or it was originated by user / third-party
+    // service.
+    PaymentSystem system = 5;
 }
 
 message ListPaymentsResponse {
@@ -291,8 +297,14 @@ message Payment {
     PaymentStatus status = 3;
 
     //
-    // Direction denotes the direction of the payment.
+    // Direction denotes the direction of the payment, whether
+    // payment is going form us to someone else, or form someone else to us.
     PaymentDirection direction = 4;
+
+    //
+    // System denotes is that payment belongs to business logic of
+    // payment server or it was originated by user / third-party service.
+    PaymentSystem system = 11;
 
     //
     // Asset is an acronim of the crypto currency.
@@ -393,7 +405,8 @@ enum PaymentStatus {
     FAILED = 4;
 }
 
-// PaymentDirection denotes the direction of the payment.
+// PaymentDirection denotes the direction of the payment, whether payment is
+//	going form us to someone else, or form someone else to us.
 enum PaymentDirection {
     DIRECTION_NONE = 0;
 
@@ -406,9 +419,24 @@ enum PaymentDirection {
     // OUTGOING type of payment which service has sent to someone else in the
     // media.
     OUTGOING = 2;
+}
+
+// PaymentSystemSystem denotes is that payment belongs to business logic of
+// payment server or it was originated by user / third-party service.
+enum PaymentSystem {
+    SYSTEM_NONE = 0;
 
     //
-    // INTERNAL type of payment which service has sent to itself for a
-    // purpose of optimisation.
-    INTERNAL = 3;
+    // INTERNAL type of payment usually services the purpose of payment
+    // server itself for stabilisation of system. In lightning it might
+    // channel rebalancing, in ethereum send on default address, in bitcoin
+    // utxo reorganisation and "change" payment. This type of payment usually
+    // is not shown outside.
+    INTERNAL = 1;
+
+    //
+    // EXTERNAL type of payment which was originated by user / third-party
+    // services, this is what usually interesting for external viewer. This
+    // type of payment changes balance.
+    EXTERNAL = 2;
 }
