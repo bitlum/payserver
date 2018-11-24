@@ -6,20 +6,20 @@ import (
 	"sync/atomic"
 	"time"
 
+	"encoding/hex"
+	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/rpc"
+	"github.com/bitlum/connector/metrics"
+	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/btcsuite/btclog"
+	"github.com/btcsuite/btcutil"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
-	"github.com/bitlum/connector/connectors"
-	"github.com/bitlum/connector/metrics"
-	"encoding/hex"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/btcsuite/btcutil"
-	"github.com/bitlum/connector/connectors/rpc"
-	"github.com/bitlum/connector/common"
 )
 
 var (
@@ -466,7 +466,8 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 
 	feeSatoshiPerByte := uint64(c.getFeeRate().IntPart())
 	amtInSat := decAmount2Sat(amtInBtc)
-	tx, fee, err := c.craftTransaction(feeSatoshiPerByte, amtInSat, decodedAddress)
+	tx, fee, changeAmt, changAddr, err := c.craftTransaction(feeSatoshiPerByte,
+		amtInSat, decodedAddress)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable to generate new transaction: %v", err)
@@ -487,10 +488,10 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 	txID := signedTx.TxHash().String()
 
 	payment := &connectors.Payment{
-		PaymentID: generatePaymentID(txID, address, connectors.Outgoing),
 		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
 		Direction: connectors.Outgoing,
+		System:    connectors.External,
 		Receipt:   address,
 		Asset:     connectors.Asset(c.cfg.Asset),
 		Media:     connectors.Blockchain,
@@ -503,12 +504,49 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		},
 	}
 
+	payment.PaymentID, err = generatePaymentID(payment)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable generate payment id: %v", err)
+	}
+
 	if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable add payment in store: %v", err)
 	}
 
 	c.log.Infof("Create payment %v", spew.Sdump(payment))
+
+	// Also save internal change to ourselves for the record.
+	// For every payment to ourselves we have to create one outgoing and one
+	// incoming payment. Incoming payment will be created when unspent
+	// outputs will be synced.
+	if changeAmt != 0 {
+		cicularPayment := &connectors.Payment{
+			UpdatedAt: connectors.NowInMilliSeconds(),
+			Status:    connectors.Waiting,
+			Direction: connectors.Outgoing,
+			System:    connectors.Internal,
+			Receipt:   changAddr.String(),
+			Asset:     connectors.Asset(c.cfg.Asset),
+			Media:     connectors.Blockchain,
+			Amount:    sat2DecAmount(changeAmt).Round(8),
+			MediaFee:  sat2DecAmount(fee),
+			MediaID:   txID,
+			Detail:    nil,
+		}
+
+		cicularPayment.PaymentID, err = generatePaymentID(cicularPayment)
+		if err != nil {
+			m.AddError(metrics.HighSeverity)
+			return nil, errors.Errorf("unable generate payment id: %v", err)
+		}
+
+		if err := c.cfg.PaymentStore.SavePayment(cicularPayment); err != nil {
+			m.AddError(metrics.HighSeverity)
+			return nil, errors.Errorf("unable add payment in store: %v", err)
+		}
+	}
 
 	return payment, nil
 }
@@ -523,6 +561,13 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	defer m.Finish()
 
 	payment, err := c.cfg.PaymentStore.PaymentByID(paymentID)
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable find payment(%v): %v", paymentID,
+			err)
+	}
+
+	cicularPayment, err := c.cfg.PaymentStore.PaymentByID(paymentID)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable find payment(%v): %v", paymentID,
@@ -550,7 +595,15 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 			m.AddError(metrics.HighSeverity)
 			c.log.Errorf("unable update payment(%v) status to fail: %v",
-				paymentID, err)
+				payment.PaymentID, err)
+		}
+
+		cicularPayment.Status = connectors.Failed
+		cicularPayment.UpdatedAt = connectors.NowInMilliSeconds()
+		if err := c.cfg.PaymentStore.SavePayment(cicularPayment); err != nil {
+			m.AddError(metrics.HighSeverity)
+			c.log.Errorf("unable update payment(%v) status to fail: %v",
+				cicularPayment.PaymentID, err)
 		}
 
 		m.AddError(metrics.HighSeverity)
@@ -560,12 +613,19 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 
 	payment.Status = connectors.Pending
 	payment.UpdatedAt = connectors.NowInMilliSeconds()
-
-	err = c.cfg.PaymentStore.SavePayment(payment)
-	if err != nil {
+	if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 		m.AddError(metrics.HighSeverity)
 		c.log.Errorf("unable update payment(%v) status to pending: %v",
-			paymentID, err)
+			payment.PaymentID, err)
+	}
+
+	// We have to update circular payment aka change output status as well.
+	cicularPayment.Status = connectors.Pending
+	cicularPayment.UpdatedAt = connectors.NowInMilliSeconds()
+	if err := c.cfg.PaymentStore.SavePayment(cicularPayment); err != nil {
+		m.AddError(metrics.HighSeverity)
+		c.log.Errorf("unable update payment(%v) status to pending: %v",
+			cicularPayment.PaymentID, err)
 	}
 
 	c.log.Infof("Send payment %v", spew.Sdump(payment))
@@ -645,15 +705,21 @@ func (c *Connector) syncUnconfirmed() error {
 		}
 
 		if tx.Account == defaultAccount {
-			payment.Direction = connectors.Internal
+			payment.Direction = connectors.Incoming
+			payment.System = connectors.Internal
 			payment.MediaFee = decimal.Zero
-			payment.PaymentID = generatePaymentID(tx.TxID, tx.Address,
-				connectors.Internal)
+			payment.PaymentID, err = generatePaymentID(payment)
+			if err != nil {
+				return errors.Errorf("unable generate payment id: %v", err)
+			}
 		} else {
 			payment.Direction = connectors.Incoming
+			payment.System = connectors.External
 			payment.MediaFee = decimal.Zero
-			payment.PaymentID = generatePaymentID(tx.TxID, tx.Address,
-				connectors.Incoming)
+			payment.PaymentID, err = generatePaymentID(payment)
+			if err != nil {
+				return errors.Errorf("unable generate payment id: %v", err)
+			}
 		}
 
 		// TODO(andrew.shvv) Remove because now we could use storage directly
@@ -790,48 +856,83 @@ func (c *Connector) proceedNextBlock() error {
 					Receipt:   detail.Address,
 					Asset:     c.cfg.Asset,
 					Account:   detail.Account,
+					Amount:    decimal.NewFromFloat(detail.Amount).Abs(),
 					Media:     connectors.Blockchain,
 					MediaID:   tx.TxID,
+					MediaFee:  decimal.NewFromFloat(tx.Fee).Abs(),
 				}
 
 				if detail.Category == "receive" &&
 					detail.Account == defaultAccount {
+					payment.Direction = connectors.Incoming
+					payment.System = connectors.Internal
+					payment.PaymentID, err = generatePaymentID(payment)
+					if err != nil {
+						return errors.Errorf("unable generate payment id: %v", err)
+					}
 
-					payment.MediaFee = decimal.Zero
-					payment.Direction = connectors.Internal
-					payment.Amount = decimal.NewFromFloat(detail.Amount)
-					payment.PaymentID = generatePaymentID(tx.TxID,
-						detail.Address, connectors.Internal)
+					if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+						return errors.Errorf("unable to save payment(%v): %v",
+							payment.PaymentID, err)
+					}
+
+					c.log.Infof("Receive is confirmed payment(%v)",
+						spew.Sdump(payment))
 
 				} else if detail.Category == "receive" {
 					payment.Direction = connectors.Incoming
-					payment.MediaFee = decimal.Zero
-					payment.Amount = decimal.NewFromFloat(detail.Amount)
-					payment.PaymentID = generatePaymentID(tx.TxID,
-						detail.Address, connectors.Incoming)
+					payment.System = connectors.External
 
-				} else if detail.Category == "send" {
-					payment.PaymentID = generatePaymentID(tx.TxID,
-						detail.Address, connectors.Outgoing)
-
-					_, err := c.cfg.PaymentStore.PaymentByID(payment.PaymentID)
-					if err != nil {
-						// If payment is not found in the storage that means
-						// that this is the "change". Such check only works if
-						// payment id consist of address and txid.
-						continue
+					if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+						return errors.Errorf("unable to save payment(%v): %v",
+							payment.PaymentID, err)
 					}
 
-					payment.Amount = decimal.NewFromFloat(detail.Amount).Abs()
-					payment.MediaFee = decimal.NewFromFloat(tx.Fee).Abs()
+					c.log.Infof("Receive is confirmed payment(%v)",
+						spew.Sdump(payment))
+
+				} else if detail.Category == "send" {
 					payment.Direction = connectors.Outgoing
-				}
 
-				c.log.Infof("Receive payment %v", spew.Sdump(payment))
+					// For every send payment we have to have database entry,
+					// such payment might be both external and internal.
+					// But we unable to identify by tx details was that
+					// payment internal or external, i.e. unable know id in
+					// advance.
 
-				if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
-					return errors.Errorf("unable to save payment(%v): %v",
-						payment.PaymentID, err)
+					payment.System = connectors.External
+					payment.PaymentID, err = generatePaymentID(payment)
+					if err != nil {
+						return errors.Errorf("unable generate payment id: %v", err)
+					}
+
+					_, err := c.cfg.PaymentStore.PaymentByID(payment.PaymentID)
+					if err == nil {
+						if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+							return errors.Errorf("unable to save payment(%v): %v",
+								payment.PaymentID, err)
+						}
+
+						c.log.Infof("Send is confirmed payment(%v)",
+							spew.Sdump(payment))
+					}
+
+					payment.System = connectors.Internal
+					payment.PaymentID, err = generatePaymentID(payment)
+					if err != nil {
+						return errors.Errorf("unable generate payment id: %v", err)
+					}
+
+					_, err = c.cfg.PaymentStore.PaymentByID(payment.PaymentID)
+					if err == nil {
+						if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
+							return errors.Errorf("unable to save payment(%v): %v",
+								payment.PaymentID, err)
+						}
+
+						c.log.Infof("Send is confirmed payment(%v)",
+							spew.Sdump(payment))
+					}
 				}
 			}
 		}
@@ -1036,24 +1137,24 @@ func (c *Connector) reportMetrics() error {
 	var overallFee decimal.Decimal
 
 	payments, err := c.cfg.PaymentStore.ListPayments(c.cfg.Asset,
-		connectors.Completed, "", connectors.Blockchain)
+		connectors.Completed, "", connectors.Blockchain, "")
 	if err != nil {
 		return errors.Errorf("unable to list payments: %v", err)
 	}
 
 	for _, payment := range payments {
-		if payment.Direction == connectors.Incoming {
+		if payment.Direction == connectors.Incoming &&
+			payment.System == connectors.External {
 			overallReceived = overallReceived.Add(payment.Amount)
 		}
 
-		if payment.Direction == connectors.Outgoing {
+		if payment.Direction == connectors.Outgoing &&
+			payment.System == connectors.External {
 			overallSent = overallSent.Add(payment.Amount)
 			overallFee = overallFee.Add(payment.MediaFee)
 		}
 
-		if payment.Direction == connectors.Internal {
-			overallFee = overallFee.Add(payment.MediaFee)
-		}
+		overallFee = overallFee.Add(payment.MediaFee)
 	}
 
 	overallReceivedF, _ := overallReceived.Float64()

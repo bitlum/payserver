@@ -56,24 +56,36 @@ var (
 	Failed PaymentStatus = "Failed"
 )
 
-// PaymentDirection denotes the direction of the payment.
+// PaymentDirection denotes the direction of the payment, whether payment is
+// going form us to someone else, or form someone else to us.
 type PaymentDirection string
 
 var (
-	// Internal type of payment which service has made to itself,
-	// for the purpose of stabilisation of system. In lightning it might
-	// rebalancing, in ethereum send on default address, in bitcoin dust
-	// aggregation.
-	Internal PaymentDirection = "Internal"
-
 	// Incoming type of payment which service has received from someone else
 	// in the media.
 	Incoming PaymentDirection = "Incoming"
 
-	//
 	// Outgoing type of payment which service has sent to someone else in the
 	// media.
 	Outgoing PaymentDirection = "Outgoing"
+)
+
+// PaymentSystem denotes is that payment belongs to business logic of payment
+// server or it was originated by user / third-party service.
+type PaymentSystem string
+
+var (
+	// Internal type of payment usually services the purpose of payment
+	// server itself for stabilisation of system. In lightning it might
+	// channel rebalancing, in ethereum send on default address, in bitcoin
+	// utxo reorganisation and "change" payment. This type of payment usually
+	// is not shown outside.
+	Internal PaymentSystem = "Internal"
+
+	// External type of payment which was originated by user / third-party
+	// services, this is what usually interesting for external viewer. This
+	// type of payment changes balance.
+	External PaymentSystem = "External"
 )
 
 type Payment struct {
@@ -87,8 +99,13 @@ type Payment struct {
 	// Status denotes the stage of the processing the payment.
 	Status PaymentStatus
 
-	// Direction denotes the direction of the payment.
+	// Direction denotes the direction of the payment, whether payment is
+	// going form us to someone else, or form someone else to us.
 	Direction PaymentDirection
+
+	// System denotes is that payment belongs to business logic of payment
+	// server or it was originated by user / third-party service.
+	System PaymentSystem
 
 	// Receipt is a string which identifies the receiver of the
 	// payment. It is address in case of the blockchain media,

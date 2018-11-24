@@ -120,7 +120,23 @@ func aliasToAccount(alias connectors.AccountAlias) string {
 // i.e. the payment which are going from our wallet to our wallet. Because this
 // transaction would have the same address and txid, but should be tracked
 // distinctly.
-func generatePaymentID(txID, receiveAddress string,
-	direction connectors.PaymentDirection) string {
-	return connectors.GeneratePaymentID(txID, receiveAddress, string(direction))
+func generatePaymentID(payment *connectors.Payment) (string, error) {
+	if payment.MediaID == "" {
+		return "", errors.Errorf("media id is empty")
+	}
+
+	if payment.Receipt == "" {
+		return "", errors.Errorf("receipt is empty")
+	}
+
+	if payment.Direction == "" {
+		return "", errors.Errorf("direction is empty")
+	}
+
+	if payment.System == "" {
+		return "", errors.Errorf("system is empty")
+	}
+
+	return connectors.GeneratePaymentID(payment.MediaID, payment.Receipt,
+		string(payment.Direction), string(payment.System)), nil
 }

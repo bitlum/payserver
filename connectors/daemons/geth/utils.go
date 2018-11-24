@@ -104,6 +104,8 @@ func aliasToAccount(acccountAlias connectors.AccountAlias) string {
 
 // generatePaymentID generates unique string based on the tx id and receive
 // address, which are together
-func generatePaymentID(txID, receiveAddress string, direction connectors.PaymentDirection) string {
-	return connectors.GeneratePaymentID(txID, receiveAddress, string(direction))
+func generatePaymentID(txID, receiveAddress string,
+	direction connectors.PaymentDirection, system connectors.PaymentSystem) string {
+	return connectors.GeneratePaymentID(txID, receiveAddress,
+		string(direction), string(system))
 }

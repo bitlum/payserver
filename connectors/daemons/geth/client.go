@@ -432,10 +432,10 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 	}
 
 	payment := &connectors.Payment{
-		PaymentID: generatePaymentID(details.TxID, toAddress, connectors.Outgoing),
 		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
 		Direction: connectors.Outgoing,
+		System:    connectors.External,
 		Receipt:   toAddress,
 		Asset:     connectors.Asset(c.cfg.Asset),
 		Media:     connectors.Blockchain,
@@ -444,6 +444,9 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 		MediaID:   details.TxID,
 		Detail:    details,
 	}
+
+	payment.PaymentID = generatePaymentID(details.TxID, toAddress,
+		payment.Direction, payment.System)
 
 	if err := c.cfg.PaymentStorage.SavePayment(payment); err != nil {
 		m.AddError(metrics.HighSeverity)
@@ -518,11 +521,17 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
 func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
+	return c.sendPayment(paymentID, true)
+}
+
+// sendPayment sends created previously payment to the
+// blockchain network.
+func (c *Connector) sendPayment(paymentID string, isFromDefault bool) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		MethodSendPayment, c.cfg.Metrics)
 	defer m.Finish()
 
-	// We should be able to receive payment which we putter in storage
+	// We should be able to receive payment which we putted in storage
 	// earlier on the stage of payment generation.
 	payment, err := c.cfg.PaymentStorage.PaymentByID(paymentID)
 	if err != nil {
@@ -556,9 +565,10 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	payment.Status = connectors.Pending
 	payment.UpdatedAt = connectors.NowInMilliSeconds()
 
-	// Only if transaction is going from our default address we need increase
-	// default nonce counter.
-	if payment.Direction == connectors.Outgoing {
+	// If we are sending payment from default address, than we should increase
+	// default nonce, because we are tracking nonce to avoid errors related to
+	// nonce repeat.
+	if isFromDefault {
 		nonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
@@ -571,7 +581,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 			return nil, errors.Errorf("unable to get default nonce: %v", err)
 		}
 
-		c.log.Infof("Payment is sent made and default address nonce is"+
+		c.log.Infof("Payment is sent and default address nonce is"+
 			" increased to %v", nonce)
 	}
 
@@ -581,7 +591,7 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		c.log.Errorf("unable update payment(%v) status: %v", paymentID, err)
 	}
 
-	c.log.Infof("Send payment %v", spew.Sdump(payment))
+	c.log.Infof("Sent payment %v", spew.Sdump(payment))
 
 	return payment, nil
 }
@@ -728,12 +738,16 @@ lastSyncedBlockNumber int) (pendingMap, error) {
 			}
 
 			if account == defaultAccount {
-				payment.PaymentID = generatePaymentID(tx.Hash, tx.To, connectors.Internal)
-				payment.Direction = connectors.Internal
+				payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
+					connectors.Incoming, connectors.Internal)
+				payment.Direction = connectors.Incoming
+				payment.System = connectors.Internal
 				payment.MediaFee = decimal.Zero
 			} else {
-				payment.PaymentID = generatePaymentID(tx.Hash, tx.To, connectors.Incoming)
+				payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
+					connectors.Incoming, connectors.External)
 				payment.Direction = connectors.Incoming
+				payment.System = connectors.External
 				payment.MediaFee = decimal.Zero
 			}
 
@@ -794,13 +808,15 @@ func (c *Connector) syncPending() (pendingMap, error) {
 
 		if account == defaultAccount {
 			payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
-				connectors.Internal)
-			payment.Direction = connectors.Internal
+				connectors.Incoming, connectors.Internal)
+			payment.Direction = connectors.Incoming
+			payment.System = connectors.Internal
 			payment.MediaFee = decimal.Zero
 		} else {
 			payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
-				connectors.Incoming)
+				connectors.Incoming, connectors.External)
 			payment.Direction = connectors.Incoming
+			payment.System = connectors.External
 			payment.MediaFee = decimal.Zero
 		}
 
@@ -873,7 +889,7 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 				case "":
 					sender = "unknown"
 				default:
-					sender = "internal"
+					sender = "accounts"
 				}
 
 				switch receiver {
@@ -882,36 +898,66 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 				case "":
 					receiver = "unknown"
 				default:
-					receiver = "internal"
+					receiver = "accounts"
 				}
 
 				return fmt.Sprintf("%v => %v", sender, receiver)
 			}
 
 			var (
-				needSaveInternal bool
-				needSaveIncoming bool
-				needSaveOutgoing bool
-				needRedirect     bool
+				// Whether this payment should be considered as user
+				// originated or not.
+				isInternal bool
+
+				needUpdateStatusOfIncoming bool
+				needUpdateStatusOfOutgoing bool
+
+				// Whether this payment has to be redirected on default address.
+				needRedirect bool
 			)
 
 			d := makeDirection(senderAccount, receiverAccount)
 			switch d {
 			case "default => default":
-				needSaveInternal = true
+				// Such payment doesn't make a lot of sense, but if it made
+				// they should be considered as internal, and not be exposed outside.
+				isInternal = true
+				needUpdateStatusOfIncoming = true
+				needUpdateStatusOfOutgoing = true
 
-			case "default => internal":
-				needSaveIncoming = true
-				needSaveOutgoing = true
+			case "default => accounts":
+				// This payment from our aggregation address,
+				// to one of addresses which belong to our wallet.
+				// We should track both outgoing and incoming payments.
+				isInternal = false
+
+				// Track payment to account
+				needUpdateStatusOfIncoming = true
+
+				// Track payment from default to account
+				needUpdateStatusOfOutgoing = true
+
+				// After payment will be received on one of the accounts,
+				// it should be redirected back to default address.
 				needRedirect = true
 
 			case "default => unknown":
-				needSaveOutgoing = true
+				// Is the standard "send" payment from our aggregation
+				// address to
+				// some user in the network.
+				isInternal = false
+				needUpdateStatusOfOutgoing = true
 
-			case "internal => internal",
-				"internal => unknown":
-				// We are not sending payment from internal,
-				// this should be unexpected behaviour.
+			case "accounts => accounts":
+				// This payment is done from one user account to another.
+				isInternal = false
+				needUpdateStatusOfIncoming = true
+				needUpdateStatusOfOutgoing = true
+
+			case "accounts => unknown":
+				// We are not sending payment from accounts, this should be
+				// unexpected behaviour. Payment are done only from default
+				// address.
 				return nil, errors.Errorf("unexpected behavior, received tx("+
 					"%v) from one of the internal accounts", confirmedTx.Hash)
 
@@ -921,21 +967,31 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 				// system.
 				continue
 
-			case "internal => default":
+			case "accounts => default":
 				// In this case we receive previously redirected payment
 				// on our default address.
-				needSaveInternal = true
+				isInternal = true
+				needUpdateStatusOfIncoming = true
+				needUpdateStatusOfOutgoing = true
 
 			case "unknown => default":
-				needSaveInternal = true
+				// Payment on default address from unknown address are
+				// unusual. It might be deposit on connector by mistake,
+				// because it should be done on account address.
+				isInternal = false
+				needUpdateStatusOfIncoming = true
 
-			case "unknown => internal":
-				needSaveIncoming = true
+			case "unknown => accounts":
+				// It is standard "receive" payment from unknown user on the
+				// network.
+				isInternal = false
+				needUpdateStatusOfIncoming = true
 				needRedirect = true
 			}
 
 			c.log.Infof("Handling %v transaction(%v)", d, confirmedTx.Hash)
 
+			// We need identify what gas was actually used by the network.
 			receipt, err := c.client.EthGetTransactionReceipt(confirmedTx.Hash)
 			if err != nil {
 				return nil, errors.Errorf("unable to get "+
@@ -960,28 +1016,17 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 				MediaID:   confirmedTx.Hash,
 			}
 
-			if needSaveInternal {
-				internalPayment := payment
-				internalPayment.Direction = connectors.Internal
-				internalPayment.MediaFee = decimal.Zero
-				internalPayment.PaymentID = generatePaymentID(
-					confirmedTx.Hash, confirmedTx.To,
-					internalPayment.Direction)
-
-				if err := c.cfg.PaymentStorage.SavePayment(&internalPayment); err != nil {
-					return nil, errors.Errorf("unable to add payment to storage: %v",
-						internalPayment.PaymentID)
-				}
-
-				c.log.Infof("Confirmed internal payment(%v)",
-					spew.Sdump(internalPayment))
+			if isInternal {
+				payment.System = connectors.Internal
+			} else {
+				payment.System = connectors.External
 			}
 
-			if needSaveOutgoing {
+			if needUpdateStatusOfOutgoing {
 				outgoingPayment := payment
-				outgoingPayment.PaymentID = generatePaymentID(confirmedTx.Hash,
-					confirmedTx.To, connectors.Outgoing)
 				outgoingPayment.Direction = connectors.Outgoing
+				outgoingPayment.PaymentID = generatePaymentID(confirmedTx.Hash,
+					confirmedTx.To, outgoingPayment.Direction, outgoingPayment.System)
 
 				if err := c.cfg.PaymentStorage.SavePayment(&outgoingPayment); err != nil {
 					return nil, errors.Errorf("unable to add payment to storage: %v",
@@ -992,13 +1037,12 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 					spew.Sdump(outgoingPayment))
 			}
 
-			if needSaveIncoming {
+			if needUpdateStatusOfIncoming {
 				incomingPayment := payment
 				incomingPayment.Direction = connectors.Incoming
 				incomingPayment.MediaFee = decimal.Zero
-				incomingPayment.PaymentID = generatePaymentID(
-					confirmedTx.Hash, confirmedTx.To,
-					incomingPayment.Direction)
+				incomingPayment.PaymentID = generatePaymentID(confirmedTx.Hash,
+					confirmedTx.To, incomingPayment.Direction, incomingPayment.System)
 
 				if err := c.cfg.PaymentStorage.SavePayment(&incomingPayment); err != nil {
 					return nil, errors.Errorf("unable to add payment to storage: %v",
@@ -1064,10 +1108,9 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 	}
 
 	aggregatePayment := &connectors.Payment{
-		PaymentID: generatePaymentID(aggregateTx.TxID, c.defaultAddress, connectors.Internal),
 		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
-		Direction: connectors.Internal,
+		System:    connectors.Internal,
 		Account:   defaultAccount,
 		Receipt:   c.defaultAddress,
 		Asset:     c.cfg.Asset,
@@ -1078,6 +1121,21 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 		Detail:    aggregateTx,
 	}
 
+	// We have to track both outgoing and incoming for consistency with other
+	// connectors.
+	aggregatePayment.Direction = connectors.Incoming
+	aggregatePayment.PaymentID = generatePaymentID(aggregateTx.TxID,
+		c.defaultAddress, aggregatePayment.Direction, aggregatePayment.System)
+
+	if err := c.cfg.PaymentStorage.SavePayment(aggregatePayment); err != nil {
+		return errors.Errorf("unable to add payment to storage: %v",
+			aggregateTx.TxID)
+	}
+
+	aggregatePayment.Direction = connectors.Outgoing
+	aggregatePayment.PaymentID = generatePaymentID(aggregateTx.TxID,
+		c.defaultAddress, aggregatePayment.Direction, aggregatePayment.System)
+
 	if err := c.cfg.PaymentStorage.SavePayment(aggregatePayment); err != nil {
 		return errors.Errorf("unable to add payment to storage: %v",
 			aggregateTx.TxID)
@@ -1085,7 +1143,7 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 
 	c.log.Infof("Send redirect payment(%v)", spew.Sdump(aggregatePayment))
 
-	if _, err = c.SendPayment(aggregatePayment.PaymentID); err != nil {
+	if _, err = c.sendPayment(aggregatePayment.PaymentID, false); err != nil {
 		return errors.Errorf("unable to send aggregate tx(%v): %v",
 			aggregatePayment.PaymentID, err)
 	}
@@ -1277,23 +1335,25 @@ func (c *Connector) reportMetrics() error {
 	var overallFee decimal.Decimal
 
 	payments, err := c.cfg.PaymentStorage.ListPayments(c.cfg.Asset,
-		connectors.Completed, "", connectors.Blockchain)
+		connectors.Completed, "", connectors.Blockchain, "")
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return errors.Errorf("unable to list payments: %v", err)
 	}
 
 	for _, payment := range payments {
-		if payment.Direction == connectors.Incoming {
+		if payment.Direction == connectors.Incoming &&
+			payment.System == connectors.External {
 			overallReceived = overallReceived.Add(payment.Amount)
 		}
 
-		if payment.Direction == connectors.Outgoing {
+		if payment.Direction == connectors.Outgoing &&
+			payment.System == connectors.External {
 			overallSent = overallSent.Add(payment.Amount)
 			overallFee = overallFee.Add(payment.MediaFee)
 		}
 
-		if payment.Direction == connectors.Internal {
+		if payment.System == connectors.Internal {
 			overallFee = overallFee.Add(payment.MediaFee)
 		}
 	}

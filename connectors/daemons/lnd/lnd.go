@@ -2,6 +2,7 @@ package lnd
 
 import (
 	"context"
+	"github.com/bitlum/connector/common"
 	"sync"
 
 	"time"
@@ -10,31 +11,18 @@ import (
 
 	"encoding/hex"
 
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcutil"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/rpc/bitcoin"
 	"github.com/bitlum/connector/metrics"
 	"github.com/bitlum/connector/metrics/crypto"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcutil"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-errors/errors"
 	"github.com/lightningnetwork/lnd/lnrpc"
+	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
-	"github.com/bitlum/connector/connectors"
-	"github.com/bitlum/connector/connectors/assets/bitcoin"
-	"github.com/lightningnetwork/lnd/zpay32"
-	"github.com/davecgh/go-spew/spew"
-)
-
-const (
-	MethodCreateInvoice    = "CreateInvoice"
-	MethodSendTo           = "SendTo"
-	MethodInfo             = "Info"
-	MethodQueryRoutes      = "QueryRoutes"
-	MethodStart            = "Start"
-	MethodHandleInvoice    = "HandlePayments"
-	MethodValidateInvoice  = "ValidateInvoice"
-	MethodConfirmedBalance = "ConfirmedBalance"
-	MethodPendingBalance   = "PendingBalance"
-	MethodEstimateFee      = "EstimateFee"
 )
 
 // Config is a connector config.
@@ -165,7 +153,7 @@ func (c *Connector) Start() (err error) {
 		}
 	}()
 
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodStart, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	c.client, c.conn, err = c.getClient(c.cfg.MacaroonPath)
@@ -247,7 +235,7 @@ func (c *Connector) Start() (err error) {
 
 	c.wg.Add(1)
 	go func() {
-		m := crypto.NewMetric(c.cfg.Name, "BTC", MethodHandleInvoice, c.cfg.Metrics)
+		m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 		defer m.Finish()
 		defer c.wg.Done()
 
@@ -313,6 +301,7 @@ func (c *Connector) Start() (err error) {
 				UpdatedAt: connectors.NowInMilliSeconds(),
 				Status:    connectors.Completed,
 				Direction: connectors.Incoming,
+				System:    connectors.External,
 				Account:   string(invoiceUpdate.Receipt),
 				Receipt:   invoice,
 				Asset:     connectors.BTC,
@@ -358,7 +347,7 @@ func (c *Connector) Stop(reason string) error {
 // NOTE: Part of the connectors.LightningConnector interface.
 func (c *Connector) CreateInvoice(account, amount,
 description string) (string, *zpay32.Invoice, error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodCreateInvoice, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	satoshis, err := btcToSatoshi(amount)
@@ -404,7 +393,7 @@ description string) (string, *zpay32.Invoice, error) {
 // NOTE: Part of the connectors.LightningConnector interface.
 func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 	error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodSendTo, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	// Check that invoice is valid, and that amount which we are sending is
@@ -415,40 +404,52 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		return nil, err
 	}
 
-	amountSat, err := btcToSatoshi(amountStr)
-	if err != nil {
-		m.AddError(metrics.LowSeverity)
-		return nil, err
-	}
-
 	invoice, err := zpay32.Decode(invoiceStr, netParams)
 	if err != nil {
 		m.AddError(metrics.LowSeverity)
 		return nil, err
 	}
 
-	// If amount wasn't specified during invoice creation that amount field
-	// will be equal to nil.
-	if invoice.MilliSat != nil {
-		if invoice.MilliSat.ToSatoshis() != btcutil.Amount(amountSat) {
+	var inputAmountSat int64
+	if amountStr != "" {
+		inputAmountSat, err = btcToSatoshi(amountStr)
+		if err != nil {
 			m.AddError(metrics.LowSeverity)
-			return nil, errors.Errorf("wrong amount invoice(%v), "+
-				"expected(%v)", invoice.MilliSat.ToSatoshis(),
-				btcutil.Amount(amountSat))
+			return nil, err
 		}
 	}
 
-	paymentAmt, err := decimal.NewFromString(amountStr)
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable to parse amount(%v): %v",
-			amountSat, err)
+	// If amount wasn't specified during invoice creation that amount field
+	// will be equal to nil.
+	var invoiceAmountSat int64
+	if invoice.MilliSat != nil {
+		invoiceAmountSat = int64(invoice.MilliSat.ToSatoshis())
 	}
 
-	if paymentAmt == decimal.Zero {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable send payment " +
-			"with zero amount")
+	var amountToSendSat int64
+	if invoiceAmountSat != 0 && inputAmountSat == 0 {
+		// User hasn't specified amount, but in encoded in the invoice.
+		amountToSendSat = invoiceAmountSat
+
+	} else if invoiceAmountSat == 0 && inputAmountSat != 0 {
+		// Amount is not encoded in the invoice, which means that service could
+		// send every amount which user has specified.
+		amountToSendSat = inputAmountSat
+
+	} else if invoiceAmountSat != 0 && inputAmountSat != 0 {
+		// If both amounts are specified that we should check that they are
+		// equal.
+		if inputAmountSat != invoiceAmountSat {
+			m.AddError(metrics.LowSeverity)
+			return nil, errors.Errorf("amount are not equal: invoice amount("+
+				"%v), and input amount(%v)", btcutil.Amount(inputAmountSat),
+				btcutil.Amount(invoiceAmountSat))
+		}
+		amountToSendSat = inputAmountSat
+
+	} else {
+		m.AddError(metrics.LowSeverity)
+		return nil, errors.Errorf("invoice and user amount are not specified")
 	}
 
 	var mediaFee decimal.Decimal
@@ -465,10 +466,11 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 			UpdatedAt: connectors.NowInMilliSeconds(),
 			Status:    connectors.Completed,
 			Direction: connectors.Incoming,
+			System:    connectors.External,
 			Receipt:   invoiceStr,
 			Asset:     connectors.BTC,
 			Media:     connectors.Lightning,
-			Amount:    paymentAmt.Round(8),
+			Amount:    decimal.New(amountToSendSat, 0).Round(8),
 			MediaFee:  mediaFee,
 			MediaID:   paymentHash,
 		}
@@ -478,17 +480,9 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 			return nil, errors.Errorf("unable add payment in store: %v", err)
 		}
 	} else {
-		var paymentAmount int64
-
-		// If payment request / invoice don't have amount inside, than we
-		// should specify it.
-		if invoice.MilliSat == nil {
-			paymentAmount = amountSat
-		}
-
 		// Send payment to the recipient and wait for it to be received.
 		req := &lnrpc.SendRequest{
-			Amt:            paymentAmount,
+			Amt:            amountToSendSat,
 			PaymentRequest: invoiceStr,
 			FeeLimit: &lnrpc.FeeLimit{
 				Limit: &lnrpc.FeeLimit_Percent{
@@ -522,7 +516,7 @@ func (c *Connector) SendTo(invoiceStr, amountStr string) (*connectors.Payment,
 		Receipt:   invoiceStr,
 		Asset:     connectors.BTC,
 		Media:     connectors.Lightning,
-		Amount:    paymentAmt.Round(8),
+		Amount:    decimal.New(amountToSendSat, 0).Round(8),
 		MediaFee:  mediaFee,
 		MediaID:   paymentHash,
 	}
@@ -549,7 +543,7 @@ func (c *Connector) ReceivedPayments() <-chan *connectors.Payment {
 //
 // NOTE: Part of the connectors.LightningConnector interface.
 func (c *Connector) Info() (*connectors.LightningInfo, error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodInfo, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	req := &lnrpc.GetInfoRequest{}
@@ -573,7 +567,7 @@ func (c *Connector) Info() (*connectors.LightningInfo, error) {
 //
 // NOTE: Part of the connectors.LightningConnector interface.
 func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Route, error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodQueryRoutes, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	satoshis, err := btcToSatoshi(amount)
@@ -617,7 +611,7 @@ func (c *Connector) QueryRoutes(pubKey, amount string, limit int32) ([]*lnrpc.Ro
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateInvoice(invoiceStr,
 amountStr string) (*zpay32.Invoice, error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodValidateInvoice, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	netParams, err := bitcoin.GetParams(c.cfg.Net)
@@ -661,7 +655,7 @@ amountStr string) (*zpay32.Invoice, error) {
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodConfirmedBalance, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	req := &lnrpc.WalletBalanceRequest{}
@@ -681,7 +675,7 @@ func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 //
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodConfirmedBalance, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	req := &lnrpc.WalletBalanceRequest{}
@@ -709,7 +703,7 @@ func (c *Connector) reportMetrics() error {
 	var overallFee decimal.Decimal
 
 	payments, err := c.cfg.PaymentStore.ListPayments(asset,
-		connectors.Completed, "", connectors.Lightning)
+		connectors.Completed, "", connectors.Lightning, "")
 	if err != nil {
 		return errors.Errorf("unable to list payments: %v", err)
 	}
@@ -721,10 +715,6 @@ func (c *Connector) reportMetrics() error {
 
 		if payment.Direction == connectors.Outgoing {
 			overallSent = overallSent.Add(payment.Amount)
-			overallFee = overallFee.Add(payment.MediaFee)
-		}
-
-		if payment.Direction == connectors.Internal {
 			overallFee = overallFee.Add(payment.MediaFee)
 		}
 	}
@@ -751,7 +741,7 @@ func (c *Connector) reportMetrics() error {
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) EstimateFee(invoiceStr string) (decimal.Decimal,
 	error) {
-	m := crypto.NewMetric(c.cfg.Name, "BTC", MethodEstimateFee, c.cfg.Metrics)
+	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	if invoiceStr == "" {

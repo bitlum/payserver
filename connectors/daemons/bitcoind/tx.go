@@ -93,7 +93,7 @@ func (c *Connector) syncUnspent() error {
 // also be generated.
 func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	amtSat btcutil.Amount, address btcutil.Address) (*wire.MsgTx,
-	btcutil.Amount, error) {
+	btcutil.Amount, btcutil.Amount, btcutil.Address, error) {
 
 	c.log.Debugf("Performing coin selection fee rate(%v sat/byte), "+
 		"amount(%v)", feeRatePerByte, amtSat)
@@ -102,7 +102,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// if it is not initialized than sync it.
 	if c.unspent == nil {
 		if err := c.syncUnspent(); err != nil {
-			return nil, 0, errors.Errorf("unable to sync unspent: %v", err)
+			return nil, 0, 0, nil, errors.Errorf("unable to sync unspent: %v", err)
 		}
 	}
 
@@ -119,7 +119,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 		amtSat, c.unspent)
 
 	if err != nil {
-		return nil, 0, errors.Errorf("unable to select inputs: %v", err)
+		return nil, 0, 0, nil, errors.Errorf("unable to select inputs: %v", err)
 	}
 
 	c.log.Debugf("Selected %v unspent inputs, amount(%v), change(%v), fee(%v)",
@@ -131,7 +131,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// double-spending the same set of coins.
 	for _, input := range selectedInputs {
 		if err = c.client.LockUnspent(input); err != nil {
-			return nil, 0, err
+			return nil, 0, 0, nil, err
 		}
 	}
 
@@ -139,19 +139,20 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// selection.
 	outputs := make(map[btcutil.Address]btcutil.Amount)
 	outputs[address] = amtSat
+	var changeAddr btcutil.Address
 	if changeAmt != 0 {
 		// Create loopback output with remaining amount which point out to the
 		// default account of the wallet.
-		changeAddr, err := c.client.GetNewAddress(defaultAccount)
+		changeAddr, err = c.client.GetNewAddress(defaultAccount)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, nil, err
 		}
 		outputs[changeAddr] = changeAmt
 	}
 
 	tx, err := c.client.CreateRawTransaction(selectedInputs, outputs)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, nil, err
 	}
 
 	// Remove unspent utxo from local cache. Otherwise it will be updated only
@@ -161,7 +162,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 		delete(c.unspent, input.TxID)
 	}
 
-	return tx, requiredFee, nil
+	return tx, requiredFee, changeAmt, changeAddr, nil
 }
 
 // coinSelect attempts to select a sufficient amount of coins, including a

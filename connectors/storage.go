@@ -18,7 +18,7 @@ type PaymentsStore interface {
 
 	// ListPayments return list of all payments.
 	ListPayments(asset Asset, status PaymentStatus, direction PaymentDirection,
-		media PaymentMedia) ([]*Payment, error)
+		media PaymentMedia, system PaymentSystem) ([]*Payment, error)
 }
 
 var PaymentNotFound = errors.New("payment not found")
