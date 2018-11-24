@@ -1,30 +1,15 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"os"
+	"github.com/bitlum/connector/crpc"
+	"github.com/go-errors/errors"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/urfave/cli"
 	"golang.org/x/net/context"
-	"github.com/bitlum/connector/crpc"
-	"github.com/go-errors/errors"
 	"strings"
 )
-
-func printJSON(resp interface{}) {
-	b, err := json.Marshal(resp)
-	if err != nil {
-		fatal(err)
-	}
-
-	var out bytes.Buffer
-	json.Indent(&out, b, "", "\t")
-	out.WriteString("\n")
-	out.WriteTo(os.Stdout)
-}
 
 func printRespJSON(resp proto.Message) {
 	jsonMarshaler := &jsonpb.Marshaler{
@@ -501,7 +486,7 @@ func sendPayment(ctx *cli.Context) error {
 	} else if media == crpc.Media_BLOCKCHAIN {
 		// In case of blockchain we always should specify amount.
 		// In case of lighnting we might not do that if it specified in the
-		// invoice.g
+		// invoice.
 		return errors.Errorf("amount argument is missing")
 	}
 
@@ -620,12 +605,18 @@ var listPaymentsCommand = cli.Command{
 		cli.StringFlag{
 			Name: "direction",
 			Usage: "Direction identifies the direction of the payment, " +
-				"(incoming, outgoing, internal).",
+				"(incoming, outgoing).",
 		},
 		cli.StringFlag{
 			Name: "status",
 			Usage: "Status is the state of the payment, " +
 				"(waiting, pending, completed, failed).",
+		},
+		cli.StringFlag{
+			Name: "system",
+			Usage: "System denotes is that payment belongs to business logic" +
+				" of payment server or it was originated by " +
+				"user / third-party service (internal, external).",
 		},
 	},
 	Action: listPayments,
@@ -640,6 +631,7 @@ func listPayments(ctx *cli.Context) error {
 		asset     crpc.Asset
 		status    crpc.PaymentStatus
 		direction crpc.PaymentDirection
+		system    crpc.PaymentSystem
 	)
 
 	if ctx.IsSet("media") {
@@ -698,8 +690,6 @@ func listPayments(ctx *cli.Context) error {
 	if ctx.IsSet("direction") {
 		stringDirection := strings.ToLower(ctx.String("direction"))
 		switch stringDirection {
-		case strings.ToLower(crpc.PaymentDirection_INTERNAL.String()):
-			direction = crpc.PaymentDirection_INTERNAL
 
 		case strings.ToLower(crpc.PaymentDirection_OUTGOING.String()):
 			direction = crpc.PaymentDirection_OUTGOING
@@ -709,8 +699,24 @@ func listPayments(ctx *cli.Context) error {
 
 		default:
 			return errors.Errorf("invalid direction %v, supported direction"+
-				"are: 'incoming', 'outgoing', 'internal'",
+				"are: 'incoming', 'outgoing'",
 				stringDirection)
+		}
+	}
+
+	if ctx.IsSet("system") {
+		stringSystem := strings.ToLower(ctx.String("system"))
+		switch stringSystem {
+		case strings.ToLower(crpc.PaymentSystem_INTERNAL.String()):
+			system = crpc.PaymentSystem_INTERNAL
+
+		case strings.ToLower(crpc.PaymentSystem_EXTERNAL.String()):
+			system = crpc.PaymentSystem_EXTERNAL
+
+		default:
+			return errors.Errorf("invalid system %v, supported system"+
+				"are: 'internal', 'external'",
+				stringSystem)
 		}
 	}
 
@@ -720,6 +726,7 @@ func listPayments(ctx *cli.Context) error {
 		Direction: direction,
 		Asset:     asset,
 		Media:     media,
+		System:    system,
 	})
 	if err != nil {
 		return err
