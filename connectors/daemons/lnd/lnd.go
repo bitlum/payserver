@@ -195,7 +195,7 @@ func (c *Connector) Start() (err error) {
 		defer c.wg.Done()
 
 		for {
-			balance, err := c.ConfirmedBalance("")
+			balance, err := c.ConfirmedBalance()
 			if err != nil {
 				m.AddError(metrics.MiddleSeverity)
 				log.Errorf("unable to get available funds: %v", err)
@@ -345,7 +345,7 @@ func (c *Connector) Stop(reason string) error {
 // CreateInvoice is used to create lightning network invoice.
 //
 // NOTE: Part of the connectors.LightningConnector interface.
-func (c *Connector) CreateInvoice(account, amount,
+func (c *Connector) CreateInvoice(receipt, amount,
 description string) (string, *zpay32.Invoice, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
@@ -358,7 +358,7 @@ description string) (string, *zpay32.Invoice, error) {
 
 	expirationTime := time.Minute * 15
 	invoiceReq := &lnrpc.Invoice{
-		Receipt: []byte(account),
+		Receipt: []byte(receipt),
 		Value:   satoshis,
 		Memo:    description,
 		Expiry:  int64(expirationTime.Seconds()),
@@ -654,7 +654,7 @@ amountStr string) (*zpay32.Invoice, error) {
 // TODO(andrew.shvv) Show funds locked in the channels
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
+func (c *Connector) ConfirmedBalance() (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
@@ -674,7 +674,7 @@ func (c *Connector) ConfirmedBalance(account string) (decimal.Decimal, error) {
 // TODO(andrew.shvv) Show funds locked in the channels
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) PendingBalance(account string) (decimal.Decimal, error) {
+func (c *Connector) PendingBalance() (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.Name, "BTC", common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
