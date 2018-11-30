@@ -140,6 +140,7 @@ func backendMain() error {
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			PaymentStore:     paymentsStore,
+			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.BCH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
 			RPCClient:  bitcoincashRPCClient,
@@ -157,6 +158,7 @@ func backendMain() error {
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			PaymentStore:     paymentsStore,
+			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.BTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
 			RPCClient:  bitcoinRPCClient,
@@ -174,6 +176,7 @@ func backendMain() error {
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			PaymentStore:     paymentsStore,
+			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.DASH, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Dash.FeePerUnit,
 			RPCClient:  dashRPCClient,
@@ -191,6 +194,7 @@ func backendMain() error {
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
 			PaymentStore:     paymentsStore,
+			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.LTC, db),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Litecoin.FeePerUnit,
 			RPCClient:  litecoinRPCClient,

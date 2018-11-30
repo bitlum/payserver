@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/bitlum/connector/db/sqlite"
 	"os"
 
 	"io"
@@ -8,12 +9,12 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/bitlum/connector/connectors/daemons/lnd"
+	"github.com/bitlum/connector/connectors/rpc"
 	"github.com/bitlum/connector/crpc"
 	"github.com/bitlum/connector/metrics"
 	"github.com/btcsuite/btclog"
 	"github.com/jrick/logrotate/rotator"
-	"github.com/bitlum/connector/connectors/rpc"
-	"github.com/bitlum/connector/connectors/daemons/lnd"
 )
 
 // logWriter implements an io.Writer that outputs to both standard output and
@@ -50,6 +51,7 @@ var (
 	logRotatorPipe *io.PipeWriter
 
 	metricsLog = backendLog.Logger("METRICS")
+	sqliteLog  = backendLog.Logger("SQLITE")
 	mainLog    = backendLog.Logger("MAIN")
 	crpcLog    = backendLog.Logger("CONNECTOR_RPC")
 	rpcLog     = backendLog.Logger("BLOCKCHAIN_RPC")
@@ -62,6 +64,7 @@ func init() {
 	crpc.UseLogger(crpcLog)
 	rpc.UseLogger(rpcLog)
 	lnd.UseLogger(lndLog)
+	sqlite.UseLogger(sqliteLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
@@ -70,6 +73,7 @@ var subsystemLoggers = map[string]btclog.Logger{
 	"METRICS":        metricsLog,
 	"LND":            lndLog,
 	"BLOCKCHAIN_RPC": rpcLog,
+	"SQLITE":         sqliteLog,
 	"CONNECTOR_RPC":  crpcLog,
 }
 

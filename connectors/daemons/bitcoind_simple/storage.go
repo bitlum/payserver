@@ -7,9 +7,9 @@ package bitcoind_simple
 type StateStorage interface {
 	// PutLastSyncedTxCounter is used to save last synchronised confirmed tx
 	// counter.
-	PutLastSyncedTxCounter(hash []byte) error
+	PutLastSyncedTxCounter(counter int) error
 
-	// LastSyncedHash is used to retrieve last synchronised confirmed tx
+	// LastTxCounter is used to retrieve last synchronised confirmed tx
 	// counter.
-	LastTxCounter() ([]byte, error)
+	LastTxCounter() (int, error)
 }

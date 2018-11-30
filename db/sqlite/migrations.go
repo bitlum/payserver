@@ -12,6 +12,7 @@ func (db *DB) Migrate() error {
 		&ConnectorState{},
 		&EthereumAddress{},
 		&Payment{},
+		&BitcoinSimpleState{},
 	).Error; err != nil {
 		return err
 	}
@@ -42,8 +43,21 @@ var addPaymentSystemType = &gormigrate.Migration{
 		}
 
 		for _, payment := range payments {
+			oldID := payment.PaymentID
+			err := tx.Delete(&Payment{}, "payment_id = ?",
+				oldID).Error
+			if err != nil {
+				return err
+			}
+
 			payment.System = connectors.Internal
 			payment.Direction = connectors.Incoming
+			payment.PaymentID, err = payment.GenPaymentID()
+			if err != nil {
+				return err
+			}
+
+			log.Infof("Payment migration (%v) => (%v)", oldID, payment.PaymentID)
 			if err := store.SavePayment(payment); err != nil {
 				return err
 			}
@@ -57,18 +71,20 @@ var addPaymentSystemType = &gormigrate.Migration{
 		}
 
 		for _, payment := range payments {
-			payment.System = connectors.External
+			oldID := payment.PaymentID
 			err := tx.Delete(&Payment{}, "payment_id = ?",
-				payment.PaymentID).Error
+				oldID).Error
 			if err != nil {
 				return err
 			}
 
+			payment.System = connectors.External
 			payment.PaymentID, err = payment.GenPaymentID()
 			if err != nil {
 				return err
 			}
 
+			log.Infof("Payment migration (%v) => (%v)", oldID, payment.PaymentID)
 			if err := store.SavePayment(payment); err != nil {
 				return err
 			}
@@ -81,18 +97,20 @@ var addPaymentSystemType = &gormigrate.Migration{
 		}
 
 		for _, payment := range payments {
-			payment.System = connectors.Internal
+			oldID := payment.PaymentID
 			err := tx.Delete(&Payment{}, "payment_id = ?",
-				payment.PaymentID).Error
+				oldID).Error
 			if err != nil {
 				return err
 			}
 
+			payment.System = connectors.Internal
 			payment.PaymentID, err = payment.GenPaymentID()
 			if err != nil {
 				return err
 			}
 
+			log.Infof("Payment migration (%v) => (%v)", oldID, payment.PaymentID)
 			if err := store.SavePayment(payment); err != nil {
 				return err
 			}

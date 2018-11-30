@@ -57,6 +57,10 @@ type Config struct {
 	// connector.
 	Metrics crypto.MetricsBackend
 
+	// StateStorage is used to keep data which is needed for connector to
+	// properly synchronise and track transactions.
+	StateStore StateStorage
+
 	// PaymentStorage is an external storage for payments, it is used by
 	// connector to save payment as well as update its state.
 	PaymentStore connectors.PaymentsStore
@@ -96,6 +100,10 @@ func (c *Config) validate() error {
 		return errors.New("payment store should be specified")
 	}
 
+	if c.StateStore == nil {
+		return errors.New("state store should be specified")
+	}
+
 	return nil
 }
 
@@ -107,9 +115,6 @@ type Connector struct {
 
 	cfg    *Config
 	client rpc.Client
-
-	// lastSyncedTransaction number of last synced confirmed transaction.
-	lastSyncedTransaction int
 
 	netParams *chaincfg.Params
 	log       *common.NamedLogger
@@ -407,15 +412,26 @@ func (c *Connector) syncPaymentState() error {
 		return err
 	}
 
+	txCounter, err := c.cfg.StateStore.LastTxCounter()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return errors.Errorf("unable get last tx counter: %v", err)
+	}
+
+	if len(allTXs) < txCounter {
+		return errors.Errorf("unexpected behaviour: number of downloaded " +
+			"transaction less than previously sync counter")
+	}
+
 	// TODO(andrew.shvv) it will stop syncing if blockchain daemon is cleaned
 	//  and started again
-	newTXS := allTXs[c.lastSyncedTransaction:]
+	newTXS := allTXs[txCounter:]
 	if len(newTXS) == 0 {
 		return nil
 	}
 
 	c.log.Debugf("sync %v payments, last tx counter was %v",
-		len(newTXS), c.lastSyncedTransaction)
+		len(newTXS), txCounter)
 
 	for _, tx := range newTXS {
 		var status connectors.PaymentStatus
@@ -435,7 +451,13 @@ func (c *Connector) syncPaymentState() error {
 			c.log.Errorf("unknown tx category: %v", tx.Category)
 			m.AddError(metrics.HighSeverity)
 
-			c.lastSyncedTransaction++
+			txCounter++
+			err := c.cfg.StateStore.PutLastSyncedTxCounter(txCounter)
+			if err != nil {
+				return errors.Errorf("unable save last synced tx "+
+					"counter: %v", err)
+			}
+
 			continue
 		}
 
@@ -480,7 +502,13 @@ func (c *Connector) syncPaymentState() error {
 		if tx.Confirmations >= int64(c.cfg.MinConfirmations) {
 			c.log.Infof("Payment(%v) is completed: %v", p.PaymentID,
 				spew.Sdump(p))
-			c.lastSyncedTransaction++
+
+			txCounter++
+			err := c.cfg.StateStore.PutLastSyncedTxCounter(txCounter)
+			if err != nil {
+				return errors.Errorf("unable save last synced tx "+
+					"counter: %v", err)
+			}
 		}
 	}
 
