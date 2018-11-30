@@ -1,9 +1,9 @@
 package connectors
 
 import (
-	"github.com/shopspring/decimal"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/zpay32"
+	"github.com/shopspring/decimal"
 )
 
 type LightningInfo struct {
@@ -14,51 +14,22 @@ type LightningInfo struct {
 	*lnrpc.GetInfoResponse
 }
 
-type AccountAlias string
-
-const (
-	// SentAccount is used to aggregate all money on it. Balance on this
-	// account denotes the number of funds which might be
-	// send from connector.
-	SentAccount AccountAlias = "sent_account"
-
-	//
-	// DefaultAccount is an account which corresponds to the connector itself.
-	DefaultAccount AccountAlias = "default_account"
-
-	// AllAccounts means that response should be returned by aggregating info
-	// form all accounts.
-	AllAccounts AccountAlias = "all_accounts"
-)
-
 // BlockchainConnector is an interface which describes the blockchain service
 // which is able to connect to blockchain daemon of particular currency and
 // operate with transactions, addresses, and also  able to notify other
 // subsystems when transaction passes required number of confirmations.
 type BlockchainConnector interface {
 	// CreateAddress is used to create deposit address.
-	CreateAddress(account AccountAlias) (string, error)
-
-	// AccountAddress return the deposit address of account.
-	AccountAddress(accountAlias AccountAlias) (string, error)
+	CreateAddress() (string, error)
 
 	// ConfirmedBalance return the amount of confirmed funds available for account.
-	ConfirmedBalance(accountAlias AccountAlias) (decimal.Decimal, error)
+	ConfirmedBalance() (decimal.Decimal, error)
 
 	// PendingBalance return the amount of funds waiting to be confirmed.
-	PendingBalance(accountAlias AccountAlias) (decimal.Decimal, error)
+	PendingBalance() (decimal.Decimal, error)
 
-	// PendingTransactions return the transactions which has confirmation
-	// number lower the required by payment system.
-	PendingTransactions(accountAlias AccountAlias) ([]*Payment, error)
-
-	// CreatePayment generates the payment, but not sends it,
-	// instead returns the payment id and waits for it to be approved.
-	CreatePayment(address, amount string) (*Payment, error)
-
-	// SendPayment sends created previously payment to the
-	// blockchain network.
-	SendPayment(paymentID string) (*Payment, error)
+	// SendPayment sends payment with given amount to the given address.
+	SendPayment(address, amount string) (*Payment, error)
 
 	// ValidateAddress takes the blockchain address and ensure its valid.
 	ValidateAddress(address string) error
@@ -77,7 +48,7 @@ type LightningConnector interface {
 	Info() (*LightningInfo, error)
 
 	// CreateInvoice is used to create lightning network invoice.
-	CreateInvoice(account, amount, description string) (string,
+	CreateInvoice(receipt, amount, description string) (string,
 		*zpay32.Invoice, error)
 
 	// SendTo is used to send specific amount of money to address within this
@@ -86,11 +57,11 @@ type LightningConnector interface {
 
 	// ConfirmedBalance return the amount of confirmed funds available for account.
 	// TODO(andrew.shvv) Implement lightning wallet balance
-	ConfirmedBalance(account string) (decimal.Decimal, error)
+	ConfirmedBalance() (decimal.Decimal, error)
 
 	// PendingBalance return the amount of funds waiting to be confirmed.
 	// TODO(andrew.shvv) Implement lightning wallet balance
-	PendingBalance(account string) (decimal.Decimal, error)
+	PendingBalance() (decimal.Decimal, error)
 
 	// QueryRoutes returns list of routes from to the given lnd node,
 	// and insures the the capacity of the channels is sufficient.
