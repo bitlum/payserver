@@ -1,6 +1,7 @@
 package connectors
 
 import (
+	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
 	"hash/fnv"
 	"strconv"
@@ -138,6 +139,35 @@ type Payment struct {
 	// Detail stores all additional information which is needed for this type
 	// and status of payment.
 	Detail Serializable
+}
+
+// GenPaymentID generates unique string based on the tx id and receive
+// address, which are together
+//
+// NOTE: Direction is needed to have a distinction between circular payments,
+// i.e. the payment which are going from our wallet to our wallet. Because this
+// transaction would have the same address and txid, but should be tracked
+// distinctly.
+func (p *Payment) GenPaymentID() (string, error) {
+	if p.MediaID == "" {
+		return "", errors.Errorf("media id is empty")
+	}
+
+	if p.Receipt == "" {
+		return "", errors.Errorf("receipt is empty")
+	}
+
+	if p.Direction == "" {
+		return "", errors.Errorf("direction is empty")
+	}
+
+	if p.System == "" {
+		return "", errors.Errorf("system is empty")
+	}
+
+	return GeneratePaymentID(p.MediaID, p.Receipt,
+		string(p.Direction), string(p.System)), nil
+
 }
 
 // BlockchainPendingDetails is the information about pending blockchain
