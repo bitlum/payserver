@@ -71,6 +71,10 @@ func backendMain() error {
 		return errors.Errorf("unable open sqlite db: %v", err)
 	}
 
+	if err := db.Migrate(); err != nil {
+		return errors.Errorf("unable to migrate: %v", err)
+	}
+
 	paymentsStore := &sqlite.PaymentsStore{DB: db}
 
 	bitcoinRPCClient, err := bitcoin.NewClient(bitcoin.ClientConfig{
