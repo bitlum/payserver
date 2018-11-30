@@ -1,8 +1,8 @@
 package geth
 
 import (
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/bitlum/connector/connectors"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // pendingMap stores the information about pending transactions corresponding
@@ -69,37 +69,6 @@ func convertVersion(actualNet string) string {
 	}
 
 	return net
-}
-
-func accountToAlias(account string) connectors.AccountAlias {
-	switch account {
-	case defaultAccount:
-		return connectors.DefaultAccount
-
-	case allAccounts:
-		return connectors.AllAccounts
-
-	default:
-		return connectors.AccountAlias(account)
-	}
-}
-
-func aliasToAccount(acccountAlias connectors.AccountAlias) string {
-	switch acccountAlias {
-	case connectors.SentAccount:
-		// In ethereum we aggregate all money on one default account from
-		// which later we sent money.
-		return defaultAccount
-
-	case connectors.DefaultAccount:
-		return defaultAccount
-
-	case connectors.AllAccounts:
-		return allAccounts
-
-	default:
-		return string(acccountAlias)
-	}
 }
 
 // generatePaymentID generates unique string based on the tx id and receive

@@ -10,46 +10,40 @@ import (
 
 	"math/big"
 
+	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/rpc/ethereum"
 	"github.com/bitlum/connector/metrics"
 	"github.com/bitlum/connector/metrics/crypto"
 	"github.com/btcsuite/btclog"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-errors/errors"
 	"github.com/onrik/ethrpc"
 	"github.com/shopspring/decimal"
-	"github.com/bitlum/connector/connectors"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/bitlum/connector/connectors/rpc/ethereum"
-	"github.com/bitlum/connector/common"
 )
 
 var (
 	// weiInEth is a number of wei in the one Ethereum.
 	weiInEth = decimal.NewFromFloat(1e18)
 
-	// defaultAccount is an account which is used to aggregate all money on
-	// it. When service received money it redirect them on default address
-	// so that later we could use only one transaction for all payments.
-	defaultAccount = "default"
-
-	allAccounts = "all"
-
 	// defaultTxGas is the number of gas in ethereum which is needed to
 	// propagate the transaction.
 	defaultTxGas = int64(90000)
 )
 
-const (
-	MethodStart               = "Start"
-	MethodAccountAddress      = "AccountAddress"
-	MethodCreateAddress       = "CreateAddress"
-	MethodPendingTransactions = "PendingTransactions"
-	MethodCreatePayment       = "MethodCreatePayment"
-	MethodSendPayment         = "SendPayment"
-	MethodConfirmedBalance    = "ConfirmedBalance"
-	MethodPendingBalance      = "PendingBalance"
-	MethodSync                = "Sync"
-	MethodEstimateFee         = "MethodEstimateFee"
-	MethodValidateAddress     = "MethodValidateAddress"
+type internalAccount string
+
+var (
+	// defaultAccount is an account which is used to aggregate all money on
+	// it. When service received money it redirect them on default address
+	// so that later we could use only one transaction for all payments.
+	defaultAccount internalAccount = "default"
+
+	// zigzagAccount is an account where all users address belong to,
+	// originally all money goes on this address, and later redirected on
+	// default address.
+	// TODO(andrew.shvv) rename, do not forget about db migration
+	zigzagAccount internalAccount = "zigzag"
 )
 
 type DaemonConfig struct {
@@ -211,7 +205,7 @@ func (c *Connector) Start() (err error) {
 	}()
 
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodStart, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	c.log.Info("Creating RPC client...")
@@ -325,35 +319,17 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 	return c.quit
 }
 
-// AccountAddress return the deposit address of account.
-func (c *Connector) AccountAddress(accountAlias connectors.AccountAlias) (string, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodAccountAddress, c.cfg.Metrics)
-	defer m.Finish()
-
-	switch accountAlias {
-	case "all", "*":
-		return "", errors.Errorf("name of account '%v' is "+
-			"reserved for internal usage", accountAlias)
-	}
-
-	account := aliasToAccount(accountAlias)
-	return c.cfg.AccountStorage.GetLastAccountAddress(account)
-}
-
 // CreateAddress is used to create deposit address.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string, error) {
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodCreateAddress, c.cfg.Metrics)
-	defer m.Finish()
+func (c *Connector) CreateAddress() (string, error) {
+	return c.createAddress(zigzagAccount)
+}
 
-	switch accountAlias {
-	case "all", "*":
-		return "", errors.Errorf("name of account '%v' is "+
-			"reserved for internal usage", accountAlias)
-	}
+func (c *Connector) createAddress(account internalAccount) (string, error) {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
+	defer m.Finish()
 
 	var address string
 	var err error
@@ -361,54 +337,25 @@ func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string,
 	address, err = c.client.PersonalNewAddress(c.cfg.DaemonCfg.Password)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return "", errors.Errorf("unable to create account: %v", err)
+		return "", errors.Errorf("unable to create address: %v", err)
 	}
 
-	account := aliasToAccount(accountAlias)
-	err = c.cfg.AccountStorage.AddAddressToAccount(address, account)
+	err = c.cfg.AccountStorage.AddAddressToAccount(address, string(account))
 	if err != nil {
+		m.AddError(metrics.HighSeverity)
 		return "", err
 	}
 
 	return address, err
 }
 
-// PendingTransactions returns the transactions with confirmation number lower
-// the required by payment system.
-//
-// NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingTransactions(accountAlias connectors.AccountAlias) (
-	[]*connectors.Payment, error) {
-
-	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodPendingTransactions, c.cfg.Metrics)
-	defer m.Finish()
-
-	c.pendingLock.Lock()
-	defer c.pendingLock.Unlock()
-
-	account := aliasToAccount(accountAlias)
-
-	var payments []*connectors.Payment
-	for _, tx := range c.memPoolTxs[account] {
-		payments = append(payments, tx)
-	}
-
-	for _, tx := range c.unconfirmedTxs[account] {
-		payments = append(payments, tx)
-	}
-
-	return payments, nil
-}
-
 // CreatePayment generates the payment, but not sends it,
 // instead returns the payment id and waits for it to be approved.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreatePayment(toAddress, amountStr string) (
-	*connectors.Payment, error) {
+func (c *Connector) SendPayment(toAddress, amountStr string) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodCreatePayment, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	amount, err := decimal.NewFromString(amountStr)
@@ -445,8 +392,11 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 		Detail:    details,
 	}
 
-	payment.PaymentID = generatePaymentID(details.TxID, toAddress,
-		payment.Direction, payment.System)
+	payment.PaymentID, err = payment.GenPaymentID()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, err
+	}
 
 	if err := c.cfg.PaymentStorage.SavePayment(payment); err != nil {
 		m.AddError(metrics.HighSeverity)
@@ -456,7 +406,7 @@ func (c *Connector) CreatePayment(toAddress, amountStr string) (
 
 	c.log.Infof("Create payment %v", spew.Sdump(payment))
 
-	return payment, err
+	return c.sendPayment(payment.PaymentID, true)
 }
 
 func (c *Connector) generateTransaction(fromAddress, toAddress string,
@@ -516,19 +466,11 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 	}, requiredFee, nil
 }
 
-// SendPayment sends created previously payment to the
-// blockchain network.
-//
-// NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
-	return c.sendPayment(paymentID, true)
-}
-
 // sendPayment sends created previously payment to the
 // blockchain network.
 func (c *Connector) sendPayment(paymentID string, isFromDefault bool) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSendPayment, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	// We should be able to receive payment which we putted in storage
@@ -600,30 +542,16 @@ func (c *Connector) sendPayment(paymentID string, isFromDefault bool) (*connecto
 // connector.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
+func (c *Connector) ConfirmedBalance() (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodConfirmedBalance, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	balance := decimal.Zero
-	var addresses []string
-	var err error
 
-	account := aliasToAccount(accountAlias)
-
-	if account == allAccounts {
-		// Iterate over every accounts and later for every address
-		// belonging to this accounts, summing balances from all of them.
-		addresses, err = c.cfg.AccountStorage.AllAddresses()
-		if err != nil {
-			return decimal.Zero, err
-		}
-
-	} else {
-		addresses, err = c.cfg.AccountStorage.GetAddressesByAccount(account)
-		if err != nil {
-			return decimal.Zero, err
-		}
+	addresses, err := c.cfg.AccountStorage.GetAddressesByAccount(string(defaultAccount))
+	if err != nil {
+		return decimal.Zero, err
 	}
 
 	for _, address := range addresses {
@@ -642,38 +570,22 @@ func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (deci
 // PendingBalance return the amount of funds waiting to be confirmed.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingBalance(accountAlias connectors.AccountAlias) (decimal.Decimal,
+func (c *Connector) PendingBalance() (decimal.Decimal,
 	error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodPendingBalance, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	c.pendingLock.Lock()
 	defer c.pendingLock.Unlock()
 
-	account := aliasToAccount(accountAlias)
-
 	var amount decimal.Decimal
-	if account == allAccounts {
-		for _, accounts := range c.memPoolTxs {
-			for _, payment := range accounts {
-				amount = amount.Add(payment.Amount)
-			}
-		}
+	for _, tx := range c.memPoolTxs[string(defaultAccount)] {
+		amount = amount.Add(tx.Amount)
+	}
 
-		for _, accounts := range c.unconfirmedTxs {
-			for _, payment := range accounts {
-				amount = amount.Add(payment.Amount)
-			}
-		}
-	} else {
-		for _, tx := range c.memPoolTxs[account] {
-			amount = amount.Add(tx.Amount)
-		}
-
-		for _, tx := range c.unconfirmedTxs[account] {
-			amount = amount.Add(tx.Amount)
-		}
+	for _, tx := range c.unconfirmedTxs[string(defaultAccount)] {
+		amount = amount.Add(tx.Amount)
 	}
 
 	return amount.Round(8), nil
@@ -737,18 +649,23 @@ lastSyncedBlockNumber int) (pendingMap, error) {
 				},
 			}
 
-			if account == defaultAccount {
-				payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
-					connectors.Incoming, connectors.Internal)
+			if account == string(defaultAccount) {
 				payment.Direction = connectors.Incoming
 				payment.System = connectors.Internal
 				payment.MediaFee = decimal.Zero
+				payment.PaymentID, err = payment.GenPaymentID()
+				if err != nil {
+					return nil, err
+				}
+
 			} else {
-				payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
-					connectors.Incoming, connectors.External)
 				payment.Direction = connectors.Incoming
 				payment.System = connectors.External
 				payment.MediaFee = decimal.Zero
+				payment.PaymentID, err = payment.GenPaymentID()
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			if err := c.cfg.PaymentStorage.SavePayment(payment); err != nil {
@@ -806,18 +723,22 @@ func (c *Connector) syncPending() (pendingMap, error) {
 			},
 		}
 
-		if account == defaultAccount {
-			payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
-				connectors.Incoming, connectors.Internal)
+		if account == string(defaultAccount) {
 			payment.Direction = connectors.Incoming
 			payment.System = connectors.Internal
 			payment.MediaFee = decimal.Zero
+			payment.PaymentID, err = payment.GenPaymentID()
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			payment.PaymentID = generatePaymentID(tx.Hash, tx.To,
-				connectors.Incoming, connectors.External)
 			payment.Direction = connectors.Incoming
 			payment.System = connectors.External
 			payment.MediaFee = decimal.Zero
+			payment.PaymentID, err = payment.GenPaymentID()
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if err := c.cfg.PaymentStorage.SavePayment(payment); err != nil {
@@ -837,7 +758,7 @@ func (c *Connector) syncPending() (pendingMap, error) {
 func (c *Connector) syncConfirmed(bestBlockNumber int,
 	lastSyncedBlock *ethrpc.Block) (*ethrpc.Block, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSync, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 
 	for {
 		select {
@@ -1025,8 +946,10 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 			if needUpdateStatusOfOutgoing {
 				outgoingPayment := payment
 				outgoingPayment.Direction = connectors.Outgoing
-				outgoingPayment.PaymentID = generatePaymentID(confirmedTx.Hash,
-					confirmedTx.To, outgoingPayment.Direction, outgoingPayment.System)
+				outgoingPayment.PaymentID, err = outgoingPayment.GenPaymentID()
+				if err != nil {
+					return nil, err
+				}
 
 				if err := c.cfg.PaymentStorage.SavePayment(&outgoingPayment); err != nil {
 					return nil, errors.Errorf("unable to add payment to storage: %v",
@@ -1041,8 +964,10 @@ func (c *Connector) syncConfirmed(bestBlockNumber int,
 				incomingPayment := payment
 				incomingPayment.Direction = connectors.Incoming
 				incomingPayment.MediaFee = decimal.Zero
-				incomingPayment.PaymentID = generatePaymentID(confirmedTx.Hash,
-					confirmedTx.To, incomingPayment.Direction, incomingPayment.System)
+				incomingPayment.PaymentID, err = incomingPayment.GenPaymentID()
+				if err != nil {
+					return nil, err
+				}
 
 				if err := c.cfg.PaymentStorage.SavePayment(&incomingPayment); err != nil {
 					return nil, errors.Errorf("unable to add payment to storage: %v",
@@ -1111,7 +1036,7 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 		UpdatedAt: connectors.NowInMilliSeconds(),
 		Status:    connectors.Waiting,
 		System:    connectors.Internal,
-		Account:   defaultAccount,
+		Account:   string(defaultAccount),
 		Receipt:   c.defaultAddress,
 		Asset:     c.cfg.Asset,
 		Media:     connectors.Blockchain,
@@ -1124,8 +1049,10 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 	// We have to track both outgoing and incoming for consistency with other
 	// connectors.
 	aggregatePayment.Direction = connectors.Incoming
-	aggregatePayment.PaymentID = generatePaymentID(aggregateTx.TxID,
-		c.defaultAddress, aggregatePayment.Direction, aggregatePayment.System)
+	aggregatePayment.PaymentID, err = aggregatePayment.GenPaymentID()
+	if err != nil {
+		return err
+	}
 
 	if err := c.cfg.PaymentStorage.SavePayment(aggregatePayment); err != nil {
 		return errors.Errorf("unable to add payment to storage: %v",
@@ -1133,8 +1060,10 @@ func (c *Connector) makeRedirect(initialAddress string, amount decimal.Decimal) 
 	}
 
 	aggregatePayment.Direction = connectors.Outgoing
-	aggregatePayment.PaymentID = generatePaymentID(aggregateTx.TxID,
-		c.defaultAddress, aggregatePayment.Direction, aggregatePayment.System)
+	aggregatePayment.PaymentID, err = aggregatePayment.GenPaymentID()
+	if err != nil {
+		return err
+	}
 
 	if err := c.cfg.PaymentStorage.SavePayment(aggregatePayment); err != nil {
 		return errors.Errorf("unable to add payment to storage: %v",
@@ -1173,8 +1102,7 @@ func (c *Connector) fetchLastSyncedBlockHash() (string, error) {
 			"hash: %v", err)
 	}
 
-	c.cfg.StateStorage.PutLastSyncedHash([]byte(block.Hash))
-	if err != nil {
+	if err := c.cfg.StateStorage.PutLastSyncedHash([]byte(block.Hash)); err != nil {
 		return "", errors.Errorf("unable to put best block in db: %v", err)
 	}
 
@@ -1183,14 +1111,15 @@ func (c *Connector) fetchLastSyncedBlockHash() (string, error) {
 
 // fetchDefaultAddress...
 func (c *Connector) fetchDefaultAddress() (string, error) {
-	defaultAddress, err := c.AccountAddress(connectors.DefaultAccount)
+	defaultAddress, err := c.cfg.AccountStorage.GetLastAccountAddress(
+		string(defaultAccount))
 	if err != nil && err != ErrAccountAddressNotFound {
 		return "", errors.Errorf("unable to get default address: %v", err)
 	}
 
 	if defaultAddress == "" {
 		c.log.Info("Unable to find default address in db, generating it...")
-		defaultAddress, err = c.CreateAddress(connectors.DefaultAccount)
+		defaultAddress, err = c.createAddress(defaultAccount)
 		if err != nil {
 			return "", errors.Errorf("unable to generate default address: %v", err)
 		}
@@ -1201,7 +1130,7 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 
 func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodSync, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	bestBlockNumber, err := c.client.EthBlockNumber()
@@ -1266,7 +1195,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 
 	// Check number of funds available and track this metric in metric
 	// backend for farther analysis.
-	balance, err := c.ConfirmedBalance(connectors.DefaultAccount)
+	balance, err := c.ConfirmedBalance()
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return lastSyncedBlockHash, errors.Errorf("unable to "+
@@ -1287,7 +1216,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) ValidateAddress(address string) error {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodValidateAddress, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	if err := ethereum.ValidateAddress(address); err != nil {
@@ -1304,7 +1233,7 @@ func (c *Connector) ValidateAddress(address string) error {
 // NOTE: Part of the connectors.Connector interface.
 func (c *Connector) EstimateFee(amount string) (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
-		MethodEstimateFee, c.cfg.Metrics)
+		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
 	// Fetch suggested by the daemon gas price.
