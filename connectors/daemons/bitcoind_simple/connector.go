@@ -203,6 +203,31 @@ func (c *Connector) Start() (err error) {
 		}
 	}()
 
+	c.wg.Add(1)
+	go func() {
+		defer func() {
+			c.log.Info("Quit reporting  goroutine")
+			c.wg.Done()
+		}()
+
+		c.log.Info("Starting reporting goroutine...")
+
+		reportTicker := time.NewTicker(time.Second * 30)
+		defer reportTicker.Stop()
+
+		for {
+			select {
+			case <-reportTicker.C:
+				if err := c.reportMetrics(); err != nil {
+					c.log.Error(err)
+					continue
+				}
+			case <-c.quit:
+				return
+			}
+		}
+	}()
+
 	return err
 }
 
@@ -511,6 +536,67 @@ func (c *Connector) syncPaymentState() error {
 			}
 		}
 	}
+
+	return nil
+}
+
+// reportMetrics is used to report necessary health metrics about internal
+// state of the connector.
+func (c *Connector) reportMetrics() error {
+	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
+	defer m.Finish()
+
+	var overallSent decimal.Decimal
+	var overallReceived decimal.Decimal
+	var overallFee decimal.Decimal
+
+	payments, err := c.cfg.PaymentStore.ListPayments(c.cfg.Asset,
+		connectors.Completed, "", connectors.Blockchain, "")
+	if err != nil {
+		m.AddError(metrics.MiddleSeverity)
+		return errors.Errorf("unable to list payments: %v", err)
+	}
+
+	for _, payment := range payments {
+		if payment.Direction == connectors.Incoming &&
+			payment.System == connectors.External {
+			overallReceived = overallReceived.Add(payment.Amount)
+		}
+
+		if payment.Direction == connectors.Outgoing &&
+			payment.System == connectors.External {
+			overallSent = overallSent.Add(payment.Amount)
+			overallFee = overallFee.Add(payment.MediaFee)
+		}
+
+		overallFee = overallFee.Add(payment.MediaFee)
+	}
+
+	overallReceivedF, _ := overallReceived.Float64()
+	m.OverallReceived(overallReceivedF)
+
+	overallSentF, _ := overallSent.Float64()
+	m.OverallSent(overallSentF)
+
+	overallFeeF, _ := overallFee.Float64()
+	m.OverallFee(overallFeeF)
+
+	balance, err := c.ConfirmedBalance()
+	if err != nil {
+		m.AddError(metrics.MiddleSeverity)
+		return errors.Errorf("unable to get available funds: %v", err)
+	}
+
+	c.log.Infof("Asset(%v), media(blockchain), available funds(%v)",
+		c.cfg.Asset, balance.Round(8).String())
+
+	f, _ := balance.Float64()
+	m.CurrentFunds(f)
+
+	c.log.Infof("Metrics reported, overall received(%v %v), "+
+		"overall sent(%v %v), overall fee(%v %v)", overallReceivedF,
+		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF, c.cfg.Asset)
 
 	return nil
 }
