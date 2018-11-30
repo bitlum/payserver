@@ -1,8 +1,8 @@
 package inmemory
 
 import (
-	"sort"
 	"github.com/bitlum/connector/connectors"
+	"sort"
 	"sync"
 )
 
@@ -71,7 +71,7 @@ func (s *MemoryPaymentsStore) SavePayment(p *connectors.Payment) error {
 // ListPayments return list of all payments.
 func (s *MemoryPaymentsStore) ListPayments(asset connectors.Asset,
 	status connectors.PaymentStatus, direction connectors.PaymentDirection,
-	media connectors.PaymentMedia) ([]*connectors.Payment, error) {
+	media connectors.PaymentMedia, system connectors.PaymentSystem) ([]*connectors.Payment, error) {
 
 	s.paymentsMutex.RLock()
 	defer s.paymentsMutex.RUnlock()
@@ -91,6 +91,10 @@ func (s *MemoryPaymentsStore) ListPayments(asset connectors.Asset,
 		}
 
 		if media != "" && payment.Media != media {
+			continue
+		}
+
+		if system != "" && payment.System != system {
 			continue
 		}
 

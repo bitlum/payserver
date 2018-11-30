@@ -29,20 +29,6 @@ func Open(dbPath string, dbName string) (*DB, error) {
 		return nil, err
 	}
 
-	err = gdb.AutoMigrate(
-		&EthereumState{},
-		&ConnectorState{},
-		&EthereumAddress{},
-		&Payment{},
-	).Error
-	if err != nil {
-		return nil, err
-	}
-
-	if err := migrate(gdb); err != nil {
-		return nil, err
-	}
-
 	return &DB{
 		DB:     gdb,
 		dbPath: dbPath,

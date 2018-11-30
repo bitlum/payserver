@@ -1,10 +1,10 @@
 package sqlite
 
 import (
-	"reflect"
-	"testing"
 	"github.com/bitlum/connector/connectors"
 	"github.com/shopspring/decimal"
+	"reflect"
+	"testing"
 )
 
 func TestPaymentsStorage(t *testing.T) {
@@ -22,6 +22,7 @@ func TestPaymentsStorage(t *testing.T) {
 			PaymentID: "1",
 			UpdatedAt: 1,
 			Status:    connectors.Pending,
+			System:    connectors.Internal,
 			Direction: connectors.Outgoing,
 			Receipt:   "receipt",
 			Asset:     connectors.BTC,
@@ -41,6 +42,7 @@ func TestPaymentsStorage(t *testing.T) {
 			UpdatedAt: 2,
 			Status:    connectors.Completed,
 			Direction: connectors.Incoming,
+			System:    connectors.External,
 			Receipt:   "receipt",
 			Asset:     connectors.ETH,
 			Account:   "account",
@@ -63,7 +65,7 @@ func TestPaymentsStorage(t *testing.T) {
 		t.Fatalf("unable to save payment: %v", err)
 	}
 
-	paymentsAfter, err := store.ListPayments("", "", "", "")
+	paymentsAfter, err := store.ListPayments("", "", "", "", "")
 	if err != nil {
 		t.Fatalf("unable to get payments: %v", err)
 	}
@@ -95,7 +97,7 @@ func TestPaymentsStorage(t *testing.T) {
 	}
 
 	{
-		payments, err := store.ListPayments(connectors.ETH, "", "", "")
+		payments, err := store.ListPayments(connectors.ETH, "", "", "", "")
 		if err != nil {
 			t.Fatalf("unable to list payments: %v", err)
 		}
@@ -106,7 +108,7 @@ func TestPaymentsStorage(t *testing.T) {
 	}
 
 	{
-		payments, err := store.ListPayments("", connectors.Completed, "", "")
+		payments, err := store.ListPayments("", connectors.Completed, "", "", "")
 		if err != nil {
 			t.Fatalf("unable to list payments: %v", err)
 		}
@@ -117,7 +119,7 @@ func TestPaymentsStorage(t *testing.T) {
 	}
 
 	{
-		payments, err := store.ListPayments("", "", connectors.Outgoing, "")
+		payments, err := store.ListPayments("", "", connectors.Outgoing, "", "")
 		if err != nil {
 			t.Fatalf("unable to list payments: %v", err)
 		}
@@ -128,7 +130,7 @@ func TestPaymentsStorage(t *testing.T) {
 	}
 
 	{
-		payments, err := store.ListPayments("", "", "", connectors.Lightning)
+		payments, err := store.ListPayments("", "", "", connectors.Lightning, "")
 		if err != nil {
 			t.Fatalf("unable to list payments: %v", err)
 		}

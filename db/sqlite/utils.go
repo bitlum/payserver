@@ -21,6 +21,10 @@ func MakeTestDB() (*DB, func(), error) {
 		return nil, nil, err
 	}
 
+	if err := db.Migrate(); err != nil {
+		return nil, nil, err
+	}
+
 	cleanUp := func() {
 		db.Close()
 		os.RemoveAll(tempDirName)
@@ -28,4 +32,3 @@ func MakeTestDB() (*DB, func(), error) {
 
 	return db, cleanUp, nil
 }
-
