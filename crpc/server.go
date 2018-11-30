@@ -11,10 +11,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-// defaultAccount default account which will be used for all request until
-// account would be working properly for all assets.
-var defaultAccount = "zigzag"
-
 // Server is the gRPC server which implements PayServer interface.
 type Server struct {
 	net                  string
@@ -66,7 +62,7 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			return nil, err
 		}
 
-		address, err := c.CreateAddress(connectors.AccountAlias(defaultAccount))
+		address, err := c.CreateAddress()
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -92,8 +88,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			req.Amount = "0"
 		}
 
-		paymentRequest, invoice, err := c.CreateInvoice(defaultAccount,
-			req.Amount, req.Description)
+		paymentRequest, invoice, err := c.CreateInvoice("zigzag", req.Amount,
+			req.Description)
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -243,7 +239,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 		}
 
 		for asset, c := range cntrs {
-			available, err := c.ConfirmedBalance(connectors.SentAccount)
+			available, err := c.ConfirmedBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
 				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -251,7 +247,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 				return nil, err
 			}
 
-			pending, err := c.PendingBalance(connectors.SentAccount)
+			pending, err := c.PendingBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
 				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -305,7 +301,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			// balance it will be unclear for end user how use this balance,
 			// otherwise we would ned to have two different rpc methods for that.
 
-			available, err := c.ConfirmedBalance(defaultAccount)
+			available, err := c.ConfirmedBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
 				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -313,7 +309,7 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 				return nil, err
 			}
 
-			pending, err := c.PendingBalance(defaultAccount)
+			pending, err := c.PendingBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
 				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
@@ -440,15 +436,7 @@ func (s *Server) SendPayment(ctx context.Context,
 			req.Amount = "0"
 		}
 
-		payment, err = c.CreatePayment(req.Receipt, req.Amount)
-		if err != nil {
-			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
-			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
-			return nil, err
-		}
-
-		payment, err = c.SendPayment(payment.PaymentID)
+		payment, err = c.SendPayment(req.Receipt, req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
 			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
