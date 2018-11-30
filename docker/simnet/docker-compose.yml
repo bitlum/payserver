@@ -8,7 +8,7 @@ networks:
     driver: bridge
     ipam:
       config:
-      - subnet: 172.100.1.0/24
+      - subnet: 172.100.0.0/24
 
 # Default settings for all containers.
 x-defaults:
@@ -70,6 +70,9 @@ services:
     << : *defaults
     container_name: blocks-generator.simnet
     image: blocks-generator.simnet
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.18
     build:
       context: ./blocks-generator
       args:
@@ -113,6 +116,9 @@ services:
     << : *defaults
     container_name: bitcoin.simnet.primary
     image: bitcoin.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.3
     build:
       context: ./bitcoin
       args:
@@ -127,6 +133,9 @@ services:
     << : *defaults
     container_name: bitcoin-lightning.simnet.primary
     image: bitcoin-lightning.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.4
     build:
       context: ./bitcoin-lightning
       args:
@@ -145,6 +154,9 @@ services:
     << : *defaults
     container_name: bitcoin-lightning-helper.simnet.primary
     image: bitcoin-lightning-helper.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.5
     build:
       context: ./bitcoin-lightning-helper
       args:
@@ -160,6 +172,9 @@ services:
     << : *defaults
     container_name: bitcoin-cash.simnet.primary
     image: bitcoin-cash.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.6
     build:
       context: ./bitcoin-cash
       args:
@@ -174,6 +189,9 @@ services:
     << : *defaults
     container_name: dash.simnet.primary
     image: dash.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.7
     build:
       context: ./dash
       args:
@@ -188,6 +206,9 @@ services:
     << : *defaults
     container_name: ethereum.simnet.primary
     image: ethereum.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.8
     build:
       context: ./ethereum
       args:
@@ -207,6 +228,9 @@ services:
     << : *defaults
     container_name: litecoin.simnet.primary
     image: litecoin.simnet.primary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.9
     build:
       context: ./litecoin
       args:
@@ -229,6 +253,9 @@ services:
     << : *defaults
     container_name: connector.simnet
     image: connector.simnet
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.10
     build:
       context: ./connector
     volumes:
@@ -241,16 +268,14 @@ services:
       - "9998:9998"
     depends_on:
       - bitcoin.simnet.secondary
-      - bitcoin-lightning.simnet.secondary
-      - bitcoin-cash.simnet.secondary
-      - dash.simnet.secondary
-      - ethereum.simnet.secondary
-      - litecoin.simnet.secondary
 
   bitcoin.simnet.secondary:
     << : *defaults
     container_name: bitcoin.simnet.secondary
     image: bitcoin.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.11
     build:
       context: ./bitcoin
       args:
@@ -267,6 +292,9 @@ services:
     << : *defaults
     container_name: bitcoin-lightning.simnet.secondary
     image: bitcoin-lightning.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.12
     build:
       context: ./bitcoin-lightning
       args:
@@ -285,6 +313,9 @@ services:
     << : *defaults
     container_name: bitcoin-lightning.simnet.third
     image: bitcoin-lightning.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.13
     build:
       context: ./bitcoin-lightning
       args:
@@ -301,6 +332,9 @@ services:
     << : *defaults
     container_name: bitcoin-cash.simnet.secondary
     image: bitcoin-cash.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.14
     build:
       context: ./bitcoin-cash
       args:
@@ -317,6 +351,9 @@ services:
     << : *defaults
     container_name: dash.simnet.secondary
     image: dash.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.15
     build:
       context: ./dash
       args:
@@ -333,6 +370,9 @@ services:
     << : *defaults
     container_name: ethereum.simnet.secondary
     image: ethereum.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.16
     build:
       context: ./ethereum
       args:
@@ -354,6 +394,9 @@ services:
     << : *defaults
     container_name: litecoin.simnet.secondary
     image: litecoin.simnet.secondary
+    networks:
+      connector.simnet:
+        ipv4_address: 172.100.0.17
     build:
       context: ./litecoin
       args:

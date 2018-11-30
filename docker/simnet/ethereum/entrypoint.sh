@@ -56,7 +56,7 @@ fi
 # that blockchain is not inited, so we are initing it.
 GETH=$DATA_DIR/geth
 if [ ! -d $GETH ] || [ ! "$(ls -A $GETH)" ]; then
-    echo "Initing genesis block"
+    echo "Initialising genesis block"
     geth --datadir $DATA_DIR --config $CONFIG init $GENESIS
 fi
 
