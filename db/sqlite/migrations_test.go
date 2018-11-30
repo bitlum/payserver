@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"github.com/bitlum/connector/connectors"
 	"gopkg.in/gormigrate.v1"
 	"testing"
 )
@@ -18,18 +17,5 @@ func TestAddPaymentStatusMigration(t *testing.T) {
 	err = migrate(tx, []*gormigrate.Migration{addPaymentSystemType})
 	if err != nil {
 		t.Fatalf("unable migrate db: %v", err)
-	}
-
-	paymentsStore := PaymentsStore{DB: &DB{DB: tx}}
-	if err := paymentsStore.SavePayment(&connectors.Payment{
-		Direction: "internal",
-	}); err != nil {
-		t.Fatalf("unable save payment: %v", err)
-	}
-
-	if err := paymentsStore.SavePayment(&connectors.Payment{
-		Direction: "internal",
-	}); err != nil {
-		t.Fatalf("unable save payment: %v", err)
 	}
 }

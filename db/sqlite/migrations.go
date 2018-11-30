@@ -37,74 +37,31 @@ var addPaymentSystemType = &gormigrate.Migration{
 		// moved in system field. All previous internal
 		// payment where incoming.
 		payments, err := store.ListPayments("", "",
-			"Internal", "", "")
+			"", "", "")
 		if err != nil {
 			return err
 		}
 
 		for _, payment := range payments {
+			// Internal transaction were tracked unproperly previously.
+			if payment.Direction == "Internal" {
+				err := tx.Delete(&Payment{}, "payment_id = ?",
+					payment.PaymentID).Error
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
+
+			// All other transactions were external
 			oldID := payment.PaymentID
-			err := tx.Delete(&Payment{}, "payment_id = ?",
-				oldID).Error
-			if err != nil {
-				return err
-			}
-
-			payment.System = connectors.Internal
-			payment.Direction = connectors.Incoming
-			payment.PaymentID, err = payment.GenPaymentID()
-			if err != nil {
-				return err
-			}
-
-			log.Infof("Payment migration (%v) => (%v)", oldID, payment.PaymentID)
-			if err := store.SavePayment(payment); err != nil {
-				return err
-			}
-		}
-
-		// Previous incoming and outgoing payments were external.
-		payments, err = store.ListPayments("", "",
-			connectors.Outgoing, "", "")
-		if err != nil {
-			return err
-		}
-
-		for _, payment := range payments {
-			oldID := payment.PaymentID
-			err := tx.Delete(&Payment{}, "payment_id = ?",
-				oldID).Error
+			err := tx.Delete(&Payment{}, "payment_id = ?", oldID).Error
 			if err != nil {
 				return err
 			}
 
 			payment.System = connectors.External
-			payment.PaymentID, err = payment.GenPaymentID()
-			if err != nil {
-				return err
-			}
-
-			log.Infof("Payment migration (%v) => (%v)", oldID, payment.PaymentID)
-			if err := store.SavePayment(payment); err != nil {
-				return err
-			}
-		}
-
-		payments, err = store.ListPayments("", "",
-			connectors.Incoming, "", "")
-		if err != nil {
-			return err
-		}
-
-		for _, payment := range payments {
-			oldID := payment.PaymentID
-			err := tx.Delete(&Payment{}, "payment_id = ?",
-				oldID).Error
-			if err != nil {
-				return err
-			}
-
-			payment.System = connectors.Internal
 			payment.PaymentID, err = payment.GenPaymentID()
 			if err != nil {
 				return err
