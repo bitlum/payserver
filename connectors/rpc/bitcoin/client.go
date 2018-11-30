@@ -1,18 +1,18 @@
 package bitcoin
 
 import (
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcutil"
-	"github.com/btcsuite/btcd/wire"
+	"fmt"
+	"github.com/bitlum/connector/common"
+	"github.com/bitlum/connector/connectors"
+	"github.com/bitlum/connector/connectors/rpc"
 	"github.com/bitlum/go-bitcoind-rpc/btcjson"
 	"github.com/bitlum/go-bitcoind-rpc/rpcclient"
-	"github.com/go-errors/errors"
-	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/bitlum/connector/connectors/rpc"
+	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btclog"
-	"github.com/bitlum/connector/connectors"
-	"github.com/bitlum/connector/common"
+	"github.com/btcsuite/btcutil"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/go-errors/errors"
 )
 
 type ClientConfig struct {
@@ -166,13 +166,13 @@ func (c *Client) LockUnspent(input rpc.UnspentInput) error {
 func (c *Client) ListUnspentMinMax(minConf, maxConf int) ([]rpc.UnspentInput,
 	error) {
 
-	resp := make([]rpc.UnspentInput, 0)
 	unspent, err := c.Daemon.ListUnspentMinMax(minConf, maxConf)
 	if err != nil {
 		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
 		return nil, err
 	}
 
+	resp := make([]rpc.UnspentInput, 0)
 	for _, u := range unspent {
 		resp = append(resp, rpc.UnspentInput{
 			Address:       u.Address,
@@ -209,6 +209,21 @@ func (c *Client) GetAddressesByLabel(label string) ([]btcutil.Address, error) {
 // the interface description.
 func (c *Client) GetNewAddress(label string) (btcutil.Address, error) {
 	address, err := c.Daemon.GetNewAddress(label)
+	if err != nil {
+		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
+		return nil, err
+	}
+
+	c.Logger.Tracef("method: %v, response: %v", common.GetFunctionName(),
+		spew.Sdump(address))
+
+	return address, nil
+}
+
+// NOTE: Part of the rpc.Client interface. For more info look in
+// the interface description.
+func (c *Client) GetNewRawChangeAddress(label string) (btcutil.Address, error) {
+	address, err := c.Daemon.GetRawChangeAddress(label)
 	if err != nil {
 		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
 		return nil, err
@@ -383,4 +398,49 @@ func (c *Client) EstimateFee() (float64, error) {
 // the interface description.
 func (c *Client) DaemonName() string {
 	return c.daemonName
+}
+
+// NOTE: Part of the rpc.Client interface. For more info look in
+// the interface description.
+func (c *Client) SendToAddress(address btcutil.Address,
+	amount btcutil.Amount) (*chainhash.Hash, error) {
+	return c.Daemon.SendToAddress(address, amount)
+}
+
+// NOTE: Part of the rpc.Client interface. For more info look in
+// the interface description.
+func (c *Client) ListTransactionByLabel(label string, count, from int) (
+	[]btcjson.ListTransactionsResult, error) {
+	return c.Daemon.ListTransactionsCountFrom(label, count, from)
+}
+
+// NOTE: Part of the rpc.Client interface. For more info look in
+// the interface description.
+func (c *Client) GetTransactionByHash(hash *chainhash.Hash) (
+	*rpc.Transaction, error) {
+	tx, err := c.Daemon.GetTransaction(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	details := make([]rpc.TransactionDetails, len(tx.Details))
+	for i, detail := range tx.Details {
+		details[i] = rpc.TransactionDetails{
+			Account:           detail.Account,
+			Address:           detail.Address,
+			Amount:            detail.Amount,
+			Category:          detail.Category,
+			InvolvesWatchOnly: detail.InvolvesWatchOnly,
+			Fee:               detail.Fee,
+			Vout:              detail.Vout,
+		}
+	}
+
+	return &rpc.Transaction{
+		Amount:        tx.Amount,
+		Fee:           tx.Fee,
+		Confirmations: tx.Confirmations,
+		TxID:          tx.TxID,
+		Details:       details,
+	}, nil
 }
