@@ -3,15 +3,15 @@ package bitcoind
 import (
 	"math/big"
 
-	"github.com/btcsuite/btcutil"
-	"github.com/shopspring/decimal"
-	"github.com/go-errors/errors"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/bitlum/connector/connectors"
 	"github.com/bitlum/connector/connectors/rpc/bitcoin"
-	"github.com/bitlum/connector/connectors/rpc/litecoin"
 	"github.com/bitlum/connector/connectors/rpc/bitcoincash"
 	"github.com/bitlum/connector/connectors/rpc/dash"
+	"github.com/bitlum/connector/connectors/rpc/litecoin"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcutil"
+	"github.com/go-errors/errors"
+	"github.com/shopspring/decimal"
 )
 
 var satoshiPerBitcoin = decimal.New(btcutil.SatoshiPerBitcoin, 0)
@@ -111,32 +111,4 @@ func aliasToAccount(alias connectors.AccountAlias) string {
 	default:
 		return string(alias)
 	}
-}
-
-// generatePaymentID generates unique string based on the tx id and receive
-// address, which are together
-//
-// NOTE: Direction is needed to have a distinction between circular payments,
-// i.e. the payment which are going from our wallet to our wallet. Because this
-// transaction would have the same address and txid, but should be tracked
-// distinctly.
-func generatePaymentID(payment *connectors.Payment) (string, error) {
-	if payment.MediaID == "" {
-		return "", errors.Errorf("media id is empty")
-	}
-
-	if payment.Receipt == "" {
-		return "", errors.Errorf("receipt is empty")
-	}
-
-	if payment.Direction == "" {
-		return "", errors.Errorf("direction is empty")
-	}
-
-	if payment.System == "" {
-		return "", errors.Errorf("system is empty")
-	}
-
-	return connectors.GeneratePaymentID(payment.MediaID, payment.Receipt,
-		string(payment.Direction), string(payment.System)), nil
 }

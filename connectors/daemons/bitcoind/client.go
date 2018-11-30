@@ -37,7 +37,7 @@ var (
 	// This value is calculated as being optimal by running emulation of
 	// activity on payserver on 18 Nov 2018. This value is optimised to have
 	// spent less fee, at the same time having high success payment  rate.
-	optimalUTXOValue = btcutil.Amount(806451)
+	optimalUTXOValue, _ = btcutil.NewAmount(0.00806451)
 )
 
 // Config is a bitcoind config.
@@ -174,7 +174,7 @@ type Connector struct {
 
 // A compile time check to ensure Connector implements the BlockchainConnector
 // interface.
-var _ connectors.BlockchainConnector = (*Connector)(nil)
+//var _ connectors.BlockchainConnector = (*Connector)(nil)
 
 func NewConnector(cfg *Config) (*Connector, error) {
 	if err := cfg.validate(); err != nil {
@@ -258,13 +258,6 @@ func (c *Connector) Start() (err error) {
 
 	c.log.Infof("Last synced block, hash(%v), heigh(%v)",
 		lastSyncedBlockHash, c.lastSyncedBlock.Height)
-
-	defaultAddress, err := c.fetchDefaultAddress()
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return errors.Errorf("unable to fetch default address: %v", err)
-	}
-	c.log.Infof("Default address %v", defaultAddress)
 
 	// First of all unlock all unspent outputs, to exclude the situation where
 	// we accidentally locked inputs and server crashed.
@@ -379,38 +372,15 @@ func (c *Connector) WaitShutDown() <-chan struct{} {
 	return c.quit
 }
 
-// AccountAddress return the deposit address of account.
-//
-// NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) AccountAddress(accountAlias connectors.AccountAlias) (
-	string, error) {
-	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
-		common.GetFunctionName(), c.cfg.Metrics)
-	defer m.Finish()
-
-	account := aliasToAccount(accountAlias)
-	addresses, err := c.client.GetAddressesByLabel(account)
-	if err != nil {
-		m.AddError(metrics.MiddleSeverity)
-		return "", err
-	}
-
-	if len(addresses) == 0 {
-		return "", nil
-	}
-
-	return addresses[0].String(), nil
-}
-
 // CreateAddress is used to create deposit address.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string, error) {
+func (c *Connector) CreateAddress() (string, error) {
 	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
 		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
 
-	address, err := c.client.GetNewAddress(aliasToAccount(accountAlias))
+	address, err := c.client.GetNewAddress("zigzag")
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return "", err
@@ -419,35 +389,11 @@ func (c *Connector) CreateAddress(accountAlias connectors.AccountAlias) (string,
 	return address.String(), nil
 }
 
-// PendingTransactions return the transactions which has confirmation
-// number lower the required by payment system.
-//
-// NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingTransactions(accountAlias connectors.AccountAlias) (
-	[]*connectors.Payment, error) {
-
-	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
-		common.GetFunctionName(), c.cfg.Metrics)
-	defer m.Finish()
-
-	// TODO(andrew.shvv) Use payment storage for getting pending transaction
-	// and remove pending map.
-
-	account := aliasToAccount(accountAlias)
-	transactions := make([]*connectors.Payment, len(c.pending[account]))
-	for i, tx := range c.pending[account] {
-		transactions[i] = tx
-	}
-
-	return transactions, nil
-}
-
 // CreatePayment generates the payment, but not sends it,
 // instead returns the payment id and waits for it to be approved.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) CreatePayment(address string, amount string) (*connectors.Payment,
-	error) {
+func (c *Connector) CreatePayment(address string, amount string) (*connectors.Payment, error) {
 	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
 		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
@@ -504,7 +450,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 		},
 	}
 
-	payment.PaymentID, err = generatePaymentID(payment)
+	payment.PaymentID, err = payment.GenPaymentID()
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable generate payment id: %v", err)
@@ -522,7 +468,7 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 	// incoming payment. Incoming payment will be created when unspent
 	// outputs will be synced.
 	if changeAmt != 0 {
-		cicularPayment := &connectors.Payment{
+		changePayment := &connectors.Payment{
 			UpdatedAt: connectors.NowInMilliSeconds(),
 			Status:    connectors.Waiting,
 			Direction: connectors.Outgoing,
@@ -536,13 +482,13 @@ func (c *Connector) CreatePayment(address string, amount string) (*connectors.Pa
 			Detail:    nil,
 		}
 
-		cicularPayment.PaymentID, err = generatePaymentID(cicularPayment)
+		changePayment.PaymentID, err = changePayment.GenPaymentID()
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
 			return nil, errors.Errorf("unable generate payment id: %v", err)
 		}
 
-		if err := c.cfg.PaymentStore.SavePayment(cicularPayment); err != nil {
+		if err := c.cfg.PaymentStore.SavePayment(changePayment); err != nil {
 			m.AddError(metrics.HighSeverity)
 			return nil, errors.Errorf("unable add payment in store: %v", err)
 		}
@@ -567,15 +513,9 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 			err)
 	}
 
-	cicularPayment, err := c.cfg.PaymentStore.PaymentByID(paymentID)
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return nil, errors.Errorf("unable find payment(%v): %v", paymentID,
-			err)
-	}
-
 	details, ok := payment.Detail.(*connectors.GeneratedTxDetails)
 	if !ok {
+		m.AddError(metrics.HighSeverity)
 		return nil, errors.Errorf("unable get details for payment(%v)",
 			paymentID)
 	}
@@ -588,6 +528,30 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 		return nil, errors.Errorf("unable to deserialize raw tx: %v", err)
 	}
 
+	// We were given only payment id of external payment, and in order to
+	// update status of change output, we have to generate payment of it.
+	changePayment := &connectors.Payment{
+		MediaID:   payment.MediaID,
+		Receipt:   payment.Receipt,
+		Direction: payment.Direction,
+		System:    connectors.Internal,
+	}
+
+	changePayment.PaymentID, err = changePayment.GenPaymentID()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return nil, errors.Errorf("unable generate payment id: %v", err)
+	}
+
+	spew.Dump(changePayment)
+	changePayment, err = c.cfg.PaymentStore.PaymentByID(changePayment.PaymentID)
+	if err != nil {
+		// If change output / payment hasn't been found that means that it
+		// doesn't exist, and that is normal
+		changePayment = nil
+		spew.Dump(err)
+	}
+
 	if err = c.client.SendRawTransaction(wireTx); err != nil {
 		payment.Status = connectors.Failed
 		payment.UpdatedAt = connectors.NowInMilliSeconds()
@@ -598,12 +562,14 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 				payment.PaymentID, err)
 		}
 
-		cicularPayment.Status = connectors.Failed
-		cicularPayment.UpdatedAt = connectors.NowInMilliSeconds()
-		if err := c.cfg.PaymentStore.SavePayment(cicularPayment); err != nil {
-			m.AddError(metrics.HighSeverity)
-			c.log.Errorf("unable update payment(%v) status to fail: %v",
-				cicularPayment.PaymentID, err)
+		if changePayment != nil {
+			changePayment.Status = connectors.Failed
+			changePayment.UpdatedAt = connectors.NowInMilliSeconds()
+			if err := c.cfg.PaymentStore.SavePayment(changePayment); err != nil {
+				m.AddError(metrics.HighSeverity)
+				c.log.Errorf("unable update payment(%v) status to fail: %v",
+					changePayment.PaymentID, err)
+			}
 		}
 
 		m.AddError(metrics.HighSeverity)
@@ -619,13 +585,15 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 			payment.PaymentID, err)
 	}
 
-	// We have to update circular payment aka change output status as well.
-	cicularPayment.Status = connectors.Pending
-	cicularPayment.UpdatedAt = connectors.NowInMilliSeconds()
-	if err := c.cfg.PaymentStore.SavePayment(cicularPayment); err != nil {
-		m.AddError(metrics.HighSeverity)
-		c.log.Errorf("unable update payment(%v) status to pending: %v",
-			cicularPayment.PaymentID, err)
+	if changePayment != nil {
+		// We have to update circular payment aka change output status as well.
+		changePayment.Status = connectors.Pending
+		changePayment.UpdatedAt = connectors.NowInMilliSeconds()
+		if err := c.cfg.PaymentStore.SavePayment(changePayment); err != nil {
+			m.AddError(metrics.HighSeverity)
+			c.log.Errorf("unable update payment(%v) status to pending: %v",
+				changePayment.PaymentID, err)
+		}
 	}
 
 	c.log.Infof("Send payment %v", spew.Sdump(payment))
@@ -633,13 +601,11 @@ func (c *Connector) SendPayment(paymentID string) (*connectors.Payment, error) {
 	return payment, nil
 }
 
-// ConfirmedBalance returns number of funds available under control of
-// connector.
+// ConfirmedBalance returns number of funds which could be used for sending.
 //
 // NOTE: Part of the connectors.Connector interface.
-func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
-	account := aliasToAccount(accountAlias)
-	balance, err := c.client.GetBalanceByLabel(account, c.cfg.MinConfirmations)
+func (c *Connector) ConfirmedBalance() (decimal.Decimal, error) {
+	balance, err := c.client.GetBalanceByLabel(allAccounts, c.cfg.MinConfirmations)
 	if err != nil {
 		return decimal.Zero, err
 	}
@@ -650,7 +616,7 @@ func (c *Connector) ConfirmedBalance(accountAlias connectors.AccountAlias) (deci
 // PendingBalance return the amount of funds waiting ro be confirmed.
 //
 // NOTE: Part of the connectors.BlockchainConnector interface.
-func (c *Connector) PendingBalance(accountAlias connectors.AccountAlias) (decimal.Decimal, error) {
+func (c *Connector) PendingBalance() (decimal.Decimal, error) {
 	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
 		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
@@ -659,15 +625,10 @@ func (c *Connector) PendingBalance(accountAlias connectors.AccountAlias) (decima
 	// calculation of pending balance.
 
 	var amount decimal.Decimal
-	account := aliasToAccount(accountAlias)
-	if account == allAccounts {
-		for _, pendingPayments := range c.pending {
-			for _, payment := range pendingPayments {
-				amount = amount.Add(payment.Amount)
-			}
-		}
-	} else {
-		for _, payment := range c.pending[account] {
+
+	// Return pending balance from all accounts
+	for _, pendingPayments := range c.pending {
+		for _, payment := range pendingPayments {
 			amount = amount.Add(payment.Amount)
 		}
 	}
@@ -708,7 +669,7 @@ func (c *Connector) syncUnconfirmed() error {
 			payment.Direction = connectors.Incoming
 			payment.System = connectors.Internal
 			payment.MediaFee = decimal.Zero
-			payment.PaymentID, err = generatePaymentID(payment)
+			payment.PaymentID, err = payment.GenPaymentID()
 			if err != nil {
 				return errors.Errorf("unable generate payment id: %v", err)
 			}
@@ -716,7 +677,7 @@ func (c *Connector) syncUnconfirmed() error {
 			payment.Direction = connectors.Incoming
 			payment.System = connectors.External
 			payment.MediaFee = decimal.Zero
-			payment.PaymentID, err = generatePaymentID(payment)
+			payment.PaymentID, err = payment.GenPaymentID()
 			if err != nil {
 				return errors.Errorf("unable generate payment id: %v", err)
 			}
@@ -866,7 +827,7 @@ func (c *Connector) proceedNextBlock() error {
 					detail.Account == defaultAccount {
 					payment.Direction = connectors.Incoming
 					payment.System = connectors.Internal
-					payment.PaymentID, err = generatePaymentID(payment)
+					payment.PaymentID, err = payment.GenPaymentID()
 					if err != nil {
 						return errors.Errorf("unable generate payment id: %v", err)
 					}
@@ -882,6 +843,10 @@ func (c *Connector) proceedNextBlock() error {
 				} else if detail.Category == "receive" {
 					payment.Direction = connectors.Incoming
 					payment.System = connectors.External
+					payment.PaymentID, err = payment.GenPaymentID()
+					if err != nil {
+						return errors.Errorf("unable generate payment id: %v", err)
+					}
 
 					if err := c.cfg.PaymentStore.SavePayment(payment); err != nil {
 						return errors.Errorf("unable to save payment(%v): %v",
@@ -901,7 +866,7 @@ func (c *Connector) proceedNextBlock() error {
 					// advance.
 
 					payment.System = connectors.External
-					payment.PaymentID, err = generatePaymentID(payment)
+					payment.PaymentID, err = payment.GenPaymentID()
 					if err != nil {
 						return errors.Errorf("unable generate payment id: %v", err)
 					}
@@ -918,7 +883,7 @@ func (c *Connector) proceedNextBlock() error {
 					}
 
 					payment.System = connectors.Internal
-					payment.PaymentID, err = generatePaymentID(payment)
+					payment.PaymentID, err = payment.GenPaymentID()
 					if err != nil {
 						return errors.Errorf("unable generate payment id: %v", err)
 					}
@@ -987,24 +952,6 @@ func (c *Connector) fetchLastSyncedBlockHash() (*chainhash.Hash, error) {
 	return lastHash, nil
 }
 
-// fetchDefaultAddress...
-func (c *Connector) fetchDefaultAddress() (string, error) {
-	defaultAddress, err := c.AccountAddress("default")
-	if err != nil {
-		return "", errors.Errorf("unable to get default address: %v", err)
-	}
-
-	if defaultAddress == "" {
-		c.log.Info("Unable to find default address in db, generating it...")
-		defaultAddress, err = c.CreateAddress("default")
-		if err != nil {
-			return "", errors.Errorf("unable to generate default address: %v", err)
-		}
-	}
-
-	return defaultAddress, nil
-}
-
 func (c *Connector) sync() error {
 	m := crypto.NewMetric(c.client.DaemonName(), string(c.cfg.Asset),
 		common.GetFunctionName(), c.cfg.Metrics)
@@ -1022,7 +969,7 @@ func (c *Connector) sync() error {
 		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
 	}
 
-	balance, err := c.ConfirmedBalance(connectors.SentAccount)
+	balance, err := c.ConfirmedBalance()
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
 		return errors.Errorf("unable to get available funds: %v", err)
@@ -1184,6 +1131,14 @@ func (c *Connector) reorgLargeInputs() error {
 	c.unspentSyncMtx.Lock()
 	defer c.unspentSyncMtx.Unlock()
 
+	// Try to get unspent outputs from local cache, if it is not initialized
+	// than sync it.
+	if c.unspent == nil {
+		if err := c.syncUnspent(); err != nil {
+			return errors.Errorf("unable to sync unspent: %v", err)
+		}
+	}
+
 	largeUTXO := make([]rpc.UnspentInput, 0)
 	overallAmount := btcutil.Amount(0)
 	for _, utxo := range c.unspent {
@@ -1207,8 +1162,8 @@ func (c *Connector) reorgLargeInputs() error {
 
 	// Create list of output amounts based on large inputs.
 	feeSatoshiPerByte := uint64(c.getFeeRate().IntPart())
-	outputAmounts, _, err := c.createReorganisationOutputs(
-		feeSatoshiPerByte, largeUTXO)
+	outputAmounts, _, err := createReorganisationOutputs(feeSatoshiPerByte,
+		largeUTXO, optimalUTXOValue)
 	if err != nil {
 		return errors.Errorf("unable calculate output amounts: %v", err)
 	}
@@ -1217,7 +1172,7 @@ func (c *Connector) reorgLargeInputs() error {
 	for _, outputAmount := range outputAmounts {
 		// Create loopback address which point out to the default account
 		// of the wallet.
-		loopBackAddr, err := c.client.GetNewAddress(defaultAccount)
+		loopBackAddr, err := c.client.GetNewRawChangeAddress(defaultAccount)
 		if err != nil {
 			return errors.Errorf("unable create loopback address: %v", err)
 		}

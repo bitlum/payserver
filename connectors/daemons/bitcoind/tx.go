@@ -2,7 +2,6 @@ package bitcoind
 
 import (
 	"fmt"
-
 	"math"
 
 	"github.com/btcsuite/btcd/wire"
@@ -10,9 +9,9 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
 
-	"github.com/btcsuite/btcwallet/wallet/txrules"
-	"github.com/bitlum/connector/connectors/rpc"
 	txsize "github.com/bitlum/btcd/blockchain"
+	"github.com/bitlum/connector/connectors/rpc"
+	"github.com/btcsuite/btcwallet/wallet/txrules"
 )
 
 // ErrInsufficientFunds is a type matching the error interface which is
@@ -53,6 +52,7 @@ func selectInputs(amt btcutil.Amount,
 			return satSelected, inputs, nil
 		}
 	}
+
 	return 0, nil, &ErrInsufficientFunds{amt, satSelected}
 }
 
@@ -73,7 +73,8 @@ func (c *Connector) syncUnspent() error {
 	var amount decimal.Decimal
 	localUnspent := make(map[string]rpc.UnspentInput, len(unspent))
 	for _, u := range unspent {
-		localUnspent[u.TxID] = u
+		key := fmt.Sprintf("%v:%v", u.TxID, u.Vout)
+		localUnspent[key] = u
 		a := decimal.NewFromFloat(u.Amount)
 		amount = amount.Add(a)
 	}
@@ -117,7 +118,6 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// requirements.
 	selectedInputs, changeAmt, requiredFee, err := coinSelect(feeRatePerByte,
 		amtSat, c.unspent)
-
 	if err != nil {
 		return nil, 0, 0, nil, errors.Errorf("unable to select inputs: %v", err)
 	}
@@ -143,7 +143,7 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	if changeAmt != 0 {
 		// Create loopback output with remaining amount which point out to the
 		// default account of the wallet.
-		changeAddr, err = c.client.GetNewAddress(defaultAccount)
+		changeAddr, err = c.client.GetNewRawChangeAddress(defaultAccount)
 		if err != nil {
 			return nil, 0, 0, nil, err
 		}
@@ -159,7 +159,8 @@ func (c *Connector) craftTransaction(feeRatePerByte uint64,
 	// on next cache sync, which might cause inputs re-usage. If transaction
 	// will fail, than inputs will be returned on next cache sync.
 	for _, input := range selectedInputs {
-		delete(c.unspent, input.TxID)
+		key := fmt.Sprintf("%v:%v", input.TxID, input.Vout)
+		delete(c.unspent, key)
 	}
 
 	return tx, requiredFee, changeAmt, changeAddr, nil
@@ -224,23 +225,14 @@ func coinSelect(feeRatePerByte uint64, amtSat btcutil.Amount,
 // createReorganisationOutputs creates list of optimal outputs by diving
 // large inputs and taking into consideration transaction fee as well as dust
 // limits in order to avoid tx failure.
-func (c *Connector) createReorganisationOutputs(feeRatePerByte uint64,
-	largeInputs []rpc.UnspentInput) ([]btcutil.Amount,
+func createReorganisationOutputs(feeRatePerByte uint64,
+	inputs []rpc.UnspentInput, optimalUTXOValue btcutil.Amount) ([]btcutil.Amount,
 	btcutil.Amount, error) {
-
-	// Try to get unspent outputs from local cache, if it is not initialized
-	// than sync it.
-	if c.unspent == nil {
-		if err := c.syncUnspent(); err != nil {
-			return nil, 0, errors.Errorf("unable to sync unspent: %v", err)
-		}
-	}
 
 	// Calculate number of optimal outgoing outputs.
 	overallAmount := btcutil.Amount(0)
-	var outputsAmounts []btcutil.Amount
-	for i := 0; i < len(largeInputs); i++ {
-		amount, err := btcutil.NewAmount(largeInputs[i].Amount)
+	for i := 0; i < len(inputs); i++ {
+		amount, err := btcutil.NewAmount(inputs[i].Amount)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -252,6 +244,7 @@ func (c *Connector) createReorganisationOutputs(feeRatePerByte uint64,
 			"less or equal than optimal UTXO value")
 	}
 
+	var outputsAmounts []btcutil.Amount
 	numOptimalOutputs := int(overallAmount / optimalUTXOValue)
 	for i := 0; i < numOptimalOutputs; i++ {
 		outputsAmounts = append(outputsAmounts, optimalUTXOValue)
@@ -275,7 +268,7 @@ func (c *Connector) createReorganisationOutputs(feeRatePerByte uint64,
 		var weightEstimate TxWeightEstimator
 
 		// Increase size of transaction on weight of inputs.
-		for i := 0; i < len(largeInputs); i++ {
+		for i := 0; i < len(inputs); i++ {
 			weightEstimate.AddP2PKHInput()
 		}
 
@@ -295,7 +288,7 @@ func (c *Connector) createReorganisationOutputs(feeRatePerByte uint64,
 			// by removing output we paying fee to miners.
 			// And than repeat tx size calculation without output.
 			paidFee += outputsAmounts[last]
-			outputsAmounts = outputsAmounts[last-1:]
+			outputsAmounts = outputsAmounts[:last]
 			continue
 		} else {
 			// In this case output has enough value. Decrease output value on
@@ -306,25 +299,26 @@ func (c *Connector) createReorganisationOutputs(feeRatePerByte uint64,
 			// amount, than last output amount will be increased,
 			// and it is normal.
 			outputsAmounts[last] -= requiredFee - paidFee
+			paidFee += requiredFee - paidFee
 
 			// Check that resulted output is greater that dust limit.
 			if outputsAmounts[last] <= DefaultDustLimit() {
 				// Remove output, otherwise such transaction will be rejected
 				// by miners.
-				outputsAmounts = outputsAmounts[last-1:]
+
+				paidFee += outputsAmounts[last]
+				outputsAmounts = outputsAmounts[:last]
 			}
-		}
 
-		// Theoretically this might happen only if resulted output was less
-		// than dust.
-		if len(outputsAmounts) <= 1 {
-			return nil, 0, errors.Errorf("number of outputs less than one")
-		}
+			// Theoretically this might happen only if resulted output was less
+			// than dust.
+			if len(outputsAmounts) <= 1 {
+				return nil, 0, errors.Errorf("number of outputs less than one")
+			}
 
-		break
+			return outputsAmounts, paidFee, nil
+		}
 	}
-
-	return outputsAmounts, requiredFee, nil
 }
 
 // DefaultDustLimit is used to calculate the dust HTLC amount which will be
