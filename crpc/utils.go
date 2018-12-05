@@ -35,8 +35,7 @@ func convertPaymentStatusToProto(status connectors.PaymentStatus) (PaymentStatus
 	case connectors.Failed:
 		protoStatus = PaymentStatus_FAILED
 	default:
-		return protoStatus, errors.Errorf("unable convert unknown status: %v",
-			status)
+		protoStatus = PaymentStatus_STATUS_NONE
 	}
 
 	return protoStatus, nil
@@ -56,8 +55,7 @@ func convertAssetToProto(asset connectors.Asset) (Asset, error) {
 	case connectors.DASH:
 		protoAsset = Asset_DASH
 	default:
-		return protoAsset, errors.Errorf("unable convert unknown asset: %v",
-			asset)
+		protoAsset = Asset_ASSET_NONE
 	}
 
 	return protoAsset, nil
@@ -72,8 +70,7 @@ func convertPaymentDirectionToProto(direction connectors.PaymentDirection) (Paym
 	case connectors.Incoming:
 		protoDirection = PaymentDirection_INCOMING
 	default:
-		return protoDirection, errors.Errorf("unable convert unknown direction: %v",
-			direction)
+		protoDirection = PaymentDirection_DIRECTION_NONE
 	}
 
 	return protoDirection, nil
@@ -88,8 +85,7 @@ func convertPaymentSystemToProto(system connectors.PaymentSystem) (
 	case connectors.External:
 		protoSystem = PaymentSystem_EXTERNAL
 	default:
-		return protoSystem, errors.Errorf("unable convert unknown system: %v",
-			system)
+		protoSystem = PaymentSystem_SYSTEM_NONE
 	}
 
 	return protoSystem, nil
@@ -103,8 +99,7 @@ func convertMediaToProto(media connectors.PaymentMedia) (Media, error) {
 	case connectors.Lightning:
 		protoMedia = Media_LIGHTNING
 	default:
-		return protoMedia, errors.Errorf("unable convert unknown media: %v",
-			media)
+		protoMedia = Media_MEDIA_NONE
 	}
 
 	return protoMedia, nil
@@ -164,6 +159,7 @@ func ConvertPaymentStatusFromProto(protoStatus PaymentStatus) (
 	case PaymentStatus_FAILED:
 		status = connectors.Failed
 	case PaymentStatus_STATUS_NONE:
+		status = ""
 	default:
 		return status, errors.Errorf("unable convert unknown status: %v",
 			protoStatus)
@@ -186,6 +182,7 @@ func ConvertAssetFromProto(protoAsset Asset) (connectors.Asset, error) {
 	case Asset_DASH:
 		asset = connectors.DASH
 	case Asset_ASSET_NONE:
+		asset = ""
 	default:
 		return asset, errors.Errorf("unable convert unknown asset: %v",
 			protoAsset)
@@ -203,6 +200,7 @@ func ConvertPaymentDirectionFromProto(protoDirection PaymentDirection) (
 	case PaymentDirection_INCOMING:
 		direction = connectors.Incoming
 	case PaymentDirection_DIRECTION_NONE:
+		direction = ""
 	default:
 		return direction, errors.Errorf("unable convert unknown direction: %v",
 			protoDirection)
@@ -220,6 +218,7 @@ func ConvertPaymentSystemFromProto(protoSystem PaymentSystem) (
 	case PaymentSystem_EXTERNAL:
 		system = connectors.External
 	case PaymentSystem_SYSTEM_NONE:
+		system = ""
 	default:
 		return system, errors.Errorf("unable convert unknown system: %v",
 			protoSystem)
@@ -236,6 +235,7 @@ func ConvertMediaFromProto(protoMedia Media) (connectors.PaymentMedia, error) {
 	case Media_LIGHTNING:
 		media = connectors.Lightning
 	case Media_MEDIA_NONE:
+		media = ""
 	default:
 		return media, errors.Errorf("unable convert unknown media: %v",
 			protoMedia)
