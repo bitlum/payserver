@@ -16,12 +16,8 @@ func MakeTestDB() (*DB, func(), error) {
 		return nil, nil, err
 	}
 
-	db, err := Open(tempDirName, "sqlite.db")
+	db, err := Open(tempDirName, "sqlite.db", true)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := db.Migrate(); err != nil {
 		return nil, nil, err
 	}
 

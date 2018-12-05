@@ -6,7 +6,7 @@ import (
 )
 
 func TestAddPaymentStatusMigration(t *testing.T) {
-	db, err := Open("./", "test_db_add_status_field")
+	db, err := Open("./", "test_db_add_status_field", false)
 	if err != nil {
 		t.Fatalf("unable create test db: %v", err)
 	}
