@@ -9,6 +9,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
 	"golang.org/x/net/context"
+	"math/rand"
 )
 
 // Server is the gRPC server which implements PayServer interface.
@@ -46,9 +47,10 @@ func NewRPCServer(net string,
 // external entity.
 func (s *Server) CreateReceipt(ctx context.Context,
 	req *CreateReceiptRequest) (*CreateReceiptResponse, error) {
+	requestID := rand.Int()
 
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(),
-		convertProtoMessage(req))
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	var resp *CreateReceiptResponse
 
@@ -57,7 +59,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -65,7 +68,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		address, err := c.CreateAddress()
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v),error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -77,7 +81,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v),error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -92,7 +97,8 @@ func (s *Server) CreateReceipt(ctx context.Context,
 			req.Description)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v),error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -105,13 +111,14 @@ func (s *Server) CreateReceipt(ctx context.Context,
 
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, nil
 }
@@ -120,8 +127,10 @@ func (s *Server) CreateReceipt(ctx context.Context,
 // ValidateReceipt is used to validate receipt for given asset and media.
 func (s *Server) ValidateReceipt(ctx context.Context,
 	req *ValidateReceiptRequest) (*ValidateReceiptResponse, error) {
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(),
-		convertProtoMessage(req))
+	requestID := rand.Int()
+
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	var data isValidateReceiptResponse_Data
 
@@ -130,13 +139,15 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
 
 		if err := c.ValidateAddress(req.Receipt); err != nil {
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -145,7 +156,8 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -156,7 +168,8 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 
 		invoice, err := c.ValidateInvoice(req.Receipt, req.Amount)
 		if err != nil {
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -204,8 +217,8 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 		Data: data,
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, nil
 }
@@ -214,8 +227,10 @@ func (s *Server) ValidateReceipt(ctx context.Context,
 // Balance is used to determine balance.
 func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 ) (*BalanceResponse, error) {
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(),
-		convertProtoMessage(req))
+	requestID := rand.Int()
+
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	resp := &BalanceResponse{}
 
@@ -229,7 +244,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 			if !ok {
 				err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -242,7 +258,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			available, err := c.ConfirmedBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -250,7 +267,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			pending, err := c.PendingBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -258,7 +276,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			protoAsset, err := convertAssetToProto(asset)
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -285,7 +304,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 			if !ok {
 				err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -304,7 +324,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			available, err := c.ConfirmedBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -312,7 +333,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			pending, err := c.PendingBalance()
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -320,7 +342,8 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 			protoAsset, err := convertAssetToProto(asset)
 			if err != nil {
 				err := newErrInternal(err.Error())
-				log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+				log.Errorf("command(%v), id(%v), error: %v",
+					common.GetFunctionName(), requestID, err)
 				s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 				return nil, err
 			}
@@ -334,6 +357,9 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 		}
 	}
 
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
+
 	return resp, nil
 }
 
@@ -341,8 +367,10 @@ func (s *Server) Balance(ctx context.Context, req *BalanceRequest,
 // EstimateFee estimates the fee of the outgoing payment.
 func (s *Server) EstimateFee(ctx context.Context,
 	req *EstimateFeeRequest) (*EstimateFeeResponse, error) {
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(),
-		convertProtoMessage(req))
+	requestID := rand.Int()
+
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	var resp *EstimateFeeResponse
 
@@ -351,7 +379,8 @@ func (s *Server) EstimateFee(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -363,7 +392,8 @@ func (s *Server) EstimateFee(ctx context.Context,
 		fee, err := c.EstimateFee(req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -376,7 +406,8 @@ func (s *Server) EstimateFee(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -384,7 +415,8 @@ func (s *Server) EstimateFee(ctx context.Context,
 		fee, err := c.EstimateFee(req.Receipt)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -395,12 +427,14 @@ func (s *Server) EstimateFee(ctx context.Context,
 
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, nil
 }
@@ -411,8 +445,10 @@ func (s *Server) EstimateFee(ctx context.Context,
 // account has enough money for doing that.
 func (s *Server) SendPayment(ctx context.Context,
 	req *SendPaymentRequest) (*Payment, error) {
+	requestID := rand.Int()
 
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(), convertProtoMessage(req))
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	var (
 		resp    *Payment
@@ -425,7 +461,8 @@ func (s *Server) SendPayment(ctx context.Context,
 		c, ok := s.blockchainConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -439,7 +476,8 @@ func (s *Server) SendPayment(ctx context.Context,
 		payment, err = c.SendPayment(req.Receipt, req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -448,7 +486,8 @@ func (s *Server) SendPayment(ctx context.Context,
 		c, ok := s.lightningConnectors[connectors.Asset(req.Asset.String())]
 		if !ok {
 			err := newErrAssetNotSupported(req.Asset.String(), req.Media.String())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -460,14 +499,16 @@ func (s *Server) SendPayment(ctx context.Context,
 		payment, err = c.SendTo(req.Receipt, req.Amount)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
 
 	default:
 		err := errors.Errorf("media(%v) is not supported", req.Media.String())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -475,13 +516,14 @@ func (s *Server) SendPayment(ctx context.Context,
 	resp, err = convertPaymentToProto(payment)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, nil
 }
@@ -491,12 +533,16 @@ func (s *Server) SendPayment(ctx context.Context,
 // given system payment id.
 func (s *Server) PaymentByID(ctx context.Context, req *PaymentByIDRequest) (*Payment,
 	error) {
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(), convertProtoMessage(req))
+	requestID := rand.Int()
+
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	payment, err := s.paymentsStore.PaymentByID(req.PaymentId)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -504,13 +550,14 @@ func (s *Server) PaymentByID(ctx context.Context, req *PaymentByIDRequest) (*Pay
 	resp, err := convertPaymentToProto(payment)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, err
 }
@@ -520,13 +567,16 @@ func (s *Server) PaymentByID(ctx context.Context, req *PaymentByIDRequest) (*Pay
 // given receipt.
 func (s *Server) PaymentsByReceipt(ctx context.Context,
 	req *PaymentsByReceiptRequest) (*PaymentsByReceiptResponse, error) {
+	requestID := rand.Int()
 
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(), convertProtoMessage(req))
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	payments, err := s.paymentsStore.PaymentByReceipt(req.Receipt)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -536,7 +586,8 @@ func (s *Server) PaymentsByReceipt(ctx context.Context,
 		protoPayment, err := convertPaymentToProto(payment)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -548,8 +599,8 @@ func (s *Server) PaymentsByReceipt(ctx context.Context,
 		Payments: protoPayments,
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, nil
 }
@@ -559,8 +610,10 @@ func (s *Server) PaymentsByReceipt(ctx context.Context,
 // system.
 func (s *Server) ListPayments(ctx context.Context,
 	req *ListPaymentsRequest) (*ListPaymentsResponse, error) {
+	requestID := rand.Int()
 
-	log.Tracef("command(%v), request(%v)", common.GetFunctionName(), convertProtoMessage(req))
+	log.Tracef("command(%v), id(%v), request(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(req))
 
 	var (
 		asset     connectors.Asset
@@ -575,7 +628,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		asset, err = ConvertAssetFromProto(req.Asset)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -585,7 +639,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		direction, err = ConvertPaymentDirectionFromProto(req.Direction)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -595,7 +650,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		system, err = ConvertPaymentSystemFromProto(req.System)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -605,7 +661,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		status, err = ConvertPaymentStatusFromProto(req.Status)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -615,7 +672,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		media, err = ConvertMediaFromProto(req.Media)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -625,7 +683,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		media, system)
 	if err != nil {
 		err := newErrInternal(err.Error())
-		log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+		log.Errorf("command(%v), id(%v), error: %v",
+			common.GetFunctionName(), requestID, err)
 		s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 		return nil, err
 	}
@@ -635,7 +694,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		protoPayment, err := convertPaymentToProto(payment)
 		if err != nil {
 			err := newErrInternal(err.Error())
-			log.Errorf("command(%v), error: %v", common.GetFunctionName(), err)
+			log.Errorf("command(%v), id(%v), error: %v",
+				common.GetFunctionName(), requestID, err)
 			s.metrics.AddError(common.GetFunctionName(), string(metrics.LowSeverity))
 			return nil, err
 		}
@@ -647,8 +707,8 @@ func (s *Server) ListPayments(ctx context.Context,
 		Payments: protoPayments,
 	}
 
-	log.Tracef("command(%v), response(%v)", common.GetFunctionName(),
-		convertProtoMessage(resp))
+	log.Tracef("command(%v), id(%v), response(%v)", common.GetFunctionName(),
+		requestID, convertProtoMessage(resp))
 
 	return resp, nil
 }
