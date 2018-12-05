@@ -36,7 +36,7 @@ func btcToSatoshi(amount string) (int64, error) {
 
 func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 	amt := decimal.NewFromBigInt(big.NewInt(int64(amount)), 0)
-	return amt.Div(satoshiPerBitcoin)
+	return amt.Div(satoshiPerBitcoin).Round(8)
 }
 
 func generatePaymentID(invoiceStr string,
