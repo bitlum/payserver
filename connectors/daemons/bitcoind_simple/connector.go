@@ -321,7 +321,7 @@ func (c *Connector) SendPayment(address, amount string) (*connectors.Payment, er
 		Asset:     c.cfg.Asset,
 		Media:     connectors.Blockchain,
 		Amount:    amtInBtc,
-		MediaFee:  decimal.NewFromFloat(tx.Fee).Round(8),
+		MediaFee:  decimal.NewFromFloat(tx.Fee).Abs().Round(8),
 		MediaID:   txHash.String(),
 	}
 
