@@ -786,6 +786,11 @@ func (c *Connector) EstimateFee(invoiceStr string) (decimal.Decimal,
 			NumRoutes: 10,
 		}
 
+		// Fee to our own node is zero.
+		if pubKey == c.nodeAddr {
+			return decimal.Zero, nil
+		}
+
 		resp, err := c.client.QueryRoutes(context.Background(), req)
 		if err != nil {
 			m.AddError(metrics.LowSeverity)
