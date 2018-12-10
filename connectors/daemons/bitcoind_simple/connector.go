@@ -266,9 +266,7 @@ func (c *Connector) ConfirmedBalance() (decimal.Decimal, error) {
 }
 
 // PendingBalance return the amount of funds waiting to be confirmed.
-func (c *Connector) PendingBalance() (decimal.Decimal,
-	error) {
-
+func (c *Connector) PendingBalance() (decimal.Decimal, error) {
 	overallBalance, err := c.cfg.RPCClient.GetBalanceByLabel(allAccounts, 0)
 	if err != nil {
 		return decimal.Zero, err

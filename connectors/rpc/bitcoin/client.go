@@ -302,7 +302,7 @@ func (c *Client) SendRawTransaction(tx *wire.MsgTx) error {
 func (c *Client) GetBalanceByLabel(label string,
 	minConfirms int) (btcutil.Amount, error) {
 
-	amount, err := c.Daemon.GetBalance(label)
+	amount, err := c.Daemon.GetBalanceMinConf(label, minConfirms)
 	if err != nil {
 		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
 		return 0, err

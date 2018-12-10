@@ -25,7 +25,7 @@ func decAmount2Sat(amount decimal.Decimal) btcutil.Amount {
 
 func sat2DecAmount(amount btcutil.Amount) decimal.Decimal {
 	amt := decimal.NewFromBigInt(big.NewInt(int64(amount)), 0)
-	return amt.Div(satoshiPerBitcoin)
+	return amt.Div(satoshiPerBitcoin).Round(8)
 }
 
 func printAmount(a btcutil.Amount) string {
