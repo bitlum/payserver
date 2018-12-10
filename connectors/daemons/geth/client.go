@@ -269,8 +269,6 @@ func (c *Connector) Start() (err error) {
 	go func() {
 		syncBlockDelay := time.Duration(c.cfg.SyncTickDelay) * time.Second
 		syncingBlockTicker := time.NewTicker(syncBlockDelay)
-
-		syncingTransactionsTicker := time.NewTicker(syncBlockDelay)
 		reportTicker := time.NewTicker(time.Second * 30)
 
 		defer func() {
@@ -278,7 +276,6 @@ func (c *Connector) Start() (err error) {
 
 			syncingBlockTicker.Stop()
 			reportTicker.Stop()
-			syncingTransactionsTicker.Stop()
 
 			c.wg.Done()
 		}()
@@ -298,6 +295,7 @@ func (c *Connector) Start() (err error) {
 
 				if newLastSyncedBlock.Hash != prevLastSyncedBlockHash {
 					lastSyncedBlockHash = newLastSyncedBlock.Hash
+
 					c.log.Infof("Last synced block hash (%v) number(%v)",
 						newLastSyncedBlock.Hash, newLastSyncedBlock.Number)
 
