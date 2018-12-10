@@ -267,14 +267,19 @@ func (c *Connector) Start() (err error) {
 
 	c.wg.Add(1)
 	go func() {
-		delay := time.Duration(c.cfg.SyncTickDelay) * time.Second
-		syncingTicker := time.NewTicker(delay)
+		syncBlockDelay := time.Duration(c.cfg.SyncTickDelay) * time.Second
+		syncingBlockTicker := time.NewTicker(syncBlockDelay)
+
+		syncingTransactionsTicker := time.NewTicker(syncBlockDelay)
 		reportTicker := time.NewTicker(time.Second * 30)
 
 		defer func() {
 			c.log.Info("Quit syncing transactions goroutine")
-			syncingTicker.Stop()
+
+			syncingBlockTicker.Stop()
 			reportTicker.Stop()
+			syncingTransactionsTicker.Stop()
+
 			c.wg.Done()
 		}()
 
@@ -282,12 +287,28 @@ func (c *Connector) Start() (err error) {
 
 		for {
 			select {
-			case <-syncingTicker.C:
-				var err error
-				lastSyncedBlockHash, err = c.sync(lastSyncedBlockHash)
+			case <-syncingBlockTicker.C:
+				prevLastSyncedBlockHash := lastSyncedBlockHash
+
+				newLastSyncedBlock, err := c.syncBlock(prevLastSyncedBlockHash)
 				if err != nil {
 					c.log.Errorf("unable to sync: %v", err)
+					continue
 				}
+
+				if newLastSyncedBlock.Hash != prevLastSyncedBlockHash {
+					lastSyncedBlockHash = newLastSyncedBlock.Hash
+					c.log.Infof("Last synced block hash (%v) number(%v)",
+						newLastSyncedBlock.Hash, newLastSyncedBlock.Number)
+
+					err := c.syncPendingTransactions(newLastSyncedBlock.Number)
+					if err != nil {
+						c.log.Errorf("unable to sync pending "+
+							"transactions: %v", err)
+						continue
+					}
+				}
+
 			case <-reportTicker.C:
 				if err := c.reportMetrics(); err != nil {
 					c.log.Errorf("unable to report metric: %v", err)
@@ -1109,7 +1130,8 @@ func (c *Connector) fetchLastSyncedBlockHash() (string, error) {
 	return block.Hash, nil
 }
 
-// fetchDefaultAddress...
+// fetchDefaultAddress fetch address which will be used for redirection of
+// every incoming transaction. This address will be used as pool of liquadity.
 func (c *Connector) fetchDefaultAddress() (string, error) {
 	defaultAddress, err := c.cfg.AccountStorage.GetLastAccountAddress(
 		string(defaultAccount))
@@ -1128,7 +1150,9 @@ func (c *Connector) fetchDefaultAddress() (string, error) {
 	return defaultAddress, nil
 }
 
-func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
+// syncBlock synchronise latest blocks and update transactions states,
+// returns the lat synced block.
+func (c *Connector) syncBlock(lastSyncedBlockHash string) (*ethrpc.Block, error) {
 	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
 		common.GetFunctionName(), c.cfg.Metrics)
 	defer m.Finish()
@@ -1136,31 +1160,46 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	bestBlockNumber, err := c.client.EthBlockNumber()
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return lastSyncedBlockHash, errors.Errorf("unable to fetch best block number: %v", err)
+		return nil, errors.Errorf("unable to fetch best block number: %v", err)
 	}
 
 	lastSyncedBlock, err := c.client.EthGetBlockByHash(lastSyncedBlockHash, false)
 	if err != nil {
 		// TODO(andrew.shvv) Check reoginizations
 		m.AddError(metrics.HighSeverity)
-		return lastSyncedBlockHash, errors.Errorf("unable to get last sync block from daemon: %v", err)
+		return nil, errors.Errorf("unable to get last sync block from daemon"+
+			": %v", err)
 	}
 
-	// Sync block below minimum confirmations threshold
+	// Sync block below minimum confirmations threshold,
+	// and update payment's states.
 	lastSyncedBlock, err = c.syncConfirmed(bestBlockNumber, lastSyncedBlock)
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
-		return lastSyncedBlockHash, errors.Errorf("unable to process blocks: %v", err)
+		return nil, errors.Errorf("unable to process blocks: %v", err)
 	}
-	lastSyncedBlockHash = lastSyncedBlock.Hash
+
+	return lastSyncedBlock, nil
+}
+
+// syncPendingTransactions updates states of pending transaction maps.
+func (c *Connector) syncPendingTransactions(lastSyncedBlockNumber int) error {
+	m := crypto.NewMetric(c.cfg.DaemonCfg.Name, string(c.cfg.Asset),
+		common.GetFunctionName(), c.cfg.Metrics)
+	defer m.Finish()
+
+	bestBlockNumber, err := c.client.EthBlockNumber()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return errors.Errorf("unable to fetch best block number: %v", err)
+	}
 
 	// Sync block above minimum confirmation threshold and
 	// populate unconfirmed pending map with transactions.
-	unconfirmedTxs, err := c.syncUnconfirmed(bestBlockNumber,
-		lastSyncedBlock.Number)
+	unconfirmedTxs, err := c.syncUnconfirmed(bestBlockNumber, lastSyncedBlockNumber)
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
-		return lastSyncedBlockHash, errors.Errorf("unable to sync unconfirmed txs: %v", err)
+		return errors.Errorf("unable to sync unconfirmed txs: %v", err)
 	}
 
 	c.pendingLock.Lock()
@@ -1182,8 +1221,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	memPoolTxs, err := c.syncPending()
 	if err != nil {
 		m.AddError(metrics.MiddleSeverity)
-		return lastSyncedBlockHash,
-			errors.Errorf("unable to fetch mempool txs: %v", err)
+		return errors.Errorf("unable to fetch mempool txs: %v", err)
 	}
 
 	c.pendingLock.Lock()
@@ -1193,22 +1231,7 @@ func (c *Connector) sync(lastSyncedBlockHash string) (string, error) {
 	})
 	c.pendingLock.Unlock()
 
-	// Check number of funds available and track this metric in metric
-	// backend for farther analysis.
-	balance, err := c.ConfirmedBalance()
-	if err != nil {
-		m.AddError(metrics.HighSeverity)
-		return lastSyncedBlockHash, errors.Errorf("unable to "+
-			"get available funds: %v", err)
-	}
-
-	c.log.Infof("Asset(%v), media(blockchain), available funds(%v)",
-		c.cfg.Asset, balance.Round(8).String())
-
-	f, _ := balance.Float64()
-	m.CurrentFunds(f)
-
-	return lastSyncedBlockHash, nil
+	return nil
 }
 
 // ValidateAddress validates given blockchain address.
@@ -1299,6 +1322,21 @@ func (c *Connector) reportMetrics() error {
 	c.log.Infof("Metrics reported, overall received(%v %v), "+
 		"overall sent(%v %v), overall fee(%v %v)", overallReceivedF,
 		c.cfg.Asset, overallSentF, c.cfg.Asset, overallFeeF, c.cfg.Asset)
+
+	// Check number of funds available and track this metric in metric
+	// backend for farther analysis.
+	balance, err := c.ConfirmedBalance()
+	if err != nil {
+		m.AddError(metrics.HighSeverity)
+		return errors.Errorf("unable to "+
+			"get available funds: %v", err)
+	}
+
+	c.log.Infof("Asset(%v), media(blockchain), available funds(%v)",
+		c.cfg.Asset, balance.Round(8).String())
+
+	f, _ := balance.Float64()
+	m.CurrentFunds(f)
 
 	return nil
 }
