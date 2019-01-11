@@ -1,26 +1,26 @@
 package dash
 
 import (
-	"github.com/bitlum/connector/connectors/rpc/bitcoincash"
-	"github.com/bitlum/connector/connectors/rpc/bitcoin"
+	"encoding/json"
+	"github.com/bitlum/connector/common"
 	"github.com/bitlum/connector/connectors/rpc"
+	"github.com/bitlum/connector/connectors/rpc/bitcoin"
 	"github.com/bitlum/go-bitcoind-rpc/btcjson"
 	"github.com/bitlum/go-bitcoind-rpc/rpcclient"
-	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/bitlum/connector/common"
+	"github.com/go-errors/errors"
 )
 
 type ClientConfig bitcoin.ClientConfig
 type Client struct {
-	*bitcoincash.Client
+	*bitcoin.Client
 }
 
 // Runtime check to ensure that Client implements rpc.Client interface.
 var _ rpc.Client = (*Client)(nil)
 
 func NewClient(cfg ClientConfig) (*Client, error) {
-	client, err := bitcoincash.NewClient(bitcoincash.ClientConfig(cfg))
+	client, err := bitcoin.NewClient(bitcoin.ClientConfig(cfg))
 	return &Client{Client: client}, err
 }
 
@@ -63,4 +63,43 @@ func receiveDashInfo(r rpcclient.FutureGetBlockChainInfoResult) (
 		return nil, err
 	}
 	return &chainInfo, nil
+}
+
+func (c *Client) EstimateFee() (float64, error) {
+	confTarget := uint32(2)
+	res, err := c.Daemon.EstimateSmartFeeWithMode(confTarget, "")
+	if err != nil {
+		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
+		return 0, err
+	}
+
+	if res.Errors != nil {
+		err := errors.New((*res.Errors)[0])
+		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
+		return 0, err
+	}
+
+	if res.FeeRate == nil {
+		err := errors.Errorf("fee rate is nil")
+		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
+		return 0, err
+	}
+
+	if res.Blocks != int(confTarget) {
+		err := errors.New("not enough data to make an estimation")
+		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
+		return 0, err
+	}
+
+	feeRate := *res.FeeRate
+	if feeRate <= 0 {
+		err := errors.New("not enough data to make an estimation")
+		c.Logger.Tracef("method: %v, error: %v", common.GetFunctionName(), err)
+		return 0, err
+	}
+
+	c.Logger.Tracef("method: %v, response: %v", common.GetFunctionName(),
+		spew.Sdump(feeRate))
+
+	return feeRate, nil
 }
