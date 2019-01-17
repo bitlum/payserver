@@ -765,16 +765,22 @@ func (c *Connector) EstimateFee(invoiceStr string) (decimal.Decimal,
 				err)
 		}
 
-		// If amount is not specified than we unable to understand what
-		// fee we should expect, for that reason return the average one.
 		var amount int64
 		if invoice.MilliSat == nil {
-			return c.averageFee.Round(8), nil
+			amount = int64(100)
 		} else {
 			amount = int64(invoice.MilliSat.ToSatoshis())
 		}
 
-		pubKey := hex.EncodeToString(invoice.Destination.SerializeCompressed())
+		var pubKey string
+		// TODO(andrew.shvv) There might several route hints
+		if invoice.RouteHints != nil {
+			hint := invoice.RouteHints[0][0]
+			pubKey = hex.EncodeToString(hint.NodeID.SerializeCompressed())
+		} else {
+			pubKey = hex.EncodeToString(invoice.Destination.SerializeCompressed())
+		}
+
 		req := &lnrpc.QueryRoutesRequest{
 			PubKey: pubKey,
 			Amt:    amount,
@@ -785,6 +791,9 @@ func (c *Connector) EstimateFee(invoiceStr string) (decimal.Decimal,
 			},
 			NumRoutes: 10,
 		}
+
+		// TODO(andrew.shvv) In case of route hints we should estimate fee of
+		//  last channel and add it as well
 
 		// Fee to our own node is zero.
 		if pubKey == c.nodeAddr {
