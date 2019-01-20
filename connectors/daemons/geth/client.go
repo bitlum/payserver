@@ -478,6 +478,10 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 		return nil, decimal.Zero, errors.Errorf("unable to sign tx: %v", err)
 	}
 
+	c.log.Debugf("Generated transaction, from(%v), to(%v), amount(%v), " +
+		"includeFee(%v), nonce(%v)", fromAddress, toAddress, amount,
+		includeFee, nonce)
+
 	requiredFee := decimal.NewFromBigInt(txFee, 0).Div(weiInEth).Round(8)
 	return &connectors.GeneratedTxDetails{
 		RawTx: []byte(rawTxStr),
