@@ -266,7 +266,7 @@ func (c *Connector) Start() (err error) {
 
 	// Only save transaction count if nonce db for some reason was erased
 	// / lost.
-	if dbNonce > txCount {
+	if txCount > dbNonce {
 		if err := c.cfg.AccountStorage.PutDefaultAddressNonce(txCount); err != nil {
 			return errors.Errorf("unable to put default account "+
 				"nonce in db: %v", err)
