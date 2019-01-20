@@ -161,7 +161,7 @@ func backendMain() error {
 			Asset:            connectors.BCH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     &sqlite.PaymentsStore{DB: bitcoinCashDBConn},
+			PaymentStore:     sqlite.NewPaymentStore(bitcoinCashDBConn),
 			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.BCH, bitcoinCashDBConn),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
@@ -179,7 +179,7 @@ func backendMain() error {
 			Asset:            connectors.BTC,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     &sqlite.PaymentsStore{DB: bitcoinDBConn},
+			PaymentStore:     sqlite.NewPaymentStore(bitcoinDBConn),
 			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.BTC, bitcoinDBConn),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.BitcoinCash.FeePerUnit,
@@ -197,7 +197,7 @@ func backendMain() error {
 			Asset:            connectors.DASH,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     &sqlite.PaymentsStore{DB: dashDBConn},
+			PaymentStore:     sqlite.NewPaymentStore(dashDBConn),
 			StateStore: sqlite.NewBitcoinSimpleStateStorage(connectors.
 				DASH, dashDBConn),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
@@ -216,7 +216,7 @@ func backendMain() error {
 			Asset:            connectors.LTC,
 			Logger:           mainLog,
 			Metrics:          cryptoMetricsBackend,
-			PaymentStore:     &sqlite.PaymentsStore{DB: litecoinDBConn},
+			PaymentStore:     sqlite.NewPaymentStore(litecoinDBConn),
 			StateStore:       sqlite.NewBitcoinSimpleStateStorage(connectors.LTC, litecoinDBConn),
 			// TODO(andrew.shvv) Create subsystem to return current fee per unit
 			FeePerByte: loadedConfig.Litecoin.FeePerUnit,
@@ -236,7 +236,7 @@ func backendMain() error {
 			Logger:              mainLog,
 			Metrics:             cryptoMetricsBackend,
 			LastSyncedBlockHash: loadedConfig.Ethereum.ForceLastHash,
-			PaymentStorage:      &sqlite.PaymentsStore{DB: ethereumDBConn},
+			PaymentStorage:      sqlite.NewPaymentStore(ethereumDBConn),
 			StateStorage: sqlite.NewConnectorStateStorage(connectors.
 				ETH, ethereumDBConn),
 			AccountStorage: sqlite.NewGethAccountsStorage(ethereumDBConn),
@@ -263,7 +263,7 @@ func backendMain() error {
 			TlsCertPath:  loadedConfig.BitcoinLightning.TlsCertPath,
 			MacaroonPath: loadedConfig.BitcoinLightning.MacaroonPath,
 			Metrics:      cryptoMetricsBackend,
-			PaymentStore: &sqlite.PaymentsStore{DB: lightningDBConn},
+			PaymentStore: sqlite.NewPaymentStore(lightningDBConn),
 		})
 		if err != nil {
 			return errors.Errorf("unable to create lightning bitcoin "+
@@ -362,7 +362,7 @@ func backendMain() error {
 	// Initialize RPC server to handle gRPC requests from trading bots and
 	// frontend users.
 	rpcServer, err := rpc.NewRPCServer(loadedConfig.Network, blockchainConnectors,
-		lightningConnectors, &sqlite.PaymentsStore{DB: rpcDBConn}, rpcMetricsBackend)
+		lightningConnectors, sqlite.NewPaymentStore(rpcDBConn), rpcMetricsBackend)
 	if err != nil {
 		return errors.Errorf("unable to init RPC server: %v", err)
 	}

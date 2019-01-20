@@ -1,15 +1,21 @@
 package sqlite
 
 import (
-	"github.com/bitlum/connector/connectors"
 	"bytes"
+	"github.com/bitlum/connector/connectors"
 	"github.com/go-errors/errors"
 	"github.com/shopspring/decimal"
 	"sort"
 )
 
 type PaymentsStore struct {
-	DB *DB
+	db *DB
+}
+
+func NewPaymentStore(db *DB) *PaymentsStore {
+	return &PaymentsStore{
+		db: db,
+	}
 }
 
 type Payment struct {
@@ -75,8 +81,11 @@ var _ connectors.PaymentsStore = (*PaymentsStore)(nil)
 //
 // NOTE: Part of the connectors.PaymentsStore interface.
 func (s *PaymentsStore) PaymentByID(paymentID string) (*connectors.Payment, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	dbPayment := &Payment{PaymentID: paymentID}
-	if err := s.DB.Find(dbPayment).Error; err != nil {
+	if err := s.db.Find(dbPayment).Error; err != nil {
 		return nil, err
 	}
 
@@ -87,8 +96,11 @@ func (s *PaymentsStore) PaymentByID(paymentID string) (*connectors.Payment, erro
 //
 // NOTE: Part of the connectors.PaymentsStore interface.
 func (s *PaymentsStore) PaymentByReceipt(receipt string) ([]*connectors.Payment, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	var dbPayments []*Payment
-	err := s.DB.Where("receipt = ?", receipt).Find(&dbPayments).Error
+	err := s.db.Where("receipt = ?", receipt).Find(&dbPayments).Error
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +122,15 @@ func (s *PaymentsStore) PaymentByReceipt(receipt string) ([]*connectors.Payment,
 //
 // NOTE: Part of the connectors.PaymentsStore interface.
 func (s *PaymentsStore) SavePayment(payment *connectors.Payment) error {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	dbPayment, err := convertPaymentTo(payment)
 	if err != nil {
 		return err
 	}
 
-	return s.DB.Save(dbPayment).Error
+	return s.db.Save(dbPayment).Error
 }
 
 // ListPayments return list of all payments.
@@ -126,7 +141,10 @@ func (s *PaymentsStore) ListPayments(asset connectors.Asset,
 	media connectors.PaymentMedia, system connectors.PaymentSystem) (
 	[]*connectors.Payment, error) {
 
-	db := s.DB.DB
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
+	db := s.db.DB
 
 	if asset != "" {
 		db = db.Where("asset = ?", asset)

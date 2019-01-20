@@ -2,8 +2,8 @@ package sqlite
 
 import (
 	"github.com/bitlum/connector/connectors/daemons/geth"
-	"time"
 	"github.com/jinzhu/gorm"
+	"time"
 )
 
 type EthereumState struct {
@@ -38,6 +38,9 @@ var _ geth.AccountsStorage = (*GethAccountsStorage)(nil)
 //
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) GetAccountByAddress(addressStr string) (string, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	address := &EthereumAddress{}
 	err := s.db.Where("address = ?", addressStr).Find(address).Error
 	if gorm.IsRecordNotFoundError(err) {
@@ -54,6 +57,9 @@ func (s *GethAccountsStorage) GetAccountByAddress(addressStr string) (string, er
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) GetAddressesByAccount(accountStr string) (
 	[]string, error) {
+
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
 
 	var ethereumAddresses []*EthereumAddress
 	err := s.db.Find(&ethereumAddresses, "account = ?", accountStr).Error
@@ -75,6 +81,9 @@ func (s *GethAccountsStorage) GetAddressesByAccount(accountStr string) (
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) GetLastAccountAddress(accountStr string) (string,
 	error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	ethereumAddresses := make([]*EthereumAddress, 0)
 	err := s.db.Where("account = ?", accountStr).Find(&ethereumAddresses).Error
 	if err != nil {
@@ -93,6 +102,9 @@ func (s *GethAccountsStorage) GetLastAccountAddress(accountStr string) (string,
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) AddAddressToAccount(addressStr,
 accountStr string) error {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	address := &EthereumAddress{
 		Account: accountStr,
 		Address: addressStr,
@@ -105,6 +117,9 @@ accountStr string) error {
 //
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) AllAddresses() ([]string, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	var ethereumAddresses []*EthereumAddress
 	err := s.db.Find(&ethereumAddresses).Error
 	if err != nil {
@@ -126,6 +141,9 @@ func (s *GethAccountsStorage) AllAddresses() ([]string, error) {
 //
 // NOTE: Part of the geth.AccountsStorage interface.
 func (s *GethAccountsStorage) PutDefaultAddressNonce(nonce int) error {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	return s.db.Save(&EthereumState{
 		DefaultAddressNonce: nonce,
 	}).Error
@@ -136,6 +154,9 @@ func (s *GethAccountsStorage) PutDefaultAddressNonce(nonce int) error {
 // ethereum transaction counter couldn't keep up and transaction fails,
 // because of replacement error.
 func (s *GethAccountsStorage) DefaultAddressNonce() (int, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	state := &EthereumState{}
 	if err := s.db.Find(state).Error; err != nil {
 		return 0, err

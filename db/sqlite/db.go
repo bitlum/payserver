@@ -9,10 +9,14 @@ import (
 	"sync"
 )
 
-// DB is the primary datastore.
+// db is the primary datastore.
 type DB struct {
 	*gorm.DB
-	dbPath      string
+	dbPath string
+
+	// globalMutex is used in order to avoid "database is locked" issue,
+	// when two threads try to access database instead of waiting it just
+	// return an error.
 	globalMutex sync.Mutex
 }
 

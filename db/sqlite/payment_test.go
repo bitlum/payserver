@@ -14,7 +14,7 @@ func TestPaymentsStorage(t *testing.T) {
 	}
 	defer clear()
 
-	store := PaymentsStore{DB: db}
+	store := PaymentsStore{db: db}
 
 	paymentsBefore := []*connectors.Payment{
 		{

@@ -34,6 +34,9 @@ var _ connectors.StateStorage = (*ConnectorStateStorage)(nil)
 //
 // NOTE: Part of the bitcoind.Storage interface.
 func (s *ConnectorStateStorage) PutLastSyncedHash(hash []byte) error {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	return s.db.Save(&ConnectorState{
 		Asset:    string(s.asset),
 		LastHash: string(hash),
@@ -44,6 +47,9 @@ func (s *ConnectorStateStorage) PutLastSyncedHash(hash []byte) error {
 //
 // NOTE: Part of the bitcoind.Storage interface.
 func (s *ConnectorStateStorage) LastSyncedHash() ([]byte, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	state := &ConnectorState{}
 	if err := s.db.Where("asset = ?", string(s.asset)).
 		Find(state).Error; err != nil {

@@ -307,7 +307,7 @@ func TestProcessBlockCircularTransaction(t *testing.T) {
 	}
 	defer clear()
 
-	paymentsStore := &sqlite.PaymentsStore{DB: db}
+	paymentsStore := &sqlite.PaymentsStore{db: db}
 	stateStore := sqlite.NewConnectorStateStorage(connectors.BTC, db)
 	client := NewReplayRPCClient(t)
 
@@ -420,7 +420,7 @@ func TestProcessBlockOutgoingTransaction(t *testing.T) {
 	}
 	defer clear()
 
-	paymentsStore := &sqlite.PaymentsStore{DB: db}
+	paymentsStore := &sqlite.PaymentsStore{db: db}
 	stateStore := sqlite.NewConnectorStateStorage(connectors.BTC, db)
 	client := NewReplayRPCClient(t)
 

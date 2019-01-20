@@ -37,6 +37,9 @@ var _ bitcoind_simple.StateStorage = (*BitcoinSimpleStateStorage)(nil)
 //
 // NOTE: Part of the bitcoind_simple.StateStorage interface.
 func (s *BitcoinSimpleStateStorage) PutLastSyncedTxCounter(counter int) error {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	return s.db.Save(&BitcoinSimpleState{
 		Asset:     string(s.asset),
 		TxCounter: counter,
@@ -48,6 +51,9 @@ func (s *BitcoinSimpleStateStorage) PutLastSyncedTxCounter(counter int) error {
 //
 // NOTE: Part of the bitcoind_simple.StateStorage interface.
 func (s *BitcoinSimpleStateStorage) LastTxCounter() (int, error) {
+	s.db.globalMutex.Lock()
+	defer s.db.globalMutex.Unlock()
+
 	state := &BitcoinSimpleState{}
 	err := s.db.Where("asset = ?", string(s.asset)).Find(state).Error
 	if gorm.IsRecordNotFoundError(err) {

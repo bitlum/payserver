@@ -31,7 +31,7 @@ var allMigrations = []*gormigrate.Migration{
 var addPaymentSystemType = &gormigrate.Migration{
 	ID: "add_payment_system_type",
 	Migrate: func(tx *gorm.DB) error {
-		store := PaymentsStore{DB: &DB{DB: tx}}
+		store := PaymentsStore{db: &DB{DB: tx}}
 
 		// Previous internal payment direction now should be
 		// moved in system field. All previous internal
