@@ -258,9 +258,19 @@ func (c *Connector) Start() (err error) {
 			err)
 	}
 
-	if err := c.cfg.AccountStorage.PutDefaultAddressNonce(txCount); err != nil {
+	dbNonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
+	if err != nil {
 		return errors.Errorf("unable to put default account "+
 			"nonce in db: %v", err)
+	}
+
+	// Only save transaction count if nonce db for some reason was erased
+	// / lost.
+	if dbNonce > txCount {
+		if err := c.cfg.AccountStorage.PutDefaultAddressNonce(txCount); err != nil {
+			return errors.Errorf("unable to put default account "+
+				"nonce in db: %v", err)
+		}
 	}
 
 	c.log.Infof("Default address nonce is: %v", txCount)
@@ -383,7 +393,7 @@ func (c *Connector) SendPayment(toAddress, amountStr string) (*connectors.Paymen
 	}
 
 	// If we send transaction too frequently ethereum transaction counter
-	// for that reason we use internal nonce counter.
+	// is not working properly, for that reason we use internal nonce counter.
 	nonce, err := c.cfg.AccountStorage.DefaultAddressNonce()
 	if err != nil {
 		m.AddError(metrics.HighSeverity)
@@ -478,7 +488,7 @@ func (c *Connector) generateTransaction(fromAddress, toAddress string,
 		return nil, decimal.Zero, errors.Errorf("unable to sign tx: %v", err)
 	}
 
-	c.log.Debugf("Generated transaction, from(%v), to(%v), amount(%v), " +
+	c.log.Debugf("Generated transaction, from(%v), to(%v), amount(%v), "+
 		"includeFee(%v), nonce(%v)", fromAddress, toAddress, amount,
 		includeFee, nonce)
 
@@ -543,7 +553,7 @@ func (c *Connector) sendPayment(paymentID string, isFromDefault bool) (*connecto
 		err = c.cfg.AccountStorage.PutDefaultAddressNonce(nonce + 1)
 		if err != nil {
 			m.AddError(metrics.HighSeverity)
-			return nil, errors.Errorf("unable to get default nonce: %v", err)
+			return nil, errors.Errorf("unable to save default nonce: %v", err)
 		}
 
 		c.log.Infof("Payment is sent and default address nonce is"+
