@@ -520,7 +520,7 @@ func (c *Connector) syncPaymentState() error {
 				p.PaymentID, err)
 		}
 
-		// Increment tx synced counter only or confirmed transaction,
+		// Increment tx synced counter only on confirmed transaction,
 		// so that we updated pending transaction earlier.
 		if tx.Confirmations >= int64(c.cfg.MinConfirmations) {
 			c.log.Infof("Payment(%v) is completed: %v", p.PaymentID,
