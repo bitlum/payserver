@@ -1,6 +1,4 @@
-FROM golang:1.10.3 AS builder
-
-RUN go get -u github.com/golang/dep/cmd/dep
+FROM golang:1.12 AS builder
 
 WORKDIR $GOPATH/src/github.com/bitlum/connector/
 
@@ -9,11 +7,8 @@ ARG CONNECTOR_REVISION
 RUN curl -L https://github.com/bitlum/connector/archive/$CONNECTOR_REVISION.tar.gz \
 | tar xz --strip 1
 
-RUN dep ensure -vendor-only -v
-
-RUN go install . ./cmd/...
-
-
+RUN GO111MODULE=on go get
+RUN GO111MODULE=on go install . ./cmd/...
 
 FROM ubuntu:18.04
 
@@ -22,8 +17,7 @@ ca-certificates \
 curl \
 && rm -rf /var/lib/apt/lists/*
 
-# This implies that service has to be built locally first, and putted
-# in the docker directory, for running docker build.
+# Copying required binaries from builder stage.
 COPY --from=builder /go/bin/connector /usr/local/bin
 COPY --from=builder /go/bin/pscli /usr/local/bin
 

@@ -1,41 +1,45 @@
-FROM golang:1.10.3 AS builder
+FROM golang:1.11-alpine as builder
 
 ARG BITCOIN_LIGHTNING_REVISION
 
-# Install dep for installing lightning network daemon dependencies
-RUN go get -u github.com/golang/dep/cmd/dep
+# Install dependencies and install/build lnd.
+RUN apk add --no-cache --update alpine-sdk \
+    git \
+    make
 
 WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
 
-# Instead of cloning lightningnetwork/lnd temproray use ourw version of lnd
-# daemon, but put in lightningnetwork/lnd directory so that all installation
-# scripts could work without being changed.
-RUN git clone https://github.com/bitlum/lnd.git .
+# Copy from repository to build from.
+RUN git clone https://github.com/lightningnetwork/lnd.git /go/src/github.com/lightningnetwork/lnd
 
-# Ensure that we running proper revision
-RUN git checkout $BITCOIN_LIGHTNING_REVISION
+# Force Go to use the cgo based DNS resolver. This is required to ensure DNS
+# queries required to connect to linked containers succeed.
+ENV GODEBUG netdns=cgo
 
-# Install dependencies
-RUN dep ensure -v
-
-# Build lightning network daemon
-RUN make install
+RUN cd /go/src/github.com/lightningnetwork/lnd \
+&&  git checkout $BITCOIN_LIGHTNING_REVISION \
+&&  make build-itest \
+&&  mv lnd-itest /go/bin/lnd \
+&&  mv lncli-itest /go/bin/lncli
 
 # Install delve - debugger for the Go programming language, in order to be
 # able to attach to the lnd process and understand why it stuck.
 RUN go get -u github.com/derekparker/delve/cmd/dlv
 
+# Start a new, final image to reduce size.
+FROM alpine as final
 
-FROM ubuntu:18.04
+# Expose lnd ports (server, rpc).
+EXPOSE 9735 10009
 
-# RPC port.
-EXPOSE 10009
-
-# P2P port.
-EXPOSE 9735
+# Add bash.
+RUN apk add --no-cache \
+    bash
 
 # Copying required binaries from builder stage.
-COPY --from=builder /go/bin/lnd /go/bin/lncli /go/bin/dlv /usr/local/bin/
+COPY --from=builder /go/bin/lnd /usr/local/bin/
+COPY --from=builder /go/bin/lncli /usr/local/bin/
+COPY --from=builder /go/bin/dlv /usr/local/bin/
 
 # Default config used to initalize datadir volume at first or
 # cleaned deploy. It will be restored and used after each restart.

@@ -7,6 +7,8 @@ RUN apk add --no-cache --update alpine-sdk \
     git \
     make
 
+WORKDIR $GOPATH/src/github.com/lightningnetwork/lnd
+
 # Copy from repository to build from.
 RUN git clone https://github.com/lightningnetwork/lnd.git /go/src/github.com/lightningnetwork/lnd
 
@@ -16,8 +18,9 @@ ENV GODEBUG netdns=cgo
 
 RUN cd /go/src/github.com/lightningnetwork/lnd \
 &&  git checkout $BITCOIN_LIGHTNING_REVISION \
-&&  make \
-&&  make install
+&&  make build-itest \
+&&  mv lnd-itest /go/bin/lnd \
+&&  mv lncli-itest /go/bin/lncli
 
 # Start a new, final image to reduce size.
 FROM alpine as final

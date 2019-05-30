@@ -1,8 +1,4 @@
-FROM golang:1.10.3 AS builder
-
-
-
-RUN go get -u github.com/golang/dep/cmd/dep
+FROM golang:1.12 AS builder
 
 WORKDIR $GOPATH/src/github.com/bitlum/connector/
 
@@ -11,11 +7,8 @@ ARG CONNECTOR_REVISION
 RUN curl -L https://github.com/bitlum/connector/archive/$CONNECTOR_REVISION.tar.gz \
 | tar xz --strip 1
 
-RUN dep ensure -vendor-only -v
-
-RUN go install . ./cmd/...
-
-
+RUN GO111MODULE=on go get
+RUN GO111MODULE=on go install . ./cmd/...
 
 FROM ubuntu:18.04
 
